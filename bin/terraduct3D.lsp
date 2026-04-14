@@ -2830,7 +2830,6 @@
              )
 
             
-            
             (if(and xtype_ssget xdata_ssget)
                 (setq ls_vnam_temp
                       (vl-remove-if
@@ -2841,8 +2840,12 @@
                               (setq ls_xdata
                                     (split_list 0(mapcar 'vlax-variant-value
                                                          (vlax-safearray->list array_data)))
-                                    str_type(cdr(assoc xdata_ssget ls_xdata))))
-                          (null(vl-string-search str_type xtype_ssget))
+                                    str_type(cdr(assoc xdata_ssget ls_xdata)))
+                            )
+                          (if str_type
+                              (null(vl-string-search str_type xtype_ssget))
+                            T)
+                          
                           )
                        ls_vnam_temp)))
 
@@ -6802,8 +6805,54 @@
        
        ))
     
-    ;; (cons
-    ;;  "CLICK"
+    (cons
+     "CLICK"
+     (lambda( / )
+       (cond
+        ((if(if(= int_ccboxmode 1)
+                (if(setq set_ent(ssget elem_grread(list(cons 0 "INSERT")(list -3(list "terraduct3d")))))
+                    (setq vnam(vlax-ename->vla-object(ssname set_ent 0)))))
+             (progn
+               (vla-getXData vnam "terraduct3d" 'array_Type 'array_Data )
+               (setq ls_xdata
+                     (if array_data
+                         (split_list 0(mapcar 'vlax-variant-value
+                                              (vlax-safearray->list array_data))))
+                     )
+               
+               (=(cdr(assoc "terraduct3d" ls_xdata))"CCBOXBLOCK")
+               ))
+         
+         (setq str_bname(vla-get-name vnam)
+               block(vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname)))
+         
+
+         (settile_strinput;;名称変更
+          'str_bname
+          (lambda(a)
+            (if(= a str_bname)T
+              (vl-catch-all-error-p
+               (vl-catch-all-apply 'vla-Item(list vnam_blocktable a))))
+            )
+          
+          (mix_strasc(list 21517 31216 22793 26356 ))
+          (mix_strasc(list 26082 12395 23384 22312 12377 12427 21517 31216 12399 20351 12360 12414 12379 12435 ))
+          ;;既に存在する名称は使えません
+          )
+         
+         (if(if str_bname(/= str_bname ""))(vla-put-name block str_bname))
+
+         
+         (mapcar '(lambda(v)
+                    (vlax-release-object v)
+                    (setq ls_vla-release(vl-remove v ls_vla-release))
+                    )
+                 (list block))
+         )
+        )
+       )
+     )
+    
     ;;  (lambda()nil ))
 
     (cons
@@ -6813,6 +6862,27 @@
         ((and(or(= elem_grread 13)(= int_grread 25))
              (= int_ccboxmode 2))
          
+         (mapcar
+          '(lambda(vnam)
+             (if(vlax-erased-p vnam)T
+               (progn
+                 (setq str(vla-get-name vnam))
+                 (if(setq set_ent(ssget "X"(list(cons 2 str))))
+                     (progn
+                       (setq num(sslength set_ent))
+                       (while(>(setq num(1- num))-1)
+                         (setq vnam(vlax-ename->vla-object(ssname set_ent num)))
+                         (vla-delete vnam)
+                         )
+                       ))
+                 (vla-delete
+                  (vla-Item(vla-get-Blocks(vla-get-ActiveDocument
+                                           (vlax-get-acad-object)))
+                           str) )
+
+                 ))
+             )
+          ls_vnam_select)
          
          )
         ((and(or(= elem_grread 13)(= int_grread 25))
