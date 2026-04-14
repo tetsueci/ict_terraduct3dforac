@@ -9,7 +9,7 @@
       )
 
 (defun load_las_to_grid()
-  (setq cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app"))
+  ;; (setq cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app"))
   
   (setq str_data(strcat cpath_terraduct3d "\\pyexe\\grid_points.csv")
         str_path(strcat cpath_terraduct3d "\\pyexe\\main.exe")
@@ -8359,7 +8359,7 @@
              (progn
                (if(= int_savecsvifc 3)
                    (setq str_pathifc str_path
-                         cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app")
+                         ;; cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app")
                          str_path(strcat cpath_terraduct3d "\\pyexe\\csv_to_ifc.csv")))
                
                (if command_for_alter
@@ -8381,7 +8381,7 @@
          
          (if(and(= int_savecsvifc 3) str_path)
              (progn
-               (setq cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app"))
+               ;; (setq cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app"))
                
                (setq str_input str_path str_data str_pathifc
                      str_path(strcat cpath_terraduct3d "\\pyexe\\main.exe")
