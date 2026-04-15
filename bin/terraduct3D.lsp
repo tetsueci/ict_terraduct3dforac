@@ -3058,7 +3058,7 @@
                          ((setq func_input(cdr(assoc "GETPOINT" a)))
                           (setq func_input(cdr(assoc "LOADFUNCTION" a))
                                 int_selectmenu(vl-position a ls_guidemenu)
-                                bool_getpoint T
+                                bool_point T bool_getpoint T
                                 )
                           (setq str_next T)
                           )
@@ -3958,6 +3958,8 @@
                                                    20316 25104 12539 32232 38598 "}")
                                              (list "{\\C" str_gcol_g ";"
                                                    26356 26032 12539 12467 12500 12540 "}")
+                                             ;; (list "{\\C" str_gcol_c ";"
+                                             ;;       26356 26032 12539 12467 12500 12540 "}")
                                              (list "{\\C" str_gcol_p ";"
                                                    21066 38500 "}")
                                              )))
@@ -5284,6 +5286,9 @@
          )
 
         ((and(null bool_ductedit)vnam_insertduct(= str_type "DUCTBLOCK"))
+         
+         
+         
          (setq str(vla-get-name vnam_insertduct)
                vnam(vla-Item(vla-get-Blocks (vla-get-ActiveDocument(vlax-get-acad-object)))str)
                ls_search(list)num_min nil num_max nil
@@ -5891,6 +5896,7 @@
         
         ((and(or(= elem_grread 13)(= int_grread 25))
              (= int_ductmode 2))
+         
          (mapcar
           '(lambda(vnam / str set_ent num)
              
@@ -6506,6 +6512,7 @@
                     (cons "GETPOINT"(lambda()(list p_ccbox0(itoa str_colccbox0))))
                     (cons "LOADFUNCTION"
                           (lambda(bool)
+                            (setq int_selectmenu nil)
                             (if(/= int_ccboxmode 0)
                                 (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
                               (progn
@@ -6520,6 +6527,7 @@
                     (cons "GETPOINT"(lambda()(list p_ccbox1(itoa str_colccbox1))))
                     (cons "LOADFUNCTION"
                           (lambda(bool)
+                            (setq int_selectmenu nil)
                             (if(/= int_ccboxmode 0)
                                 (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
                               (progn
@@ -6534,6 +6542,7 @@
                     (cons "GETPOINT"(lambda()(list p_ccbox2(itoa str_colccbox2))) )
                     (cons "LOADFUNCTION"
                           (lambda(bool)
+                            (setq int_selectmenu nil)
                             (if(/= int_ccboxmode 0)
                                 (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
                               (progn
@@ -6548,12 +6557,12 @@
                     (cons "GETPOINT"(lambda()(list p_manhole(itoa str_colmanhole))))
                     (cons "LOADFUNCTION"
                           (lambda(bool)
+                            (setq int_selectmenu nil)
                             (if(/= int_ccboxmode 0)
                                 (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
                               (progn
                                 (if bool(setq p_manhole elem_grread))
-                                (setq int_selectmenu nil
-                                      bool_replacegrread T int_grread 2 elem_grread 53)
+                                (setq bool_replacegrread T int_grread 2 elem_grread 53)
                                 ))
                             ))
                     )
@@ -6562,6 +6571,7 @@
                     (cons "GETPOINT"(lambda()(list p_manhole_edge(itoa str_colmanhole_edge))))
                     (cons "LOADFUNCTION"
                           (lambda(bool)
+                            (setq int_selectmenu nil)
                             (if(/= int_ccboxmode 0)
                                 (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
                               (progn
@@ -6569,8 +6579,7 @@
                                 (if(and p_manhole p_manhole_edge)
                                     (setq diam_manhole_temp
                                           (* 2.(distance(carxy p_manhole)(carxy p_manhole_edge)))))
-                                (setq int_selectmenu nil
-                                      bool_replacegrread T int_grread 2 elem_grread 54)
+                                (setq bool_replacegrread T int_grread 2 elem_grread 54)
                                 ))
                             ))
                     )
@@ -6871,7 +6880,9 @@
                      (progn
                        (setq num(sslength set_ent))
                        (while(>(setq num(1- num))-1)
-                         (setq vnam(vlax-ename->vla-object(ssname set_ent num)))
+                         (setq vnam(vlax-ename->vla-object(ssname set_ent num))
+                               ls_vnam_highlight(vl-remove vnam ls_vnam_highlight))
+                         
                          (vla-delete vnam)
                          )
                        ))
@@ -6908,7 +6919,7 @@
                     (list p_ccbox0 p_ccbox1 p_ccbox2)
                     (list 0. 0. 1.)(list str_lasground height_ground))))
 
-           (if(< width_ccbox 0)(setq wodth_ccbox(- width_ccbox)vecy(mapcar '- vecy)))
+           (if(< width_ccbox 0) (setq width_ccbox(- width_ccbox) vecy(mapcar '- vecy)))
            
            (setq elevation_ground(/(apply '+(mapcar 'caddr ls_p))(length ls_p))
                  elevation_ccbox(- elevation_ground height_ccboxtop_temp height_ccbox_temp)
@@ -7094,7 +7105,7 @@
        (if(car bool)
            (progn
              (setq bool_point nil
-                   bool_selectent nil bool_select nil int_selectmode 0
+                   bool_selectent nil bool_select nil int_selectmode -1
                    ls_ssget nil xtype_ssget nil xdata_ssget nil
                    )
              
@@ -7436,11 +7447,12 @@
                            cosz(sqrt(- 1.(expt(caddr vec)2)))
                            )
                      (if(< cosz 1e-8)T
-                       (if(<(-(caddr pp)(caddr p)(/ rr cosz))allow_cover_temp)
+                       (if(<(+(caddr pp)(-(caddr p))(/ rr cosz))allow_cover_temp)
                            (progn
                              (setq dist_normal(apply '+(mapcar '* vec_normal p))
                                    entna(make_2pdimension
-                                         nil(list pp p vec_normal dist_normal nil(* 0.5 pi)0.
+                                         nil(list pp(mapcar '+ p(list 0 0(/ rr cosz)))
+                                                  vec_normal dist_normal nil(* 0.5 pi)0.
                                                   "" str_dimstyle_ductlevel))
                                    vnam(vlax-ename->vla-object entna)
                                    ls_vnam_tempinfluence
@@ -7652,7 +7664,7 @@
        
        (if(cadr bool) (list ) )
        ))
-
+    
     
     (cons
      "KEYBOAD"
