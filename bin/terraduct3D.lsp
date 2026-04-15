@@ -6911,7 +6911,7 @@
            ;;3点が直線上であるため作成できません
            )
           ((setq ls_p
-                 (if(= p_manhole)
+                 (if p_manhole
                      (project_to_ground
                       (list p_manhole)
                       (list 0. 0. 1.)(list str_lasground height_ground))
