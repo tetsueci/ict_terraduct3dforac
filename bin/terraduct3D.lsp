@@ -2374,7 +2374,7 @@
                    (if func_grdisp nil
                      (list str_guideinitial2_c
                            (if(= int_guideclick 1)
-                               (list "\n{\\C" str_gcol_c  ";"
+                               (list "\n{\\C" "53"  ";"
                                      12463 12522 12483 12463 25805 20316 28961 21177 "}")
                              str_guideinitial2_y)
                            ))
@@ -2962,7 +2962,8 @@
            ((vl-position elem_grread(list 36 65284 -252))
             (setq bool_textfold(null bool_textfold)))
            ((vl-position elem_grread(list 37 65285 -251))
-            (setq int_guideclick(rem(1+ int_guideclick)2)))
+            (setq int_selectmenu nil int_starselectmenu nil
+                  int_guideclick(rem(1+ int_guideclick)2)))
            
            ((vl-position elem_grread(list 94 65342 -194))
             (setq y_guidebase_temp(1+ y_guidebase_temp)) )
