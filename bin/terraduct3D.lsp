@@ -38,7 +38,6 @@
       (vlax-invoke-method wsh 'Run cmd 0 :vlax-true)
       (vlax-release-object wsh)
 
-
       (setq ms_loop(getvar "MILLISECS"))
       (while bool_loop
         (setq ms_start(getvar "MILLISECS"))
@@ -751,6 +750,14 @@
              (cons "SYMBOL" 'int_editdepth);;(cons "TEMP" 'int_inputdepth_temp)
              (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0)))
         
+        (list(cons "TEXT"(mix_strasc(list 31649 12398 12514 12487 12522 12531 12464 )))
+             (cons "ITEM" "POPUP_LIST");;管のモデリング
+             (cons "VALLIST"(mapcar 'mix_strasc
+                                    (list(list 12513 12483 12471 12517 )
+                                         (list 12477 12522 12483 12489 ) )))
+             (cons "SYMBOL" 'int_ductsolidmesh);;(cons "TEMP" 'int_protectcon_temp)
+             (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0)))
+        
         (list(cons "TEXT"(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 26377 28961)))
              (cons "ITEM" "POPUP_LIST");;保護コンクリート有無
              (cons "VALLIST"(setq ls_type_protect
@@ -790,7 +797,7 @@
              (cons "VALLIST"(mapcar 'mix_strasc;;許可しない
                                     (list(list 35377 21487 12375 12394 12356 )
                                          (list 35377 21487 12377 12427) )))
-             (cons "SYMBOL" 'int_allow_noroad)(cons "TEMP" 'int_int_allow_noroad_temp)
+             (cons "SYMBOL" 'int_allow_noroad)(cons "TEMP" 'int_allow_noroad_temp)
              (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0))
              (cons "BREAK" 0)
              )
@@ -900,6 +907,7 @@
              (cons "EXPLANE"(mix_strasc(list 8251 22303 34987 12426 35377 23481 20516 20197 19978 12398 12418 12398 12399 34920 31034 12373 12428 12394 12356))) ;; 土被り許容値以上のものは表示されない
              (cons "SYMBOL" 'allow_cover)(cons "TEMP" 'allow_cover_temp)
              (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.5))
+             (cons "BREAK" 0)
              )
         
         ;; (list(cons "TEXT"(mix_strasc(list 22303 34987 12426 34920 31034 12500 12483 12481)))
@@ -907,7 +915,6 @@
         ;;      (cons "EXPLANE"(mix_strasc(list 8251 22303 34987 12426 35377 23481 20516 "0" 12398 12392 12365 25351 23450 12375 12383 12500 12483 12481 12391 22303 34987 12426 12434 34920 31034 12377 12427))) ;;土被り許容値0のとき指定したピッチで土被りを表示する
         ;;      (cons "SYMBOL" 'pitch_cover)(cons "TEMP" 'pitch_cover_temp)
         ;;      (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)2.))
-        ;;      (cons "BREAK" 0)
         ;;      )
 
         (list(cons "TEXT"(mix_strasc(list 12304 33394 35373 23450 12305)))
@@ -1166,12 +1173,16 @@
              ls_vnam_visible)
      (setq ls_vnam_visible nil)
 
-     (mapcar '(lambda(a sym / b );;システム変数
-                (setq b(eval sym))
-                (if b(setvar a b))
+     (mapcar '(lambda(lst / str sym val );;システム変数
+                (setq str(car lst)sym(cadr lst))
+                (if(setq val(eval sym))(setvar str val))
                 (set sym nil) )
-             (list "DELOBJ" "OSMODE" "LOFTNORMALS")'(temp_delobj temp_obs temp_loft))
-
+             (list(list "DELOBJ" 'temp_delobj)
+                  (list "OSMODE" 'temp_obs)
+                  (list "LOFTNORMALS" 'temp_loft)
+                  (list "SELECTIONCYCLING" 'temp_selecycling)
+                  ))
+     
      (mapcar '(lambda(a /  val);;リリース
                 (if a(vlax-release-object a))
                 )
@@ -1201,6 +1212,15 @@
      (princ msg)
      )
    )
+
+  (mapcar '(lambda(lst / sym str val)
+             (setq str(car lst)sym(cadr lst)val(caddr lst))
+             (set sym(getvar str))(setvar str val) )
+          (list(list "SELECTIONCYCLING" 'temp_selecycling -2)
+               ))
+  
+
+  
 
   (setq vnam_blockTable(vla-get-blocks(vla-get-ActiveDocument (vlax-get-acad-object)))
         ls_vla-release(list vnam_blockTable ));;errorよりあとにやる
@@ -1295,8 +1315,7 @@
                  ))
           str_guideinitial1_1
           (mix_strasc
-           (list "{\\C" str_gcol_c ";#} : " ;;12371 12398 12486 12461 12473 12488 12434 
-                 12459 12540 12477 12523  12395 36861 24467
+           (list "{\\C" str_gcol_c ";#} : "  12459 12540 12477 12523 12395 36861 24467
                  " {\\C" str_gcol_c ";%} : " 12463 12522 12483 12463 21487 21542
                  ))
           str_guideinitial1_2
@@ -1334,6 +1353,41 @@
                  ;;星のとき もう一度クリック,Enter,右クリック実行
                  ))
 
+          str_guide_inputval
+          (mix_strasc(list "\n\n" 25968 23383 12461 12540 12392 12300 "." 12301 12300 "-" 12301 12398 12415 20837 21147 12434 21463 12369 20184 12369 12414 12377
+                           ((lambda(str / n str_out)
+                              (setq str_out "")
+                              (while(vl-string-search "{" str)
+                                (setq str(vl-string-subst "" "{" str)))
+                              (while(vl-string-search "}" str)
+                                (setq str(vl-string-subst "" "}" str)))
+                              (while(setq n(vl-string-search "\\C" str))
+                                (setq str_out(strcat str_out(substr str 1 n))
+                                      n(vl-string-search ";" str)
+                                      str(substr str(+ 2 n))
+                                      )
+                                )
+                              (strcat str_out str))
+                            str_guidebackspace)
+                           ))
+          ;;\n数字キーと「.」「-」のみ入力を受け付けます
+          
+          str_guide_selectval
+          (mix_strasc(list "\n\n" 38917 30446 12434 36984 25246 12377 12427 12392 20516 12434 22793 26356 12391 12365 12414 12377 ))
+          ;;項目を選択すると値を変更できます
+          str_guide_selectmode
+          (mix_strasc(list 12458 12502 12472 12455 12463 12488 12434 36984 25246 12375 12383 12392 12365 36861 21152 12373 12428 12427 12363 38500 22806 12373 12428 12427 12363 12434 20999 12426 26367 12360 12414 12377 "\n" 36984 25246 20013 12398 12458 12502 12472 12455 12463 12488 12399 12495 12452 12521 12452 12488 12373 12428 12414 12377 "\n" 36984 25246 12399 36890 24120 12398 "CAD" 25805 20316 12392 21516 27096 12395 21491 20596 22258 12415 12364 31684 22258 36984 25246 12289 24038 20596 22258 12415 12364 20132 24046 36984 25246 12392 12394 12387 12390 12356 12414 12377 "\n" 22522 26412 30340 12395 23550 35937 12392 12394 12427 12458 12502 12472 12455 12463 12488 12398 12415 12364 36984 25246 12373 12428 12427 20351 29992 12392 12394 12387 12390 12362 12426 23550 35937 12392 12394 12425 12394 12356 12418 12398 12434 22258 12435 12391 12418 12495 12452 12521 12452 12488 12373 12428 12394 12356 12424 12358 12395 12394 12387 12390 12356 12414 12377 ))
+          ;;オブジェクトを選択したとき追加されるか除外されるかを切り替えます\n選択中のオブジェクトはハイライトされます\n選択は通常のCAD操作と同様に右側囲みが範囲選択、左側囲みが交差選択となっています\n基本的に対象となるオブジェクトのみが選択される使用となっており対象とならないものを囲んでもハイライトされないようになっています
+
+
+          str_guide_point
+          (mix_strasc(list "\n" 23550 35937 12392 12377 12427 20301 32622 12434 12463 12522 12483 12463 12375 12390 12367 12384 12373 12356))
+          ;;対象とする位置をクリックしてください
+          
+          
+          
+          ;;項目を選択すると値を変更できます
+          
           num_initialexplane 4
 
           cal_viewtopleft
@@ -1378,12 +1432,17 @@
                                 ))
                           p_viewcenter vec_x_onview vec_y_onview vec_view)
                   )
+            
+            ;; (setq limit_val 10000000.0)
+            ;; (princ point_base)
+            ;; (princ "\n")
+            ;; 10000000.0,10000000.0,10000000.0
+            ;; -10000000.0,-10000000.0,-10000000.0
+            
             )
-
           
           )
 
-    
     (progn ;;strinput
       (setq path_strinputdcl(strcat str_path_tempdirectory "strinput.dcl") 
             open_file (open path_strinputdcl "w")
@@ -1665,7 +1724,7 @@
        ;;データを作った回数を記録
        (setq num_row_max 15 num_column_max 3)
        ((lambda( / ii num_column)
-          (setq ii -1 num_column -1)
+          (setq ii -1 num_column 1)
           (mapcar
            '(lambda(lst)
               (if(assoc "ITEM" lst) (setq ii(1+ ii)))
@@ -2047,10 +2106,14 @@
                                  (setq open_file (open path_bsexport "w" "utf8") )
                                  (write-char 65279 open_file) ;; BOM
                                  ))
-                             
-                             (mapcar '(lambda(str)(write-line str open_file))ls_str_out)
-                             (close open_file)
-                             (alert(mix_strasc(list 20986 21147 12375 12414 12375 12383)))
+                             (if open_file
+                                 (progn
+                                   (mapcar '(lambda(str)(write-line str open_file))ls_str_out)
+                                   (close open_file)
+                                   (alert(mix_strasc(list 20986 21147 12375 12414 12375 12383)))
+                                   )
+                               (alert(mix_strasc(list 12501 12449 12452 12523 12364 38283 12363 12428 12390 12356 12427 12383 12417 26360 36796 12415 12391 12365 12414 12379 12435 12391 12375 12383 )))
+                               )
                              )
 
                          )
@@ -2260,7 +2323,7 @@
             (mapcar '(lambda(sym str)(set sym(cdr(assoc str ls_currentgrfunc))))
                     '(func_grinitial func_grdisp func_gr5 func_gr3 func_gr2)
                     (list "INITIAL" "GUIDE" "MOVE" "CLICK" "KEYBOAD"))
-            (setq int_selectmenu nil ls_vnam_select nil
+            (setq int_selectmenu nil ls_vnam_select nil initial_selectmenu nil 
                   bool_input nil str_input "" ls_vnam_select nil bool_getpoint nil
                   int_exchangeguide_gr5 nil)
             (func_grinitial(list T))
@@ -2290,6 +2353,13 @@
                   
                   (list
                    str_guideinitial1_1
+                   " {\\C" str_gcol_c ";?} : "
+                   
+                   (if(or int_selectmenu int_starselectmenu)
+                       (list 38917 30446 12460 12452 12489);;項目ガイド
+                     (list 27425 12395 12420 12427 12371 12392) ;;次にやること
+                     )
+                   
                    (if(if(= str_edit "tempdistlength")(null bool_inputmeasure))nil
                      (list(if bool_inputmeasure nil(list " {\\C" str_gcol_c ";!} : "))
                           (if(or bool_input bool_inputmeasure)
@@ -2495,6 +2565,7 @@
           )
 
         (cond
+         
          ((vl-position int_grread(list 11 12))
           (vla-put-Height vnam_guide(* 1.6 height_text))
           (vla-put-textstring ;;画面回転有効：右クリック,Enterで戻る
@@ -2519,6 +2590,7 @@
           (cal_viewtopleft textsize_guide_bo_temp x_guidebase y_guidebase_temp 10. T )
 
           ;;(and(equal point_base p_gr5loop)(equal vec_view vec_view_gr5loop))
+          
           (if(if(and vec_view vec_view_gr5loop)
                  (if((lambda(p1 p2 / x y z)
                        (setq x(-(car p1)(car p2))
@@ -2590,7 +2662,7 @@
           
           (redraw)
 
-
+          ;;todo図解モード
           ((lambda(num_e num_g ls_bool / p1 p2 ny y nx lst)
              (if(or(= num_g 0)(= int_guideclick 1))T
                (if((lambda( / d)
@@ -2897,6 +2969,36 @@
            ((vl-position elem_grread(list 86 118 65334 65366 -202 -170))
             (setq y_guidebase_temp(1- y_guidebase_temp)) )
 
+           ((vl-position elem_grread(list 63 65311 -225))
+
+            (if(if(setq func
+                        (cond
+                         ((if(and ls_guidemenu int_selectmenu)
+                              (cdr(assoc "HELP"(nth int_selectmenu ls_guidemenu)))))
+                         ((if(and ls_guidemenu int_starselectmenu)
+                              (cdr(assoc "HELP"(nth int_starselectmenu ls_guidemenu)))))
+                         (func_guidemenu func_guidemenu)
+                         )
+                        )
+                   (setq str(func)))
+                (alert str))
+            
+            (if func_guide_drawing
+                (progn
+                  (vla-put-Height vnam_guide(* 1.6 height_text))
+                  (vla-put-textstring ;;
+                   vnam_guide 
+                   (mix_strasc(list )))
+                  
+                  
+                  (func_guide_drawing)
+                  (getint(mix_strasc(list 21491 12463 12522 12483 12463 ",Enter" 12391 25147 12427)))
+                  (setq func_guide_drawing nil)
+                  (setq str_guide_prev "" vec_view_gr5loop nil)
+                  ))
+            
+            )
+           
            ((vl-position elem_grread(list 126 65374 -162))
             (alert(mix_strasc
                    (list((lambda(str / n str_out)
@@ -2953,13 +3055,25 @@
                     (if(and bool_inputmeasure str_inputmeasure)
                         (setq bool_inputmeasure nil str_input str_inputmeasure)))
                 (or(= elem_grread 13)(= int_grread 25)))
-            (set sym_input(cond((= type_input 'REAL)(as-atof str_input))
-                               ((= type_input 'INT) (as-atoi str_input))
-                               (T str_input)))
-            (if func_input(func_input))
-            (setq bool_input nil int_selectmenu nil str_input "")
+            (if(or(if(vl-string-search "-"(substr str_input 2))
+                      (progn;;先頭以外に「-」があります
+                        (x-alert(list 20808 38957 20197 22806 12395 12300 "-" 12301 12364 12354 12426 12414 12377 )) T))
+                  (if(if(setq num(vl-string-search "." str_input))
+                         (vl-string-search "."(substr str_input(+ 2 num))))
+                      (progn;;「.」が2か所以上あります
+                        (x-alert(list 12300 "." 12301 12364 "2" 12363 25152 20197 19978 12354 12426 12414 12377 )) T))
+                  )
+                T
+              (progn
+                (set sym_input(cond((= type_input 'REAL)(as-atof str_input))
+                                   ((= type_input 'INT) (as-atoi str_input))
+                                   (T str_input)))
+                (if func_input(func_input))
+                (setq bool_input nil int_selectmenu nil str_input "")
+                ))
+            
             )
-
+           
            
            ((setq ii(vl-position elem_grread(list 60 62 65308 65310 -228 -226)))
             ((lambda( / a)
@@ -3109,10 +3223,21 @@
     (cons
      "INITIAL"
      (lambda(bool)
-       (if(car bool)(setq bool_point T
-                          ls_guideexplane nil
-                         p_tempdist0 nil p_tempdist1 nil ls_strtempdist(list)
-                         ls_guidemenu nil bool_linedisp nil) )
+       (if(car bool)
+           (setq bool_point T
+                 ls_guideexplane nil
+                 p_tempdist0 nil p_tempdist1 nil ls_strtempdist(list)
+                 ls_guidemenu nil bool_linedisp nil
+                 func_guidemenu
+                 (lambda()
+                   (mix_strasc
+                    (list "2" 28857 12434 12463 12522 12483 12463 12375 12390 36317 38626 12434 28204 12427 12371 12392 12364 12391 12365 12414 12377
+                          "\n" 12300 "!" 12301 12461 12540 12434 25276 12377 12392 28204 12387 12383 31623 25152 12434 32218 20998 12458 12502 12472 12455 12463 12488 12392 12375 12390 29983 25104 12391 12365 12427 12514 12540 12489 12395 20999 12426 26367 12360 12364 12391 12365 12414 12377
+                          "\n" 12371 12398 32218 20998 12399 12467 12510 12531 12489 32066 20102 26178 12395 21066 38500 12373 12428 12414 12377 ))
+                   
+                   )
+                 )
+         )
        (if(cadr bool) (list ))
        ))
 
@@ -3121,7 +3246,7 @@
      (lambda( / bool p);;(d- grdisp_
        (setq bool(if(=(type elem_grread)'LIST)p_tempdist0)
              p(if p_tempdist1 p_tempdist1 elem_grread) )
-       (list "\n{\\C" str_gcol_g ";" 36317 38626 "}" 9 ":"(if bool(as-numstr(distance p_tempdist0 p))"") ;;距離
+       (list "\n{\\C" str_gcol_g ";" 36317 38626 "}" 9 ":"(if bool(as-numstr(distance p_tempdist0 p))"");;距離
              "\n{\\C" str_gcol_g ";" 916 "X}" 9 ":" (if bool(as-numstr(-(car p)(car p_tempdist0)))"")
              "\n{\\C" str_gcol_g ";" 916 "Y}" 9 ":" (if bool(as-numstr(-(cadr p)(cadr p_tempdist0)))"")
              "\n{\\C" str_gcol_g ";" 916 "Z}" 9 ":" (if bool(as-numstr(-(caddr p)(caddr p_tempdist0))) "")
@@ -3199,6 +3324,12 @@
                  bool_selectent nil bool_select nil int_selectmode nil
                  ls_ssget(list) xtype_ssget nil xdata_ssget nil
 
+                 func_guidemenu
+                 (lambda()
+                   (mix_strasc;;各項目にカーソルを合わせて★のとき「？」を入力してください
+                    (list 21508 38917 30446 12395 12459 12540 12477 12523 12434 21512 12431 12379 12390 9733 12398 12392 12365 12300 65311 12301 12434 20837 21147 12375 12390 12367 12384 12373 12356  )
+                    ) )
+                 
                  ls_guideexplane
                  (list)
                  
@@ -3206,28 +3337,52 @@
                  (list
                   (list(list 49 ) ;;線形の投影
                        (cons "ITEM"(list 32218 24418 12398 25237 24433))
-                       (cons "NEXTMODE" "projectlinear"))
+                       (cons "NEXTMODE" "projectlinear")
+                       ;;平面図の線形などを選択して現在設定している標高に投影する
+                       (cons "HELP"(lambda()(mix_strasc(list 24179 38754 22259 12398 32218 24418 12394 12393 12434 36984 25246 12375 12390 29694 22312 35373 23450 12375 12390 12356 12427 27161 39640 12395 25237 24433 12377 12427 ))))
+                       )
                   (list(list 50 );;管路作成
                        (cons "ITEM"(list 31649 36335 20316 25104))
-                       (cons "NEXTMODE" "makeductmain"))
+                       (cons "NEXTMODE" "makeductmain")
+                       ;;管の中心が通る位置を設定した標高からの深さまたは標高自体を指定して管を作成する
+                       (cons "HELP"(lambda()(mix_strasc(list 31649 12398 20013 24515 12364 36890 12427 20301 32622 12434 35373 23450 12375 12383 27161 39640 12363 12425 12398 28145 12373 12414 12383 12399 27161 39640 33258 20307 12434 25351 23450 12375 12390 31649 12434 20316 25104 12377 12427  ))))
+                       )
                   (list(list 51 );;特殊部作成
                        (cons "ITEM"(list 29305 27530 37096 20316 25104))
-                       (cons "NEXTMODE" "makeccboxmain"))
+                       (cons "NEXTMODE" "makeccboxmain")
+                       ;;特殊部の角およびマンホール中心を指定して、現在設定している標高に合わせて配置する
+                       (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 35282 12362 12424 12403 12510 12531 12507 12540 12523 20013 24515 12434 25351 23450 12375 12390 12289 29694 22312 35373 23450 12375 12390 12356 12427 27161 39640 12395 21512 12431 12379 12390 37197 32622 12377 12427 ))))
+                       )
                   (list(list 52 );;情報を付与する
                        (cons "ITEM"(list 24773 22577 12434 20184 19982 12377 12427))
-                       (cons "NEXTMODE" "addattribute"))
+                       (cons "NEXTMODE" "addattribute")
+                       ;;本コマンドで作成したオブジェクトに対し、属性情報や施工情報などを付与する
+                       (cons "HELP"(lambda()(mix_strasc(list 26412 12467 12510 12531 12489 12391 20316 25104 12375 12383 12458 12502 12472 12455 12463 12488 12395 23550 12375 12289 23646 24615 24773 22577 12420 26045 24037 24773 22577 12394 12393 12434 20184 19982 12377 12427 ))))
+                       )
                   (list(list 53 );;土被り、干渉確認
                        (cons "ITEM"(list 22303 34987 12426 12289 24178 28169 30906 35469))
-                       (cons "NEXTMODE" "influencecheck"))
+                       (cons "NEXTMODE" "influencecheck")
+                       ;;作成した管路の土被り許容値を設定して、それより浅い箇所を表記する,管同士の干渉している箇所を表記する
+                       (cons "HELP"(lambda()(mix_strasc(list  20316 25104 12375 12383 31649 36335 12398 22303 34987 12426 35377 23481 20516 12434 35373 23450 12375 12390 12289 12381 12428 12424 12426 27973 12356 31623 25152 12434 34920 35352 12377 12427 "\n" 31649 21516 22763 12398 24178 28169 12375 12390 12356 12427 31623 25152 12434 34920 35352 12377 12427 ))))
+                       
+                       )
                   (list(list 54 );;データの入出力
                        (cons "ITEM"(list 12487 12540 12479 12398 20837 20986 21147))
-                       (cons "NEXTMODE" "savecsvifc"))
+                       (cons "NEXTMODE" "savecsvifc")
+                       ;;本コマンドで作成したオブジェクトの情報をCSV,IFCで出力する\n作成したCSVまたはそれを編集したものを読み込んでオブジェクトを再現する
+                       (cons "HELP"(lambda()(mix_strasc(list 26412 12467 12510 12531 12489 12391 20316 25104 12375 12383 12458 12502 12472 12455 12463 12488 12398 24773 22577 12434 "CSV,IFC" 12391 20986 21147 12377 12427 "\n" 20316 25104 12375 12383 "CSV" 12414 12383 12399 12381 12428 12434 32232 38598 12375 12383 12418 12398 12434 35501 12415 36796 12435 12391 12458 12502 12472 12455 12463 12488 12434 20877 29694 12377 12427 ))))
+                       )
                   (list(list 83 );;基本設定
                        (cons "ITEM"(list 22522 26412 35373 23450))
-                       (cons "LOADFUNCTION" settile_basicsetting))
+                       (cons "LOADFUNCTION" settile_basicsetting)
+                       ;;実行すると別ウィンドウが開くのでそこで内容を確認してください
+                       (cons "HELP"(lambda()(mix_strasc(list 23455 34892 12377 12427 12392 21029 12454 12451 12531 12489 12454 12364 38283 12367 12398 12391 12381 12371 12391 20869 23481 12434 30906 35469 12375 12390 12367 12384 12373 12356  ))))
+                       )
                   (list(list "ENTER");;終了
                        (cons "ITEM"(list 32066 20102))
-                       (cons "NEXTMODE" "exit"))
+                       (cons "NEXTMODE" "exit")
+                       
+                       )
                   )
                  ls_home_guide
                  (cons(list(cons "NEXTMODE" "home")
@@ -3274,6 +3429,14 @@
                  bool_selectent T bool_select T int_selectmode 0
                  ls_ssget(list(cons 0 "LINE,LWPOLYLINE,POLYLINE"))
                  xtype_ssget nil xdata_ssget nil
+
+                 func_guidemenu
+                 (lambda()
+                   (mix_strasc
+                    (if ls_vnam_select
+                        (list "Enter" 12391 29694 22312 12398 36984 25246 12434 29694 22312 35373 23450 12375 12390 12356 12427 27161 39640 12395 25237 24433 12375 12414 12377 "\n" 27161 39640 12398 35373 23450 12364 12373 12428 12390 12356 12394 12356 12392 12365 23455 34892 12391 12365 12414 12379 12435 );;Enterで現在の選択を現在設定している標高に投影します\n標高の設定がされていないとき実行できません
+                      (list 24179 38754 22259 12398 31649 36335 12398 32218 12434 36984 25246 12375 12390 12367 12384 12373 12356 ));;平面図の管路の線を選択してください
+                    ) )
                  
                  ls_guideexplane
                  (mapcar
@@ -3306,10 +3469,15 @@
                                    ))
                                ))
                        (cons "LOADFUNCTION"(lambda()(settile_selectground)))
+                       ;;使用する標高を\n-las読込\n-xml読込\n-一定標高の数値入力\nから選択できます
+                       (cons "HELP"(lambda()(mix_strasc(list 20351 29992 12377 12427 27161 39640 12434 "\n- las" 35501 36796 "\n- xml" 35501 36796 "\n- " 19968 23450 27161 39640 12398 25968 20516 20837 21147 "\n" 12363 12425 36984 25246 12391 12365 12414 12377 ))))
                        )
                   (list(list 49);; 投影ピッチ
                        (cons "ITEM"(list 25237 24433 12500 12483 12481))
-                       (cons "INPUT"(lambda()'pitch_project)))
+                       (cons "INPUT"(lambda()'pitch_project))
+                       ;;選択した線形は、ここで設定したピッチで分割され、その点における標高を取得します\n元々の線形の節点に当たる部分は必ず投影されます\nピッチが0のとき節点のみが投影されます
+                       (cons "HELP"(lambda()(mix_strasc(list 36984 25246 12375 12383 32218 24418 12399 12289 12371 12371 12391 35373 23450 12375 12383 12500 12483 12481 12391 20998 21106 12373 12428 12289 12381 12398 28857 12395 12362 12369 12427 27161 39640 12434 21462 24471 12375 12414 12377 "\n" 20803 12293 12398 32218 24418 12398 31680 28857 12395 24403 12383 12427 37096 20998 12399 24517 12378 25237 24433 12373 12428 12414 12377 "\n" 12500 12483 12481 12364 "0" 12398 12392 12365 31680 28857 12398 12415 12364 25237 24433 12373 12428 12414 12377(if int_selectmenu str_guide_inputval str_guide_selectval)  ))))
+                       )
                   
                   (list(list 50);;投影前に節点だった箇所に円
                        (cons "ITEM"(list  25237 24433 21069 12395 31680 28857 12384 12387 12383 31623 25152 12395 20870 ))
@@ -3320,8 +3488,11 @@
                                              (list(list "{\\C" str_gcol_y ";" 12354 12426 "}")
                                                   (list "{\\C" str_gcol_c ";" 12394 12375 "}")))
                                      )))
+                       ;;ピッチ設定しているとき投影時に節点数が増え、元々節点だった箇所がわかりづらくなるので、円形のマーキングを作るかどうかの設定を行います
+                       (cons "HELP"(lambda()(mix_strasc(list 12500 12483 12481 35373 23450 12375 12390 12356 12427 12392 12365 25237 24433 26178 12395 31680 28857 25968 12364 22679 12360 12289 20803 12293 31680 28857 12384 12387 12383 31623 25152 12364 12431 12363 12426 12389 12425 12367 12394 12427 12398 12391 12289 "\n" 20870 24418 12398 12510 12540 12461 12531 12464 12434 20316 12427 12363 12393 12358 12363 12398 35373 23450 12434 34892 12356 12414 12377 ))))
                        )
-                  (list(list 51);;選択モード切替
+                  
+                  (list(list 80);;選択モード切替
                        (cons "ITEM"(list 36984 25246 12514 12540 12489 20999 26367))
                        (cons "INPUTSWITCH"
                              (lambda()
@@ -3330,8 +3501,9 @@
                                              (list(list "{\\C" str_gcol_y ";" 36984 25246 "}")
                                                   (list "{\\C" str_gcol_c ";" 35299 38500 "}")))
                                      )))
+                       (cons "HELP"(lambda()str_guide_selectmode))
                        )
-
+                  
                   (list(list nil)
                        (cons "ITEM"(list ))
                        (cons "BOOL"
@@ -3537,9 +3709,92 @@
                      )
                )
              (setq int_selectmenu_ductedit nil
-                   p_roadclick_temp nil)
-             
-             (setq ls_guideexplane
+                   p_roadclick_temp nil
+
+                   func_guidemenu
+                   (lambda()
+                     (mix_strasc
+                      (list
+                       (cond
+                        
+                        ((and(null str_lasground)(null height_ground))
+                         ;;まず地表面標高を決定してください
+                         (list 12414 12378 22320 34920 38754 27161 39640 12434 27770 23450 12375 12390 12367 12384 12373 12356))
+                        (entna_depth
+                         ;;既に作成済みの深度の位置を変更しています
+                         (list 26082 12395 20316 25104 28168 12415 12398 28145 24230 12398 20301 32622 12434 22793 26356 12375 12390 12356 12414 12377 )
+                         )
+                        
+                        ((= int_ductmode 0);;作成編集
+                         (if(or ls_vnam_duct bool_ductedit)
+                             (list
+                              30452 32218 37096
+                              ((lambda( / ii)
+                                 (setq ii 0)
+                                 (mapcar '(lambda(lst)
+                                            (if(assoc "DEPTH" lst)(setq ii(1+ ii))))
+                                         ls_vnam_duct)
+                                 (if(=(rem ii 2)0) "< 1 > " "< 2 > ")
+                                 ))
+                              28857 30446 12434 36984 25246
+                              "\n\n"
+                              ;;編集項目
+                              12304 32232 38598 38917 30446 12305 
+                              "\n" 28145 24230 23544 27861 "(" 25991 23383 ");" 28145 12373 22793 26356
+                              "\n" 28145 24230 23544 27861 "(" 25991 23383 20197 22806 ");" 20301 32622 22793 26356
+                               ;;深さ寸法(文字);深さ変更,深さ寸法(文字以外);位置変更
+
+                              "\n" 20870 24359 23544 27861 "(" 25991 23383 ");" 26354 12370 21322 24452
+                              "\n" 20870 24359 23544 27861 "(" 25991 23383 20197 22806 ");"
+                              20301 32622 22793 26356 "(" 21487 33021 12394 26178 12398 12415 ")" 
+                              ;;円弧部;曲げ半径,
+                              "\n" 30452 32218 37096 ";" 30452 32218 37096 12434 21066 38500
+                              
+                              )
+                           
+                           (list
+                            (if(= int_allow_noroad_temp 1)
+                                ;;任意点をクリックすると経路を使わず標高を指定できます
+                                (list 20219 24847 28857 12434 12463 12522 12483 12463 12377 12427 12392 32076 36335 12434 20351 12431 12378 27161 39640 12434 25351 23450 12391 12365 12414 12377))
+                            ;;線形オブジェクトを選択すると経路として設定します
+                            "\n" 32218 24418 12458 12502 12472 12455 12463 12488 12434 36984 25246 12377 12427 12392 32076 36335 12392 12375 12390 35373 23450 12375 12414 12377
+                            ;;作成済みの管路を選択して編集開始
+                            "\n" 20316 25104 28168 12415 12398 31649 36335 12434 36984 25246
+                            32232 38598 38283 22987
+                            )
+                           )
+                         )
+                        
+                        ((= int_ductmode 1);;更新コピー
+                         (list
+                          ;;作成済みの管路をクリックすると実行
+                          20316 25104 28168 12415 12398 31649 36335 12434 12463 12522 12483 12463 12377 12427 12392
+                          (if(and(= depth_duct 0.)(= offset_duct 0.))
+                              (list 26356 26032) (lis 12467 12500 12540))
+                          23455 34892
+                          )
+                         )
+                        
+                        ((= int_ductmode 2) ;;削除
+                         (list
+                          ;;削除対象を選択してください
+                          ;;\n管路を対象に選択でき、その他のものは選択しようとしてもハイライトされません
+                          ;;\n選択有り無し
+                          ;;\n選択後Enterで削除
+                          21066 38500 23550 35937 12434 36984 25246 12375 12390 12367 12384 12373 12356
+                          "\n" 31649 36335 12434 23550 35937 12395 36984 25246 12391 12365 12289 12381 12398 20182 12398 12418 12398 12399 36984 25246 12375 12424 12358 12392 12375 12390 12418 12495 12452 12521 12452 12488 12373 12428 12414 12379 12435
+                          "\n" 36984 25246 12304
+                          (if ls_vnam_select(list 26377 12426)(list 28961 12375)) 12305
+                          "\n" 36984 25246 24460 "Enter" 12391 21066 38500
+                          )
+                         )
+                        );;cond
+                       
+                       )
+                      )
+                     )
+                   
+                   ls_guideexplane
                    (mapcar
                     'mix_strasc
                     (list(list " - " 12300 "R=" 8734 12301 12399 20870 24359 12364 12394 12356 12371 12392 12434 34920 12377 )
@@ -3564,12 +3819,18 @@
                                 (setq bool_replacegrread T int_grread 3 elem_grread(list 0 0 0)
                                       bool_noeditdepth T))
                             ))
+                    ;;カラーダイアログが表示され、管のモデルに使う色を選択できます
+                    (cons "HELP"(lambda()(mix_strasc(list 12459 12521 12540 12480 12452 12450 12525 12464 12364 34920 31034 12373 12428 12289 31649 12398 12514 12487 12523 12395 20351 12358 33394 12434 36984 25246 12391 12365 12414 12377 ))))
                     )
                (list(list 82) ;;R経路の曲げ半径
                     (cons "ITEM"(mix_strasc(list 32076 36335 12398 26354 12370 21322 24452)))
                     (cons "INPUT"(lambda()
                                    (if radius_bend_temp T(setq radius_bend_temp radius_bend))
-                                   'radius_bend_temp)))
+                                   'radius_bend_temp))
+                    ;;管路が曲線となる箇所における曲げ半径
+                    (cons "HELP"(lambda()(mix_strasc(list 31649 36335 12364 26354 32218 12392 12394 12427 31623 25152 12395 12362 12369 12427 26354 12370 21322 24452(if intselectmenu str_guide_inputval str_guide_selectval)))))
+                    )
+               
                (list(list 84);;T保護コンクリートタイプ
                     (cons "ITEM"(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 12479 12452 12503)))
                     (cons "INPUTSWITCH"
@@ -3586,6 +3847,16 @@
                                 (setq bool_replacegrread T int_grread 3 elem_grread(list 0 0 0)
                                       bool_noeditdepth T))
                             ))
+                    ;;保護コンクリートの形状を「全周」、「下半のみ」、「なし」から選択します
+                    ;;管の中心と同じ位置を中心とする長方形形状,「全周」の半分の高さの長方形\n※高さ入力値の考え方は全周と同じなので、入力値の半分の高さとなる
+                    (cons "HELP"(lambda()
+                                  (mix_strasc
+                                   (list 20445 35703 12467 12531 12463 12522 12540 12488 12398 24418 29366 12434
+                                         "\n- " 20840 21608 ":" 31649 12398 20013 24515 12392 21516 12376 20301 32622 12434 20013 24515 12392 12377 12427 38263 26041 24418 24418 29366
+                                         "\n- " 19979 21322 12398 12415 ":" "," 12300 20840 21608 12301 12398 21322 20998 12398 39640 12373 12398 38263 26041 24418 "\n  " 8251 39640 12373 20837 21147 20516 12398 32771 12360 26041 12399 20840 21608 12392 21516 12376 12394 12398 12391 12289 20837 21147 20516 12398 21322 20998 12398 39640 12373 12392 12394 12427
+                                         "\n- " 12394 12375  "\n" 12363 12425 36984 25246 12375 12414 12377
+                                         "\n\n" 22259 35299 28310 20633 20013 
+                                         ))))
                     )
                
                (list(list 68) ;;D.管直径
@@ -3599,6 +3870,9 @@
                                 (setq bool_replacegrread T int_grread 3 elem_grread(list 0 0 0)
                                       bool_noeditdepth T))
                             ))
+                    ;;管の直径を入力
+                    (cons "HELP"(lambda( / p)
+                                  (mix_strasc(list 31649 12398 30452 24452 12434 20837 21147 (if int_selectmenu str_guide_inputval str_guide_selectval) ))))
                     )
                (list(list 87) ;;w.保護コンクリート幅
                     (cons "ITEM"(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 24133)))
@@ -3611,6 +3885,8 @@
                                 (setq bool_replacegrread T int_grread 3 elem_grread(list 0 0 0)
                                       bool_noeditdepth T))
                             ))
+                    ;;保護コンクリートの幅（水平方向）を入力
+                    (cons "HELP"(lambda()(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 12398 24133 65288 27700 24179 26041 21521 65289 12434 20837 21147(if int_selectmenu str_guide_inputval str_guide_selectval) ))))
                     )
                (list(list 72) ;;H.保護コンクリート高さ
                     (cons "ITEM"(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 39640 12373)))
@@ -3623,7 +3899,14 @@
                                 (setq bool_replacegrread T int_grread 3 elem_grread(list 0 0 0)
                                       bool_noeditdepth T))
                             ))
+                    ;;保護コンクリートの高さ（鉛直方向）を入力
+                    (cons "HELP"(lambda()(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 12398 39640 12373 65288 37467 30452 26041 21521 65289 12434 20837 21147
+                                                          (if int_selectmenu str_guide_inputval str_guide_selectval)
+                                                          "\n\n" 22259 35299 28310 20633 20013 
+                                                          
+                                                          ))))
                     )
+               
                (list(list 70) ;;F.保護コンクリート面取り
                     (cons "ITEM"(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 38754 21462 12426)))
                     (cons "INPUT"(lambda()
@@ -3631,11 +3914,15 @@
                                    'filet_protect_temp))
                     (cons "LOADFUNCTION"
                           (lambda()
-
                             (if ls_vnam_duct
                                 (setq bool_replacegrread T int_grread 3 elem_grread(list 0 0 0)
                                       bool_noeditdepth T))
                             ))
+                    ;;保護コンクリートの面取り（直角二等辺三角形で切り取られるので等辺の長さ）を入力\n0のとき面取りを行いません
+                    (cons "HELP"(lambda()(mix_strasc(list  20445 35703 12467 12531 12463 12522 12540 12488 12398 38754 21462 12426 65288 30452 35282 20108 31561 36794 19977 35282 24418 12391 20999 12426 21462 12425 12428 12427 12398 12391 31561 36794 12398 38263 12373 65289 12434 20837 21147 "\n0" 12398 12392 12365 38754 21462 12426 12434 34892 12356 12414 12379 12435
+                                                           (if int_selectmenu str_guide_inputval str_guide_selectval)
+                                                           "\n\n" 22259 35299 28310 20633 20013 
+                                                           ))))
                     )
                
                (list(list 90);;Zキャンセル項目を選択
@@ -3653,9 +3940,10 @@
                                              )
                                         )
                                 ))
-                    
+                    ;;BackSpaceを押したときに実行する内容を選びます\n直前の高度入力：管中心位置の入力のうち、最後に作成したものを削除します\n経路の選択：現在選択されている経路の選択を解除します（他の経路を選択したいときなどに使用）\n管路の編集：管路編集をキャンセルし、編集前の状態に戻します
+                    (cons "HELP"(lambda()(mix_strasc(list "BackSpace" 12434 25276 12375 12383 12392 12365 12395 23455 34892 12377 12427 20869 23481 12434 36984 12403 12414 12377 "\n" 30452 21069 12398 39640 24230 20837 21147 65306 31649 20013 24515 20301 32622 12398 20837 21147 12398 12358 12385 12289 26368 24460 12395 20316 25104 12375 12383 12418 12398 12434 21066 38500 12375 12414 12377 "\n" 32076 36335 12398 36984 25246 65306 29694 22312 36984 25246 12373 12428 12390 12356 12427 32076 36335 12398 36984 25246 12434 35299 38500 12375 12414 12377 65288 20182 12398 32076 36335 12434 36984 25246 12375 12383 12356 12392 12365 12394 12393 12395 20351 29992 65289 "\n" 31649 36335 12398 32232 38598 65306 31649 36335 32232 38598 12434 12461 12515 12531 12475 12523 12375 12289 32232 38598 21069 12398 29366 24907 12395 25147 12375 12414 12377 ))))
                     )
-
+               
                (list(list 8);;キャンセルの実行
                     (cons "ITEM"(mix_strasc(list 12461 12515 12531 12475 12523 12398 23455 34892)))
                     (cons "LOADFUNCTION"
@@ -3741,6 +4029,7 @@
                                     (setq str(mix_strasc(list 31649 36335 32232 38598 12434 32066 20102 12375 12414 12375 12383) );;管路編集を終了しました
                                           bool_ductedit nil
                                           )
+                                    
                                     (mapcar
                                      '(lambda(lst)
                                         (if(setq lst(assoc "OBJ" lst))
@@ -3748,6 +4037,7 @@
                                              '(lambda(vnam)
                                                 (if(=(type vnam)'VLA-OBJECT)
                                                     (progn
+                                                      
                                                       (vla-delete vnam)
                                                       (exckillobj vnam)
                                                       ))
@@ -3755,6 +4045,7 @@
                                              (cdr lst)))
                                         )
                                      ls_vnam_duct)
+                                    (setq ls_vnam_duct nil)
                                     (if vnam_currentinsert
                                         (progn
                                           (vla-put-visible vnam_currentinsert :vlax-true)
@@ -3763,7 +4054,7 @@
                                                 vnam_currentinsert nil)
                                           ))
                                     
-                                    (x-alert str)
+                                    (x-alert(list str))
                                     
                                     )
                                 
@@ -3773,6 +4064,8 @@
                             
                             )
                           )
+                    (cons "HELP"(lambda()"no guide"))
+                    
                     )
                
                (list(list 76);; 地表面標高
@@ -3793,6 +4086,9 @@
                                 ))
                             ))
                     (cons "LOADFUNCTION"(lambda()(settile_selectground)))
+                    ;;使用する標高を\n-las読込\n-xml読込\n-一定標高の数値入力\nから選択できます
+                    (cons "HELP"(mix_strasc(list 20351 29992 12377 12427 27161 39640 12434 "\n- las" 35501 36796 "\n- xml" 35501 36796 "\n- " 19968 23450 27161 39640 12398 25968 20516 20837 21147 "\n" 12363 12425 36984 25246 12391 12365 12414 12377 )))
+                    
                     )
 
                (list(list 49);;高度入力方法
@@ -3808,6 +4104,8 @@
                                               (list str_gcol_y str_gcol_c)
                                             (list str_gcol_y str_gcol_c str_gcol_g)))
                                   )))
+                    ;;現在の標高データからの距離または標高値自体を入力するかを選択します\n標高データからの距離を入力するとき、上を正とするか下を正とするかを選択できます
+                    (cons "HELP"(lambda()(mix_strasc(list 29694 22312 12398 27161 39640 12487 12540 12479 12363 12425 12398 36317 38626 12414 12383 12399 27161 39640 20516 33258 20307 12434 20837 21147 12377 12427 12363 12434 36984 25246 12375 12414 12377 "\n" 27161 39640 12487 12540 12479 12363 12425 12398 36317 38626 12434 20837 21147 12377 12427 12392 12365 12289 19978 12434 27491 12392 12377 12427 12363 19979 12434 27491 12392 12377 12427 12363 12434 36984 25246 12391 12365 12414 12377 ))))
                     )
                
                (list(list 50);;
@@ -3832,7 +4130,9 @@
                             ;;   )
                             nil
                             ))
-                    
+                    ;;深度標高を入力\n入力方法の違いについては1行上で確認してください
+                    (cons "HELP"(lambda()(mix_strasc(list 28145 24230 27161 39640 12434 20837 21147  "\n" 20837 21147 26041 27861 12398 36949 12356 12395 12388 12356 12390 12399 "1" 34892 19978 12391 30906 35469 12375 12390 12367 12384 12373 12356 (if int_selectmenu str_guide_inputval str_guide_selectval)
+))))
                     )
 
                (list(list 51);;経路に対する水平オフセット
@@ -3843,9 +4143,10 @@
                                        )))
                     (cons "INPUT"(lambda()(if offset_duct T(setq offset_duct 0.))'offset_duct))
                     (cons "KEYSEARCH" "OFFSET")
-
+                    ;;水平オフセットを入力
+                    (cons "HELP"(lambda()(mix_strasc(list 27700 24179 12458 12501 12475 12483 12488 12434 20837 21147(if int_selectmenu str_guide_inputval str_guide_selectval) ))))
+                    
                     )
-
 
                (list(list 52);;次に作成する箇所の追加方向
                     (cons "ITEM"(mix_strasc(list 27425 12395 20316 25104 12377 12427 31623 25152 12398 36861 21152 26041 21521 )))
@@ -3861,6 +4162,8 @@
                                              (list "{\\C" str_gcol_p ";"
                                                    36215 28857 20596 12395 36861 21152 "}")))
                                 ))
+                    ;;直線部を作成するとき、編集中の管路の後ろ側に続くように配置するか手前側に続くように配置するかを選択します
+                    (cons "HELP"(lambda()(mix_strasc(list 30452 32218 37096 12434 20316 25104 12377 12427 12392 12365 12289 32232 38598 20013 12398 31649 36335 12398 24460 12429 20596 12395 32154 12367 12424 12358 12395 37197 32622 12377 12427 12363 25163 21069 20596 12395 32154 12367 12424 12358 12395 37197 32622 12377 12427 12363 12434 36984 25246 12375 12414 12377 ))))
                     
                     )
                
@@ -3874,6 +4177,9 @@
                                              (list "{\\C" str_gcol_g ";" 38750 34920 31034  "}")
                                              )
                                         )))
+                    ;;編集中の管路のモデル部分が非表示になり、深度及び円弧の寸法のみが表示されるように切り替えることができます\n編集を完了すると非表示は終了します
+                    (cons "HELP"(lambda()(mix_strasc(list 32232 38598 20013 12398 31649 36335 12398 12514 12487 12523 37096 20998 12364 38750 34920 31034 12395 12394 12426 12289 28145 24230 21450 12403 20870 24359 12398 23544 27861 12398 12415 12364 34920 31034 12373 12428 12427 12424 12358 12395 20999 12426 26367 12360 12427 12371 12392 12364 12391 12365 12414 12377 "\n" 32232 38598 12434 23436 20102 12377 12427 12392 38750 34920 31034 12399 32066 20102 12375 12414 12377 ))))
+                    
                     )
                (list(list 54);;経路がないときの深度入力
                     (cons "ITEM"(mix_strasc(list 32076 36335 12364 12394 12356 12392 12365 12398 28145 24230 20837 21147 )))
@@ -3891,6 +4197,8 @@
                                                    35377 21487 12377 12427 "}")
                                              )
                                         )))
+                    ;;経路の選択をしなくてもクリックしたところの地表面標高を取得して深度設定ができる基に切り替えます\n許可しないとき経路を選ばなければ深度設定することはできません
+                    (cons "HELP"(lambda()(mix_strasc(list 32076 36335 12398 36984 25246 12434 12375 12394 12367 12390 12418 12463 12522 12483 12463 12375 12383 12392 12371 12429 12398 22320 34920 38754 27161 39640 12434 21462 24471 12375 12390 28145 24230 35373 23450 12364 12391 12365 12427 22522 12395 20999 12426 26367 12360 12414 12377 "\n" 35377 21487 12375 12394 12356 12392 12365 32076 36335 12434 36984 12400 12394 12369 12428 12400 28145 24230 35373 23450 12377 12427 12371 12392 12399 12391 12365 12414 12379 12435 ))))
                     )
                
                (list(list 78);;管の名称
@@ -3945,6 +4253,9 @@
                           )
                     (cons "STRINPUTALERT"
                           (mix_strasc(list 12502 12525 12483 12463 21517 31216 12364 26082 12395 23384 22312 12375 12390 12356 12414 12377 )))
+                    ;;これから作成する管路、編集中の管路の名称を変更します\n管路はブロックとして作成されすでに使用されているブロック名称は設定できません
+                    ;;\n名前を付けないとき「DUCT$(使用されていない数値)」を自動的に設定します
+                    (cons "HELP"(lambda()(mix_strasc(list 12371 12428 12363 12425 20316 25104 12377 12427 31649 36335 12289 32232 38598 20013 12398 31649 36335 12398 21517 31216 12434 22793 26356 12375 12414 12377 "\n" 31649 36335 12399 12502 12525 12483 12463 12392 12375 12390 20316 25104 12373 12428 12377 12391 12395 20351 29992 12373 12428 12390 12356 12427 12502 12525 12483 12463 21517 31216 12399 35373 23450 12391 12365 12414 12379 12435 "\n" 21517 21069 12434 20184 12369 12394 12356 12392 12365 12300 "DUCT$(" 20351 29992 12373 12428 12390 12356 12394 12356 25968 20516 ")" 12301 12434 33258 21205 30340 12395 35373 23450 12375 12414 12377 ))))
                     )
                
                
@@ -4030,6 +4341,16 @@
                              )
                             
                             ))
+                    ;;-作成・編集：新規管路の作成または作成済みの管路を選択して編集を行う
+                    ;;\n-更新・コピー：深度オフセットが0のとき、モデルを更新,0でないとき適用してコピー
+                    ;;\n-削除：管路を選択して削除
+                    (cons "HELP"
+                          (lambda()
+                            (mix_strasc(list "-" 20316 25104 12539 32232 38598 65306 26032 35215 31649 36335 12398 20316 25104 12414 12383 12399 20316 25104 28168 12415 12398 31649 36335 12434 36984 25246 12375 12390 32232 38598 12434 34892 12358
+                                             "\n-" 26356 26032 12539 12467 12500 12540 65306 28145 24230 12458 12501 12475 12483 12488 12364 "0" 12398 12392 12365 12289 12514 12487 12523 12434 26356 26032 ",0" 12391 12394 12356 12392 12365 36969 29992 12375 12390 12467 12500 12540
+                                             "\n-" 21066 38500 65306 31649 36335 12434 36984 25246 12375 12390 21066 38500
+                                             ))))
+                    
                     )
                
                (list(list 80 );;P選択モード切替
@@ -4050,8 +4371,8 @@
                                                 "}")))
                                     )
                               )) )
+                    (cons "HELP"(lambda()str_guide_selectmode))
                     )
-               
                
                (list(list 65);;A直線部を追加挿入
                     (cons "ITEM"(mix_strasc(list  30452 32218 37096 12434 36861 21152 25407 20837  )))
@@ -4079,8 +4400,10 @@
                                                    36984 25246 12375 12390 12367 12384 12373 12356 ))
                                      ))
                           )
+                    ;;現在選択中の直線部に直線部を追加します
+                    (cons "HELP"(lambda()(mix_strasc(list 29694 22312 36984 25246 20013 12398 30452 32218 37096 12395 30452 32218 37096 12434 36861 21152 12375 12414 12377))))
+                    
                     )
-
                
                
                (list(list nil)
@@ -4223,9 +4546,30 @@
                     (cons "ITEM"(mix_strasc(list 12513 12452 12531 12513 12491 12517 12540 12408)))
                     (cons "LOADFUNCTION"
                           (lambda()
-                            (setq str_next(if bool_ductedit
-                                              (if ls_vnam_duct nil "home")
-                                            "home"))
+                            (setq str_next
+                                  (if bool_ductedit
+                                      (if ls_vnam_duct nil "home")
+                                    "home"))
+
+                            ;; (if(if bool_ductedit ls_vnam_duct)
+                            ;;     (setq str_next nil )
+                            ;;   (progn
+                            ;;     (setq str_next "home")
+                            ;;     (mapcar
+                            ;;      '(lambda(lst)
+                            ;;         (mapcar '(lambda(v)
+                                               
+                            ;;                    (if(=(type v)'VLA-OBJECT)
+                            ;;                        (progn
+                            ;;                          (vl-delete a)
+                            ;;                          (exckillobj v)))
+                            ;;                    )
+                            ;;                 (cdr(assoc "OBJ" lst)))
+                            ;;         )
+                            ;;      ls_vnam_duct)
+                            ;;     (setq ls_vnam_duct nil)
+                            ;;     ))
+                            
                             ))
                     (cons "NEXTMODE" "home")
                     )
@@ -4336,8 +4680,6 @@
                     (grdraw p_ground p_close 2)
                     (setq p_ground p_close)
 
-
-
                     (if(= int_inputdepth_temp 2)T
                       ((lambda(p c / s ls_p p0 p1 p2)
                          (setq s(* height_text 8.(if(= int_inputdepth_temp 0)1 -1))
@@ -4352,7 +4694,6 @@
                          )
                        p_close 4)
                       )
-                    
                     
                     )
                   ls_p_road)
@@ -4769,6 +5110,7 @@
          (setq vec_normal(unit_vector(carxyz(if vec_road(mapcar '- vec_road)vec_view)0.))
                vec_x_offset(trans-x(list 1. 0. 0.)vec_normal(list 0 0 1)))
          
+         
          (if bool_noeditdepth(setq bool_noeditdepth nil)
            (progn
              (if p_road T
@@ -4960,12 +5302,12 @@
                      ))
            (cond
             ((and vnam_line0 vnam_line1))
-            (vnam_line0
+            (vnam_line0;;初回限定
              (setq lst(car ls_pbar)p(car lst))
              (if(<(apply '+(mapcar '*(mapcar '- p01 p)(caddr lst)))-1e-8)
                  T
                (progn
-                 (setq vec0(unit_vector(mapcar '- p01 p00)))
+                 (setq vec0(unit_vector(mapcar '- p01 p00)));;これでいいとは思うがp01-pでもいい
                  ;; (if(= int_protectcon_temp 2)T
                  ((lambda( / d n i dd pm)
                     (setq d(distance p p01) n(1+(fix(/ d pitch_mesh))) d(/ d n)
@@ -4985,7 +5327,7 @@
                  ))
              
              )
-            (vnam_line1
+            (vnam_line1;;最終回限定
              (setq ls_pbar(cons(list p10 nil(unit_vector(mapcar '- p11 p10)))
                                ls_pbar))
              )
@@ -5164,6 +5506,8 @@
 
          (if(if ls_arc(=(car ls_arc)"BREAK"))nil
            (progn
+
+             (setq ls_pcenterline(mapcar 'car(reverse ls_pmesh)))
              
              (if(setq lst(assoc(list "SOLID" 0)ls_vnam_duct))
                  (progn
@@ -5173,7 +5517,7 @@
                    (exckillobj vnam)
                    ))
              
-             (if ls_pbar
+             (if(and(= int_ductsolidmesh 1)ls_pbar)
                  (progn
                    (setq ls_pbar(reverse ls_pbar)
                          entna(bendpipe_sld
@@ -5191,7 +5535,63 @@
                    
                    (addkillobj vnam)
                    
-                   ))
+                   )
+               (if ls_pmesh
+                   (progn
+                     
+                     (setq numy 32
+                           ls_intmesh(inclist 0 numy)
+                           ang_d(/(* 2. pi)numy)
+                           r(* 0.5 diam_duct_temp)
+                           vecxp nil vecyp nil
+                           )
+                     
+                     (setq ls_pduct
+                           (mapcar
+                            '(lambda(lst / p v vecx vecy)
+                               (setq p(car lst)v(cadr lst)
+                                     v(unit_vector(carxyz v 0.))
+                                     vecx(trans-x(list 1 0 0)v(list 0 0 1))
+                                     vecy(trans-x(list 0 1 0)v(list 0 0 1))
+                                     )
+
+                               (if(if vecxp(>(apply '+(mapcar '* vecx vecxp))0)T)T
+                                 (setq vecx vecxp))
+                               (setq vecxp vecx)
+                               (if(<(caddr vecy)0)(setq vecy(mapcar '- vecy)))
+                               (mapcar '(lambda(i / c s)
+                                          (setq c(cos(* ang_d i))s(sin(* ang_d i)))
+                                          (mapcar '(lambda(a x y)(+(* r c x)(* r s y)a))
+                                                  p vecx vecy))
+                                       ls_intmesh)
+                               )
+                            (reverse ls_pmesh)
+                            )
+                           
+                           numx(length ls_pduct)
+                           ls_p(apply 'append(apply 'append ls_pduct))
+                           )
+                     
+                     (setq array_mesh(vlax-make-safearray vlax-vbDouble(cons 0(1-(length ls_p)))))
+                     (vlax-safearray-fill array_mesh ls_p)
+                     (setq vnam
+                           (vla-Add3DMesh
+                            (vla-get-ModelSpace(vla-get-ActiveDocument (vlax-get-acad-object)))
+                            numx numy array_mesh)
+
+                           ls_vnam_duct(cons(list(list "SOLID" 0)(list "OBJ" vnam)
+                                                 (cons "DIAM" diam_duct_temp) )
+                                            ls_vnam_duct)
+                           
+                           )
+                     (vla-put-color vnam int_colduct_temp)
+                     (if(= int_hidesolid 1)(vla-put-visible vnam :vlax-false))
+                     
+                     (addkillobj vnam)
+
+                     )
+                 )
+               )
              
              (if(setq lst(assoc(list "MESH" 0)ls_vnam_duct))
                  (progn
@@ -5201,7 +5601,6 @@
                    (exckillobj vnam)
                    ))
 
-             (setq ls_pcenterline(mapcar 'car(reverse ls_pmesh)))
              
              (if(if(= int_protectcon_temp 2)nil ls_pmesh)
                  (progn
@@ -5775,6 +6174,7 @@
            
            )
 
+         
          (if(setq lst(assoc(list "SOLID" 0)ls_vnam_duct))
              (progn
                (setq vnam(cadr(assoc "OBJ" lst))
@@ -5892,6 +6292,7 @@
         ((and(or(= elem_grread 13)(= int_grread 25))
              bool_ductedit)
          (setq bool_ductedit nil str_edit "home")
+         
          )
         
         ((and(or(= elem_grread 13)(= int_grread 25))
@@ -6079,6 +6480,25 @@
                            (list 0 1))
                    p_arcstart nil
                    int_baseline 0
+
+                   func_guidemenu
+                   (lambda()
+                     ;;todo
+                     
+                     (mix_strasc
+                      (list
+                       ;;クリックして起点終点の通過位置を決定
+                       ;;または通過点採用のキー入力をしてください
+                       ;;Enter:変更せずに戻る
+                       12463 12522 12483 12463 12375 12390 36215 28857 32066 28857 12398 36890 36942 20301 32622 12434 27770 23450 "\n" 12414 12383 12399 36890 36942 28857 25505 29992 12398 12461 12540 20837 21147 12434 12375 12390 12367 12384 12373 12356
+                       "\nEnter:"
+                       (if p_arcprev
+                           (list 22793 26356 12379 12378 12395 25147 12427 )
+                         (list 21021 22238 12394 12398 12391 24517 12378 12393 12371 12363 36984 25246 12375 12390 12367 12384 12373 12356 ))
+                       
+                       )
+                      ) )
+
                    
                    ls_guideexplane
                    (mapcar
@@ -6086,11 +6506,15 @@
                     (list(list " - " 20870 24359 12398 36215 28857 12418 12375 12367 12399 32066 28857 12364 36890 36942 12377 12427 20301 32622 12434 27770 23450 12377 12427 )
                          ;;円弧の起点もしくは終点が通過する位置を決定する
                          ))
+                   
                    ls_guidemenu
                    (list
                     (list(list 82) ;;R経路の曲げ半径
                          (cons "ITEM"(list 32076 36335 12398 26354 12370 21322 24452))
-                         (cons "INPUT"(lambda() 'radius_arcmove)))
+                         (cons "INPUT"(lambda() 'radius_arcmove))
+                         (cons "HELP"(lambda()(mix_strasc(list 31649 36335 12364 26354 32218 12392 12394 12427 31623 25152 12395 12362 12369 12427 26354 12370 21322 24452(if intselectmenu str_guide_inputval str_guide_selectval)))))
+                         
+                         )
                     
                     (list(list 49);;近接点切替
                          (cons "ITEM"(list 36817 25509 28857 20999 26367  ))
@@ -6100,7 +6524,11 @@
                                        (mapcar 'mix_strasc
                                                (list(list "{\\C" str_gcol_g ";" 36215 28857 20596 "}")
                                                     (list "{\\C" str_gcol_c ";"32066 28857 20596 "}"))))
-                                 )))
+                                 ))
+                         ;;マウスカーソルに近接する円弧が起点側か終点側か選択してください
+                         (cons "HELP"(lambda()(mix_strasc(list 12510 12454 12473 12459 12540 12477 12523 12395 36817 25509 12377 12427 20870 24359 12364 36215 28857 20596 12363 32066 28857 20596 12363 36984 25246 12375 12390 12367 12384 12373 12356))))
+                         
+                         )
 
                     (list(list 50);;起点側終点を通過する円弧を採用する
                          (cons "ITEM"(list 36215 28857 20596 32066 28857 12434 36890 36942 12377 12427 20870 24359 12434 25505 29992 12377 12427))
@@ -6112,7 +6540,9 @@
                                    (setq int_baseline 0 elem_grread p_line01 ))
                                  (setq bool_replacegrread T int_grread 3)
                                  
-                                 )))
+                                 ))
+                         (cons "HELP"(lambda()(mix_strasc(list 36215 28857 20596 32066 28857 12434 36890 36942 12377 12427 20870 24359 12434 25505 29992 12377 12427))))
+                         )
                     
                     (list(list 51);;終点側起点を通過する円弧を採用する
                          (cons "ITEM"(list 32066 28857 20596 36215 28857 12434 36890 36942 12377 12427 20870 24359 12434 25505 29992 12377 12427))
@@ -6123,7 +6553,9 @@
                                    (setq int_baseline 1 elem_grread p_line10))
                                  (setq bool_replacegrread T int_grread 3)
                                  
-                                 )))
+                                 ))
+                         (cons "HELP"(lambda()(mix_strasc(list 32066 28857 20596 36215 28857 12434 36890 36942 12377 12427 20870 24359 12434 25505 29992 12377 12427))))
+                         )
                     
                     (list(list "ENTER");;変更せずに戻る
                          (cons "ITEM"(list 22793 26356 12379 12378 12395 25147 12427 ))
@@ -6415,6 +6847,13 @@
                    )
              
              (setq
+              func_guidemenu
+              (lambda()
+                (mix_strasc
+                 (list )
+                 ) )
+              
+              
               ls_guideexplane
               (mapcar
                'mix_strasc
@@ -6428,7 +6867,6 @@
               ;;マンホールの中心を選択しないとき、マンホールを作成しない
               ls_guidemenu
               (list
-               
                (list(list 76);; 地表面標高
                     (cons "ITEM"(list 22320 34920 38754 27161 39640))
                     (cons "STATUS"
@@ -6447,6 +6885,7 @@
                                 ))
                             ))
                     (cons "LOADFUNCTION"(lambda()(settile_selectground)))
+                    (cons "HELP"(lambda()(mix_strasc(list 20351 29992 12377 12427 27161 39640 12434 "\n- las" 35501 36796 "\n- xml" 35501 36796 "\n- " 19968 23450 27161 39640 12398 25968 20516 20837 21147 "\n" 12363 12425 36984 25246 12391 12365 12414 12377 ))))
                     )
 
                (list(list 67);;特殊部の色
@@ -6458,6 +6897,8 @@
                           (lambda()
                             nil
                             ))
+                    ;;カラーダイアログが表示され、特殊部のモデルに使う色を選択できます
+                    (cons "HELP"(lambda()(mix_strasc(list 12459 12521 12540 12480 12452 12450 12525 12464 12364 34920 31034 12373 12428 12289 29305 27530 37096 12398 12514 12487 12523 12395 20351 12358 33394 12434 36984 25246 12391 12365 12414 12377 ))))
                     )
                
                
@@ -6469,6 +6910,8 @@
                                    'height_ccboxtop_temp))
                     (cons "LOADUNCTION"
                           (lambda()nil))
+                    ;;特殊部の天端から地表面までの高さで、マンホールを作成するときマンホール高さを表す数値となります
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 22825 31471 12363 12425 22320 34920 38754 12414 12391 12398 39640 12373 12391 12289 12510 12531 12507 12540 12523 12434 20316 25104 12377 12427 12392 12365 12510 12531 12507 12540 12523 39640 12373 12434 34920 12377 25968 20516 12392 12394 12426 12414 12377 (if intselectmenu str_guide_inputval str_guide_selectval)))))
                     )
                (list(list 72);;H特殊部高さ
                     (cons "ITEM"(list 29305 27530 37096 39640 12373))
@@ -6478,6 +6921,8 @@
                                    'height_ccbox_temp))
                     (cons "LOADUNCTION"
                           (lambda()nil))
+                    ;;
+                    (cons "HELP"(lambda()(mix_strasc(list(if intselectmenu str_guide_inputval str_guide_selectval)))))
                     )
                (list(list 68);;Dマンホール直径
                     (cons "ITEM"(list 12510 12531 12507 12540 12523 30452 24452))
@@ -6487,6 +6932,7 @@
                                    'diam_manhole_temp))
                     (cons "LOADUNCTION"
                           (lambda()nil))
+                    (cons "HELP"(lambda()(mix_strasc(list(if intselectmenu str_guide_inputval str_guide_selectval)))))
                     )
                (list(list 87);;W均しコンオフセット
                     (cons "ITEM"(list 22343 12375 12467 12531 12458 12501 12475 12483 12488))
@@ -6496,6 +6942,8 @@
                                    'offset_levelingcon_temp))
                     (cons "LOADUNCTION"
                           (lambda()nil))
+                    ;;特殊部の全周に入力値を加える
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 20840 21608 12395 20837 21147 20516 12434 21152 12360 12427(if intselectmenu str_guide_inputval str_guide_selectval)))))
                     )
                (list(list 84);;T均しコン高さ
                     (cons "ITEM"(list 22343 12375 12467 12531 39640 12373))
@@ -6505,6 +6953,7 @@
                                    'height_levelingcon_temp))
                     (cons "LOADUNCTION"
                           (lambda()nil))
+                    (cons "HELP"(lambda()(mix_strasc(list(if intselectmenu str_guide_inputval str_guide_selectval)))))
                     )
                
                (list(list 49);;特殊部起点を選択
@@ -6520,6 +6969,10 @@
                                 (setq bool_replacegrread T int_grread 2 elem_grread 50)
                                 ))
                             ))
+                    ;;特殊部の点を3つ選択します
+                    ;;1点目と2点目で特殊部のいずれかの辺を表し、3点目はその辺と平行な辺上の任意の点を表します
+                    ;;1点目
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 28857 12434 "3" 12388 36984 25246 12375 12414 12377 "\n1" 28857 30446 12392 "2" 28857 30446 12391 29305 27530 37096 12398 12356 12378 12428 12363 12398 36794 12434 34920 12375 12289 "3" 28857 30446 12399 12381 12398 36794 12392 24179 34892 12394 36794 19978 12398 20219 24847 12398 28857 12434 34920 12375 12414 12377 "\n1" 28857 30446 (if intselectmenu str_guide_point)))))
                     )
                
                (list(list 50);;特殊部辺の端点を選択
@@ -6535,6 +6988,7 @@
                                 (setq bool_replacegrread T int_grread 2 elem_grread 51)
                                 ))
                             ))
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 28857 12434 "3" 12388 36984 25246 12375 12414 12377 "\n1" 28857 30446 12392 "2" 28857 30446 12391 29305 27530 37096 12398 12356 12378 12428 12363 12398 36794 12434 34920 12375 12289 "3" 28857 30446 12399 12381 12398 36794 12392 24179 34892 12394 36794 19978 12398 20219 24847 12398 28857 12434 34920 12375 12414 12377 "\n2" 28857 30446 (if intselectmenu str_guide_point)))))
                     )
                
                (list(list 51);;特殊部対辺上の点を選択
@@ -6550,6 +7004,8 @@
                                 (setq bool_replacegrread T int_grread 2 elem_grread 52)
                                 ))
                             ))
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 28857 12434 "3" 12388 36984 25246 12375 12414 12377 "\n1" 28857 30446 12392 "2" 28857 30446 12391 29305 27530 37096 12398 12356 12378 12428 12363 12398 36794 12434 34920 12375 12289 "3" 28857 30446 12399 12381 12398 36794 12392 24179 34892 12394 36794 19978 12398 20219 24847 12398 28857 12434 34920 12375 12414 12377 "\n3" 28857 30446 (if intselectmenu str_guide_point)))))
+                    
                     )
                
                (list(list 52);;マンホール-中心を選択
@@ -6565,6 +7021,9 @@
                                 (setq bool_replacegrread T int_grread 2 elem_grread 53)
                                 ))
                             ))
+                    ;;マンホールの中心,選択しないときマンホールは作成されません
+                    (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 12398 20013 24515 " " 36984 25246 12375 12394 12356 12392 12365 12510 12531 12507 12540 12523 12399 20316 25104 12373 12428 12414 12379 12435(if intselectmenu str_guide_point)))))
+                    
                     )
                (list(list 53);;マンホール-円周上の点を選択
                     (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20870 21608 19978 12398 28857 12434 36984 25246 ))
@@ -6578,10 +7037,17 @@
                                 (if bool(setq p_manhole_edge elem_grread))
                                 (if(and p_manhole p_manhole_edge)
                                     (setq diam_manhole_temp
-                                          (* 2.(distance(carxy p_manhole)(carxy p_manhole_edge)))))
+                                          (* 2.(distance(carxy p_manhole)(carxy p_manhole_edge)))
+                                          diam_manhole_temp(atof(rtos diam_manhole_temp 2 8))
+                                          ))
                                 (setq bool_replacegrread T int_grread 2 elem_grread 54)
                                 ))
                             ))
+                    ;;マンホール中心があるとき、選択するとマンホール直径の入力値を計算して入力します
+                    ;;\nマンホールがないとき、直径の入力値を使うときは選択する必要がありません
+                    (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 20013 24515 12364 12354 12427 12392 12365 12289 36984 25246 12377 12427 12392 12510 12531 12507 12540 12523 30452 24452 12398 20837 21147 20516 12434 35336 31639 12375 12390 20837 21147 12375 12414 12377  "\n" 12510 12531 12507 12540 12523 12364 12394 12356 12392 12365 12289 30452 24452 12398 20837 21147 20516 12434 20351 12358 12392 12365 12399 36984 25246 12377 12427 24517 35201 12364 12354 12426 12414 12379 12435
+ (if intselectmenu str_guide_point)))))
+                    
                     )
 
                (list(list 78);;特殊部の名称
@@ -6628,6 +7094,11 @@
                           )
                     (cons "STRINPUTALERT"
                           (mix_strasc(list 12502 12525 12483 12463 21517 31216 12364 26082 12395 23384 22312 12375 12390 12356 12414 12377 )))
+                    
+                    ;;これから作成する特殊部、編集中の特殊部管路の名称を変更します\n特殊部はブロックとして作成されすでに使用されているブロック名称は設定できません
+                    ;;\n名前を付けないとき「CCBOX$(使用されていない数値)」を自動的に設定します
+                    (cons "HELP"(lambda()(mix_strasc(list 12371 12428 12363 12425 20316 25104 12377 12427 29305 27530 37096 12289 32232 38598 20013 12398 29305 27530 37096 31649 36335 12398 21517 31216 12434 22793 26356 12375 12414 12377 "\n" 29305 27530 37096 12399 12502 12525 12483 12463 12392 12375 12390 20316 25104 12373 12428 12377 12391 12395 20351 29992 12373 12428 12390 12356 12427 12502 12525 12483 12463 21517 31216 12399 35373 23450 12391 12365 12414 12379 12435 "\n" 21517 21069 12434 20184 12369 12394 12356 12392 12365 12300 "CCBOX$(" 20351 29992 12373 12428 12390 12356 12394 12356 25968 20516 ")" 12301 12434 33258 21205 30340 12395 35373 23450 12375 12414 12377))))
+                    
                     )
                
                (list(list 77)
@@ -6635,7 +7106,7 @@
                     (cons "INPUTSWITCH"
                           (lambda()
                             (list 'int_ccboxmode
-                                  (mapcar 'mix_strasc
+                                  (mapcar 'mix_strasc;;作成名称変更削除
                                           (list(list "{\\C" str_gcol_y ";" 20316 25104 "}")
                                                (list "{\\C" str_gcol_g ";" 21517 31216 22793 26356 "}")
                                                (list "{\\C" str_gcol_p ";" 21066 38500 "}")
@@ -6678,8 +7149,16 @@
                              )
                             
                             ))
+                    
+                    ;;-作成：平面図の点を選択して特殊部作成
+                    ;;\n-名称変更：作成済みの特殊部を選択して名称を編集する
+                    ;;\n-削除：特殊部を選択して削除
+                    (cons "HELP"
+                          (lambda()
+                            (mix_strasc(list "-" 20316 25104 65306 24179 38754 22259 12398 28857 12434 36984 25246 12375 12390 29305 27530 37096 20316 25104 "\n-" 21517 31216 22793 26356 65306 20316 25104 28168 12415 12398 29305 27530 37096 12434 36984 25246 12375 12390 21517 31216 12434 32232 38598 12377 12427 "\n-" 21066 38500 65306 29305 27530 37096 12434 36984 25246 12375 12390 21066 38500 ))))
+                    
                     )
-
+               
                (list(list 80 );;P選択モード切替
                     (cons "ITEM"(list 36984 25246 12514 12540 12489 20999 26367 ))
                     (cons "INPUTSWITCH"
@@ -6697,6 +7176,7 @@
                                                 21066 38500 12514 12540 12489 12398 12392 12365 20351 29992 21487 33021 "}")))
                                     )
                               )) )
+                    (cons "HELP"(lambda()str_guide_selectmode))
                     )
                
                
@@ -6995,8 +7475,8 @@
                (vla-put-color vnam int_colccbox_temp)
                
                ))
-
-           (if p_manhole
+           
+           (if(and(/= height_ccboxtop_temp 0.)(/= diam_manhole_temp 0.)p_manhole)
                (progn
                  (setq entna(pole_sld(* diam_manhole_temp 0.5)
                                      height_ccboxtop_temp
@@ -7109,7 +7589,16 @@
                    ls_ssget nil xtype_ssget nil xdata_ssget nil
                    )
              
-             (setq ls_guideexplane
+             (setq func_guidemenu
+                   (lambda()
+                     ;;本コマンドで作成したものを選択すると属性付与できます
+                     ;;\n対象をクリックしてください(範囲選択はできません)
+                     (mix_strasc
+                      (list 26412 12467 12510 12531 12489 12391 20316 25104 12375 12383 12418 12398 12434 36984 25246 12377 12427 12392 23646 24615 20184 19982 12391 12365 12414 12377
+                             "\n" 23550 35937 12434 12463 12522 12483 12463 12375 12390 12367 12384 12373 12356 "(" 31684 22258 36984 25246 12399 12391 12365 12414 12379 12435 ")")
+                      ) )
+                   
+                   ls_guideexplane
                    (mapcar
                     'mix_strasc
                     (list(list " - "36984 25246 12375 12390 19979 12373 12356)
@@ -7184,6 +7673,23 @@
              (setq ls_vnam_tempinfluence(list)
                    int_execute_influence nil)
              (setq
+              func_guidemenu
+              (lambda()
+                ;;対象に対して土被り、干渉、または両方を計算します
+                ;;\n管路を対象に選択でき、その他のものは選択しようとしてもハイライトされません
+                ;;\n何も選択しないとき、すべて選択したことになります
+                ;;\n選択有り無し
+                ;;\n作成されるオブジェクトは一時的なものでコマンドを終了すると削除されます
+                ;;\n確定させたいときはSpaceコマンドを選択してください
+                (mix_strasc
+                 (list 23550 35937 12395 23550 12375 12390 22303 34987 12426 12289 24178 28169 12289 12414 12383 12399 20001 26041 12434 35336 31639 12375 12414 12377 "\n" 31649 36335 12434 23550 35937 12395 36984 25246 12391 12365 12289 12381 12398 20182 12398 12418 12398 12399 36984 25246 12375 12424 12358 12392 12375 12390 12418 12495 12452 12521 12452 12488 12373 12428 12414 12379 12435 "\n" 20309 12418 36984 25246 12375 12394 12356 12392 12365 12289 12377 12409 12390 36984 25246 12375 12383 12371 12392 12395 12394 12426 12414 12377
+                       "\n" 36984 25246 12304
+                       (if ls_vnam_select(list 26377 12426)(list 28961 12375)) 12305
+                        "\n" 20316 25104 12373 12428 12427 12458 12502 12472 12455 12463 12488 12399 19968 26178 30340 12394 12418 12398 12391 12467 12510 12531 12489 12434 32066 20102 12377 12427 12392 21066 38500 12373 12428 12414 12377 "\n" 30906 23450 12373 12379 12383 12356 12392 12365 12399 "Space" 12467 12510 12531 12489 12434 36984 25246 12375 12390 12367 12384 12373 12356
+                        
+                       )
+                 ) )
+              
               ls_guideexplane
               (mapcar
                'mix_strasc
@@ -7217,6 +7723,7 @@
                                 ))
                             ))
                     (cons "LOADFUNCTION"(lambda()(settile_selectground)))
+                    (cons "HELP"(lambda()(mix_strasc(list 20351 29992 12377 12427 27161 39640 12434 "\n- las" 35501 36796 "\n- xml" 35501 36796 "\n- " 19968 23450 27161 39640 12398 25968 20516 20837 21147 "\n" 12363 12425 36984 25246 12391 12365 12414 12377 ))))
                     )
                
                (list(list 49);;土被り許容値に満たない箇所を一時表示
@@ -7229,6 +7736,7 @@
                             ))
                     (cons "CLICKFUNCTION"
                           (lambda()(setq bool_replacegrread T int_grread 2 elem_grread 49) ))
+                    
                     )
 
                (list(list 50);;Q土被り許容値
@@ -7239,6 +7747,10 @@
                                    'allow_cover_temp))
                     (cons "LOADUNCTION"
                           (lambda()nil))
+
+                    ;;土被りがこの値よりも小さいものが表記の対象となります
+                    (cons "HELP"(lambda()(mix_strasc(list 22303 34987 12426 12364 12371 12398 20516 12424 12426 12418 23567 12373 12356 12418 12398 12364 34920 35352 12398 23550 35937 12392 12394 12426 12414 12377 (if int_selectmenu str_guide_inputval str_guide_selectval) ))))
+                    
                     )
                
                ;; (list(list 65);;A土被り表示ピッチ
@@ -7283,8 +7795,10 @@
                                    'allow_influence_temp))
                     (cons "LOADUNCTION"
                           (lambda()nil))
+                    ;;干渉がこの値よりも大きいものが表記の対象となります\nわずかな干渉を見逃す場合は0より大きい値を入力してください
+                    (cons "HELP"(lambda()(mix_strasc(list 24178 28169 12364 12371 12398 20516 12424 12426 12418 22823 12365 12356 12418 12398 12364 34920 35352 12398 23550 35937 12392 12394 12426 12414 12377 "\n" 12431 12378 12363 12394 24178 28169 12434 35211 36867 12377 22580 21512 12399 "0" 12424 12426 22823 12365 12356 20516 12434 20837 21147 12375 12390 12367 12384 12373 12356 (if int_selectmenu str_guide_inputval str_guide_selectval) ))))
                     )
-
+               
                (list(list 69);;E干渉NG色
                     (cons "ITEM"(list 24178 28169 "NG" 33394  ))
                     (cons "INPUTCOLOR"
@@ -7317,6 +7831,8 @@
                                 (setq str_next nil
                                       int_execute_influence 32))
                             ))
+                    ;;
+                    
                     )
                
                (list(list 80 );;P選択モード切替
@@ -7329,6 +7845,7 @@
                                                (list "{\\C" str_gcol_c ";" 35299 38500 "}")))
                                   )
                             ) )
+                    (cons "HELP"(lambda()str_guide_selectmode))
                     )
                
                (list(list nil)
@@ -7356,9 +7873,8 @@
                             ))
                     (cons "NEXTMODE" "home")
                     )
-
+               
                )
-
               
               )
              
@@ -7374,9 +7890,11 @@
      "KEYBOAD"
      (lambda( / bool_default ls_solidinfluence vec_normal dist_normal)
 
-
        (cond
-        ((or(= elem_grread 13)(= int_grread 25)) )
+        ((or(= elem_grread 13)(= int_grread 25))
+         (mapcar '(lambda(v)(vla-Highlight v :vlax-false))ls_vnam_select)
+         (setq ls_vnam_select nil ls_vnam_highlight nil)
+         )
         ((vl-position int_execute_influence(list 1 2 3))
          (setq vec_normal(unit_vector(carxyz vec_view 0.)))
          
@@ -7586,9 +8104,23 @@
                    xtype_ssget "DUCTBLOCK,CCBOXBLOCK" xdata_ssget "terraduct3d"
                    )
              
+             (setq int_overwrite_readcsv 0)
              (setq int_savecsvifc nil)
              
              (setq
+              func_guidemenu
+              (lambda()
+                ;;投影した経路、管路、特殊部を対象に選択でき、その他のものは選択しようとしてもハイライトされません
+                ;;\n何も選択しないとき、すべて選択したことになります
+                ;;\n選択有り無し
+                (mix_strasc
+                 (list 25237 24433 12375 12383 32076 36335 12289 31649 36335 12289 29305 27530 37096 12434 23550 35937 12395 36984 25246 12391 12365 12289 12381 12398 20182 12398 12418 12398 12399 36984 25246 12375 12424 12358 12392 12375 12390 12418 12495 12452 12521 12452 12488 12373 12428 12414 12379 12435
+                       "\n" 20309 12418 36984 25246 12375 12394 12356 12392 12365 12289 12377 12409 12390 36984 25246 12375 12383 12371 12392 12395 12394 12426 12414 12377
+                       "\n" 36984 25246 12304
+                       (if ls_vnam_select(list 26377 12426)(list 28961 12375)) 12305
+                       )
+                 ) )
+              
               ls_guideexplane
               (mapcar
                'mix_strasc
@@ -7606,29 +8138,50 @@
                           (lambda()(setq str_next nil int_savecsvifc 1) ))
                     (cons "CLICKFUNCTION"
                           (lambda()(setq bool_replacegrread T int_grread 2 elem_grread 49) ))
+                    
                     )
                
                (list(list 50);;CSV読込
                     (cons "ITEM"(list "CSV" 35501 36796 ))
                     (cons "NEXTMODE" "");;
                     (cons "LOADFUNCTION"
-                          (lambda()(setq str_next nil int_savecsvifc 2)
-                            (x-alert(list 26410 23455 35013 12391 12377 ))
-                            (setq str_next T)
-                            ))
+                          (lambda()(setq str_next nil int_savecsvifc 2) ))
                     (cons "CLICKFUNCTION"
                           (lambda()(setq bool_replacegrread T int_grread 2 elem_grread 50) ))
+                    
+                    )
+
+               (list(list 51);;CSV読込み時の名称上書き
+                    (list "ITEM"(list "CSV" 35501 36796 12415 26178 12398 21517 31216 19978 26360 12365 ))
+                    (cons "INPUTSWITCH"
+                          (lambda()
+                            (list 'int_overwrite_readcsv
+                                  (mapcar 'mix_strasc
+                                          (list(list "{\\C" str_gcol_y ";" 31105 27490 "}")
+                                               (list "{\\C" str_gcol_c ";" 35377 21487 "}")))
+                                  )
+                            ) )
+                    ;;読み込んだ管や特殊部の名称が現在図面内に存在するものと一致するときにどうするか設定してください
+                    ;;許可すると現在図面内に存在する同名オブジェクトはすべて削除されます
+                    ;;完了時に読み込みできなかったオブジェクト（禁止時）、上書きしたオブジェクト（許可時）を報告し、クリップボードに貼り付けます
+                    (cons "HELP"
+                          (lambda()
+                            (mix_strasc
+                             (list 35501 12415 36796 12435 12384 31649 12420 29305 27530 37096 12398 21517 31216 12364 29694 22312 22259 38754 20869 12395 23384 22312 12377 12427 12418 12398 12392 19968 33268 12377 12427 12392 12365 12395 12393 12358 12377 12427 12363 35373 23450 12375 12390 12367 12384 12373 12356
+                                   "\n" 35377 21487 12377 12427 12392 29694 22312 22259 38754 20869 12395 23384 22312 12377 12427 21516 21517 12458 12502 12472 12455 12463 12488 12399 12377 12409 12390 21066 38500 12373 12428 12414 12377
+                                   "\n" 23436 20102 26178 12395 35501 12415 36796 12415 12391 12365 12394 12363 12387 12383 12458 12502 12472 12455 12463 12488 65288 31105 27490 26178 65289 12289 19978 26360 12365 12375 12383 12458 12502 12472 12455 12463 12488 65288 35377 21487 26178 65289 12434 22577 21578 12375 12289 12463 12522 12483 12503 12508 12540 12489 12395 36028 12426 20184 12369 12414 12377 ))))
                     )
                
-               (list(list 51);;CSV保存
+               (list(list 52);;IFC保存
                     (cons "ITEM"(list "IFC" 20445 23384  ))
                     (cons "NEXTMODE" "");;
                     (cons "LOADFUNCTION"
                           (lambda()(setq str_next nil int_savecsvifc 3) ))
                     (cons "CLICKFUNCTION"
                           (lambda()(setq bool_replacegrread T int_grread 2 elem_grread 51) ))
+                    
                     )
-
+               
                (list(list 80 );;P選択モード切替
                     (cons "ITEM"(list 36984 25246 12514 12540 12489 20999 26367 ))
                     (cons "INPUTSWITCH"
@@ -7639,6 +8192,7 @@
                                                (list "{\\C" str_gcol_c ";" 35299 38500 "}")))
                                   )
                             ) )
+                    (cons "HELP"(lambda()str_guide_selectmode))
                     )
                
                (list(list nil)
@@ -7656,7 +8210,7 @@
                     )
                
                )
-
+              
               
               )
              
@@ -7699,7 +8253,7 @@
                       ls_str_out)
                  )
            )
-           
+         
          (mapcar
           '(lambda(vnam)
              (vla-getXData vnam "terraduct3d" 'array_Type 'array_Data )
@@ -7830,9 +8384,6 @@
                      )
                  )
                
-               
-               
-               
                (setq num_min(1- num_min) ls_line(list)
                      ls_roadfrominsert(list)
                      num_temp num_min
@@ -7888,7 +8439,7 @@
                                                     (mapcar '(lambda(a)(strcat(as-numstr a)","))lst))
                                                  (strcat(as-numstr lst)","))
                                                )
-                                            (list 13 14 15 16 210 3)))
+                                            (list 15 13 14 10 11 210 3)))
                                    str_out(strcat "ARC," str_out)
                                    ls_str_out(cons str_out ls_str_out)
                                    )
@@ -7896,7 +8447,7 @@
                           (list 0 1))
                        )
                      )
-
+                 
                  
                  (if T
                      (progn;;REBARTYPE
@@ -7959,7 +8510,7 @@
                  )
                
                (if(= int_savecsvifc 1)
-                   (setq ls_str_out(cons "PIPEBLOCKEND," ls_str_out))
+                   (setq ls_str_out(cons "DUCTBLOCKEND," ls_str_out))
 
 
                  (if nil
@@ -7994,7 +8545,7 @@
                      (progn
                        (setq vnam(cdr(assoc "CENTERLINE" ls_out_parameter))
                              ls_p(vlax-safearray->list(vlax-variant-value(vla-get-coordinates vnam)))
-                             numy 12
+                             numy 32
                              
                              ls_rgb(cdr(assoc "TCOLDUCT" ls_out_parameter))
                              ls_p(split_list 3 ls_p)
@@ -8206,18 +8757,21 @@
 
                 (setq ls_gcode(entget(vlax-vla-object->ename obj)))
                 (cond
-                 ((and(= str_type "CCBOXSOLID")(= int_savecsvifc 3))
-                  (setq ls_rgb((lambda(vtc)(mapcar '(lambda(a)(a vtc))
-                                                   (list vla-get-red vla-get-green vla-get-blue)))
-                               (vla-get-truecolor obj))
-                        )
+                 ((= str_type "CCBOXSOLID")
+                  (if(= int_savecsvifc 1)
+                      (setq ls_out_parameter
+                            (cons(cons "COLCCBOX"(vla-get-color obj))ls_out_parameter))
+                    (setq ls_rgb((lambda(vtc)(mapcar '(lambda(a)(a vtc))
+                                                     (list vla-get-red vla-get-green vla-get-blue)))
+                                 (vla-get-truecolor obj))
+                          ))
                   )
                  ((= str_type "CCBOXWIDTH-X")
                   (setq p13(cdr(assoc 13 ls_gcode))p14(cdr(assoc 14 ls_gcode))
                         ls_out_parameter
                         (cons(cons "ZBOTTOM"(caddr p13))ls_out_parameter)
                         )
-                  (if(= int_savcsvifc 1)
+                  (if(= int_savecsvifc 1)
                       (setq ls_out_parameter
                             (cons(cons "X0"(car p13))ls_out_parameter)
                             ls_out_parameter
@@ -8268,7 +8822,7 @@
                  
                  ((= str_type "LEVELINGCON")
                   (setq ls_out_parameter
-                        (cons(cons "LELELINGOFFSET"(cdr(assoc "OFFSET" ls_xdata)))
+                        (cons(cons "LEVELINGOFFSET"(cdr(assoc "OFFSET" ls_xdata)))
                              ls_out_parameter)
                         ls_out_parameter
                         (cons(cons "LEVELINGHEIGHT"(cdr(assoc "HEIGHT" ls_xdata)))
@@ -8300,18 +8854,17 @@
                          (if(setq str(cdr(assoc(car lst)ls_out_parameter)))T
                            (setq str(cadr lst)))
                          (setq str_out(strcat str_out ","(as-numstr str))))
-                      (list(list "ZBOTTOM")(list "ZTOP")(list "ZGROUND")
+                      (list(list "COLCCBOX")(list "ZBOTTOM")(list "ZTOP")(list "ZGROUND")
                            (list "X0")(list "Y0")(list "X1")(list "Y1")(list "X2")(list "Y2")
-                           (list "OFFSET" 0)(list "HEIGHT" 0)
-                           (list "CENTER-X" 0)(list "CENter-Y" 0)
-                           (list "MANHOLEHEIGHT" 0)
+                           (list "LEVELINGOFFSET" 0)(list "LEVELINGHEIGHT" 0)
+                           (list "CENTER-X" 0)(list "CENTER-Y" 0)
+                           (list "MANHOLEHEIGHT" 0)(list "MANHOLERADIUS" 0)
                            )
                       )
                      (setq ls_str_out(cons str_out ls_str_out) )
                      )
                  
                  ((lambda( / vec lst str_name str_r str_g str_b ls_con ang_rot)
-
 
                     (setq ls_con(list(cons "name"(cdr(assoc "NAME" ls_out_parameter)))
                                      (cons "r"(as-numstr(/(car ls_rgb)255.)))
@@ -8411,8 +8964,8 @@
                          (if(apply 'or(mapcar '(lambda(pc)(<(distance p pc)1e-8))ls_p_center))
                              "1" "0")
                          str
-                         (apply 'strcat(mapcar '(lambda(a)(strcat(as-numstr a)","))p))
-                         str(strcat "POINT," str str_i)
+                         (apply 'strcat(mapcar '(lambda(a)(strcat ","(as-numstr a)))p))
+                         str(strcat "POINT," str_i str)
                          ls_str_out(cons str ls_str_out)
                          )
                    )
@@ -8426,7 +8979,7 @@
              )
           ls_vnam_select )
          
-         
+         (setq bool_ifcexe nil)
          (if(setq str_path
                   (if(= int_savecsvifc 1);;CSV保存
                       (getfiled(mix_strasc(list "CSV" 20445 23384))
@@ -8450,18 +9003,29 @@
                    (setq open_file (open str_path "w" "utf8") )
                    (write-char 65279 open_file) ;; BOM
                    ))
-               (mapcar '(lambda(str)(write-line str open_file))(reverse ls_str_out))
-               (close open_file)
 
-               (if(= int_savecsvifc 1)
-                   (x-alert(list 20986 21147 12375 12414 12375 12383)))
+               
+               (if open_file
+                   (progn
+                     (mapcar '(lambda(str)(write-line str open_file))(reverse ls_str_out))
+                     (close open_file)
+                     
+                     (if(= int_savecsvifc 1)
+                         (x-alert(list 20986 21147 12375 12414 12375 12383))
+                       (setq bool_ifcexe T) )
+                     
+                     )
+                 (progn
+                   (alert(mix_strasc(list 12501 12449 12452 12523 12364 38283 12363 12428 12390 12356 12427 12383 12417 26360 36796 12415 12391 12365 12414 12379 12435 12391 12375 12383 )))
+                   )
+                 )
                
                )
            (x-alert(list 12501 12449 12452 12523 12364 36984 25246 12373 12428 12414 12379 12435 12391 12375 12383 ))
            )
          
          
-         (if(and(= int_savecsvifc 3) str_path)
+         (if(and(= int_savecsvifc 3) str_path bool_ifcexe)
              (progn
                ;; (setq cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app"))
                
@@ -8506,15 +9070,16 @@
          
          
          )
+        
         ((if(= int_savecsvifc 2);;CSV読込
-             (if(setq str_path
-                      (getfiled(mix_strasc(list "CSV" 35501 36796))
-                               (strcat(getvar "DWGPREFIX")"csvoutput")"csv" 0))
-                 (progn
-                   (x-alert(list 12501 12449 12452 12523 12364 36984 25246 12373 12428 12414 12379 12435 12391 12375 12383 ))
-                   nil
-                   )
-               ))
+             (setq str_path
+                   (getfiled(mix_strasc(list "CSV" 35501 36796))
+                            (strcat(getvar "DWGPREFIX")"csvoutput")"csv" 0))
+           (progn
+             (x-alert(list 12501 12449 12452 12523 12364 36984 25246 12373 12428 12414 12379 12435 12391 12375 12383 ))
+             nil
+             ) )
+         
          (setq open_file (open str_path "r")
                ls_str_in(list))
          
@@ -8523,30 +9088,652 @@
            )
          (close open_file)
 
-         (setq ls_str_in(reverse ls_str_in))
+         (setq ls_str_in(reverse ls_str_in)
+               int_objtype nil
+               ls_read_duct(list)
+               ls_read_ccbox(list)
+               ls_read_projectroad(list)
+               ls_existblock(list)
+               )
+         
+         (setq radius_node(if(= pitch_project 0.)0.05 pitch_project))
+         (if(if pitch_mesh(>(abs pitch_mesh)1e-8))T(setq pitch_mesh 0.5))
          (while ls_str_in
-           (setq lst(car ls_str_in)ls_str_int(cdr ls_str_in))
+           (setq lst(car ls_str_in)ls_str_in(cdr ls_str_in)
+                 str(car lst)ls_vnam_copy (list))
            
+           (cond
+            ((or(= str "DUCTBLOCK")(= str "CCBOX"))
+             (setq str_name(cadr lst)))
+            ((= str "PROJECTROAD")
+             (setq i 0)
+             (while(progn
+                     (setq str_name(strcat "PROJECTROAD_READ" "$"(itoa(setq i(1+ i)))))
+                     (null(vl-catch-all-error-p
+                           (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_name))))
+                     )
+               )
+             )
+            (T(setq str_name nil))
+            
+            )
            
+           (if(if str_name
+                  (if(vl-catch-all-error-p
+                      (setq block(vl-catch-all-apply 'vla-Item(list vnam_blocktable str_name))))
+                      (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_name) )
+                    (progn
+                      
+                      (setq ls_existblock(cons str_name ls_existblock))
+                      (if(= int_overwrite_readcsv 0)
+                          (progn
+                            (setq ls_vla-release(cons block ls_vla-release))
+                            nil)
+                        
+                        (progn
+                          (if(setq set_ent(ssget "X"(list(cons 2 str_name))))
+                              (progn
+                                (setq num(sslength set_ent))
+                                (while(>(setq num(1- num))-1)
+                                  (setq vnam(vlax-ename->vla-object(ssname set_ent num)))
+                                  (vla-delete vnam)
+                                  )
+                                ))
+                          (vla-delete block)
+                          
+                          (mapcar '(lambda(v)
+                                     (vlax-release-object v)
+                                     (setq ls_vla-release(vl-remove v ls_vla-release))
+                                     )
+                                  (list block))
+                          (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_name))
+                          T
+                          )
+                        ))
+                    ) )
+               (progn
+                 (cond
+                  ((= str "DUCTBLOCK")
+
+                   (mapcar '(lambda(lst val / sym str_type)
+                              (setq sym(car lst)str_type(cadr lst))
+                              (if(= str_type "REAL")(setq val(atof val))
+                                (if(= str_type "INT")(setq val(atoi val))))
+                              (set sym val)
+                              )
+                           (list(list 'str_name)
+                                (list 'int_colduct_temp "INT")
+                                (list 'int_colprotect_temp "INT")
+                                (list 'diam_duct_temp "REAL")
+                                (list 'int_protectcon_temp "INT")
+                                (list 'width_protect_temp "REAL")
+                                (list 'height_protect_temp "REAL")
+                                (list 'filet_protect_temp "REAL")
+                                )
+                           (cdr lst))
+
+                   (setq int_duct -1 int_depth 0 ls_pmesh(list)ls_pbar(list)
+                         p_arcend nil)
+                   (while(progn(setq lst(car ls_str_in) str_type(car lst))
+                               (if(= str_type "DUCTBLOCKEND")
+                                   (progn(setq ls_str_in(cdr ls_str_in))
+                                         nil)
+                                 T) )
+                     
+                     (cond
+                      ((= str_type "DEPTH")
+                       (setq int_duct(1+ int_duct)
+                             ls_dim
+                             (mapcar
+                              '(lambda(lst i / p0 p1)
+                                 (setq lst(cdr lst)
+                                       p0(mapcar 'atof(list(car lst)(cadr lst)(caddr lst)))
+                                       lst(cdddr lst)
+                                       p1(mapcar 'atof(list(car lst)(cadr lst)(caddr lst)))
+                                       lst(cdddr lst)
+                                       hand_road(cadr lst)
+                                       )
+                                 (list p0 p1(if hand_road  hand_road(setq hand_road "")))
+                                 )
+                              ls_str_in (list 0 1)
+                              )
+                             ls_str_in(cddr ls_str_in)
+                             p_line0(cadar ls_dim)p_line1(cadadr ls_dim)
+                             vec_line(unit_vector(mapcar '- p_line0 p_line1))
+                             )
+
+                       (mapcar
+                        '(lambda(lst ii / p0 p1 h)
+                           (setq p0(car lst)p1(cadr lst)h(caddr lst)
+                                 str_level(strcat "GL"(if(<(-(caddr p1)(caddr p0))0)"-" "+")"<>\\P"
+                                                  "EL = "(rtos(caddr p1)2 int_unitelevation))
+                                 entna(make_2pdimension
+                                       nil(list p0 p1 vec_line
+                                                (apply '+(mapcar '* vec_line p0))
+                                                nil(* 0.5 pi)
+                                                0. str_level str_dimstyle_ductlevel)
+                                       )
+                                 vnam(vlax-ename->vla-object entna)
+                                 ls_vnam_copy(cons vnam ls_vnam_copy)
+                                 )
+                           (vla-put-color vnam int_colductdim)
+                           (set_xda vnam(list(cons 1000 "DEPTH")
+                                             (cons 1000 "NUM")(cons 1071 int_duct)
+                                             (cons 1000 "SIDE")(cons 1071 ii)
+                                             (cons 1000 "ROAD")(cons 1000 h)
+                                             )
+                                    "terraduct3d")
+                           )
+                        ls_dim (list 0 1))
+                       
+                       (setq vnam
+                             (vla-addline
+                              (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                              (vlax-3d-point p_line0)(vlax-3d-point p_line1))
+                             ls_vnam_copy(cons vnam ls_vnam_copy)
+                             )
+                       
+                       (vla-put-color vnam int_colductdim)
+                       (set_xda vnam(list(cons 1000 "LINE")
+                                         (cons 1000 "NUM")(cons 1071 int_duct))
+                                "terraduct3d")
+
+                       
+                       )
+                      ((= str_type "ARC")
+                       
+                       (mapcar
+                        '(lambda(lst ii / )
+                           (setq lst(cdr lst)
+                                 p15(mapcar 'atof(list(car lst)(cadr lst)(caddr lst)))
+                                 lst(cdddr lst)
+                                 p13(mapcar 'atof(list(car lst)(cadr lst)(caddr lst)))
+                                 lst(cdddr lst)
+                                 p14(mapcar 'atof(list(car lst)(cadr lst)(caddr lst)))
+                                 lst(cdddr lst)
+                                 p16(mapcar 'atof(list(car lst)(cadr lst)(caddr lst)))
+                                 lst(cdddr lst)
+                                 dist_normal(atof(caddr lst)) lst(cdddr lst)
+                                 vec_normal(mapcar 'atof(list(car lst)(cadr lst)(caddr lst)))
+                                 lst(cdddr lst)
+                                 
+                                 rr(distance p15 p13)
+                                 entna(make_arcdimension
+                                       nil(list p15 p13 p14 p16 r
+                                                vec_normal dist_normal
+                                                " " str_dimstyle_ductlevel))
+                                 vnam(vlax-ename->vla-object entna)
+                                 ls_vnam_copy(cons vnam ls_vnam_copy)
+                                 )
+                           (vla-put-color vnam int_colductdim)
+                           (vla-put-Arrowhead1Type vnam 19)
+                           (vla-put-Arrowhead2Type vnam 19)
+                           (vla-put-ExtLine1Suppress vnam -1)
+                           (vla-put-ExtLine2Suppress vnam -1)
+                           (setq p_arcend p14)
+                           (set_xda vnam(list(cons 1000 "ARC")
+                                             (cons 1000 "NUM")(cons 1071 int_duct)
+                                             (cons 1000 "SIDE")(cons 1071 ii)
+                                             (cons 1000 "RADIUS")(cons 1040 r)
+                                             )
+                                    "terraduct3d")
+
+                           (if(<(distance p13 p14)1e-8) T
+                             (progn
+                               (setq vec13(mapcar '- p13 p15)
+                                     vec14(mapcar '- p14 p15)
+                                     vec13(mapcar '(lambda(a)(/ a rr))vec13)
+                                     vec14(mapcar '(lambda(a)(/ a rr))vec14)
+                                     vec0(cross_product vec_normal vec13)
+                                     vec1(cross_product vec_normal vec14)
+                                     )
+
+                               (setq p(if ls_pbar(caar ls_pbar)p_line0))
+                               
+                               (if(<(apply '+(mapcar '* vec0 vec14))0)(setq vec0(mapcar '- vec0)))
+                               (if(>(apply '+(mapcar '* vec1 vec13))0)(setq vec1(mapcar '- vec1)))
+                               (if(<(apply '+(mapcar '*(mapcar '- p13 p)vec0))-1e-8)
+                                   (setq ls_pbar(cons(list p13 nil vec0)(cdr ls_pbar)))
+                                 ;; (if(= int_protectcon_temp 2)T
+                                 ((lambda(p / d n i dd pm)
+                                    (if ls_pbar T(setq ls_pbar(cons(list p_line0 nil vec0)(cdr ls_pbar))))
+                                    (setq d(distance p p13) n(1+(fix(/ d pitch_mesh))) d(/ d n)
+                                          dd(- d))
+                                    (while(>(setq n(1- n))-1)
+                                      (setq dd(+ dd d)
+                                            pm(mapcar '(lambda(a b)(+ a(* dd b)))p vec0)
+                                            ls_pmesh(cons(list pm vec0)ls_pmesh)
+                                            )
+                                      )
+                                    )
+                                  p)
+                                 ;; )
+                                 )
+                               
+                               (setq ls_pbar(cons(list p13 p15 vec0)ls_pbar)
+                                     ls_pbar(cons(list p14 nil vec1)ls_pbar)
+                                     )
+                               
+                               ((lambda( / d n i ang vec_x vec_y pm dd c s v)
+                                  (setq ang(atan(distance(cross_product vec13 vec14)(list 0 0 0))
+                                                (apply '+(mapcar '* vec13 vec14)))
+                                        vec_x(mapcar '(lambda(a)(* a rr))vec13)
+                                        vec_y(mapcar '(lambda(a)(* a rr))vec0)
+                                        d(* rr ang) n(1+(fix(/ d pitch_mesh))) d(/ ang n)
+                                        ang(- d))
+                                  
+                                  (while(>(setq n(1- n))-1)
+                                    (setq ang(+ ang d)c(cos ang)s(sin ang)
+                                          v(mapcar '(lambda(x y)(+ (* -1 s x)(* c y)))vec13 vec0)
+                                          pm(mapcar '(lambda(a x y)(+ a(* c x)(* s y)))p15 vec_x vec_y)
+                                          ls_pmesh(cons(list pm v)ls_pmesh)
+                                          )
+                                    )
+                                  ))
+                               
+                               ))
+                           )
+                        ls_str_in
+                        (list 0 1))
+                       (setq ls_str_in(cddr ls_str_in))
+                       
+                       )
+                      (T(setq ls_str_in(cdr ls_str_in)))
+                      )
+
+                     
+                     )
+                   
+                   (if p_arcend T(setq p_arcend p_line0))
+                   (setq ls_pbar(cons(list p_line1 nil vec_line) ls_pbar))
+
+                   (setq vec0(unit_vector(mapcar '- p_line1 p_arcend)))
+                   (if(<(apply '+(mapcar '*(mapcar '- p_line1 p_arcend)vec0))-1e-8)
+                       (setq ls_pmesh(cons(list p_arcend vec0)ls_pmesh) )
+                     ((lambda(p / d n i dd pm)
+                        (setq d(distance p p_line1) n(1+(fix(/ d pitch_mesh))) d(/ d n)
+                              dd(- d))
+                        (while(>(setq n(1- n))-1)
+                          (setq dd(+ dd d)
+                                pm(mapcar '(lambda(a b)(+ a(* dd b)))p vec0)
+                                ls_pmesh(cons(list pm vec0)ls_pmesh)
+                                )
+                          )
+                        (setq ls_pmesh(cons(list p_line1 vec0)ls_pmesh))
+                        
+                        )
+                      p_arcend)
+                     ;; )
+                     )
+
+                   
+                   (setq ls_pcenterline(mapcar 'car(reverse ls_pmesh)))
+
+                   (if(= int_ductsolidmesh 1)
+                       (progn
+                         (setq ls_pbar(reverse ls_pbar)
+                               entna(bendpipe_sld
+                                     (* 0.5 diam_duct_temp)
+                                     (mapcar 'car ls_pbar)(mapcar 'cadr ls_pbar)(mapcar 'caddr ls_pbar)
+                                     (getvar "CLAYER") nil)
+                               vnam(vlax-ename->vla-object entna)
+                               )
+                         )
+                     (progn
+                       (setq numy 32
+                             ls_intmesh(inclist 0 numy)
+                             ang_d(/(* 2. pi)numy)
+                             r(* 0.5 diam_duct_temp)
+                             vecxp nil vecyp nil
+                             )
+                       
+                       (setq ls_pduct
+                             (mapcar
+                              '(lambda(lst / p v vecx vecy)
+                                 (setq p(car lst)v(cadr lst)
+                                       v(unit_vector(carxyz v 0.))
+                                       vecx(trans-x(list 1 0 0)v(list 0 0 1))
+                                       vecy(trans-x(list 0 1 0)v(list 0 0 1))
+                                       )
+
+                                 (if(if vecxp(>(apply '+(mapcar '* vecx vecxp))0)T)T
+                                   (setq vecx vecxp))
+                                 (setq vecxp vecx)
+                                 (if(<(caddr vecy)0)(setq vecy(mapcar '- vecy)))
+                                 (mapcar '(lambda(i / c s)
+                                            (setq c(cos(* ang_d i))s(sin(* ang_d i)))
+                                            (mapcar '(lambda(a x y)(+(* r c x)(* r s y)a))
+                                                    p vecx vecy))
+                                         ls_intmesh)
+                                 )
+                              (reverse ls_pmesh)
+                              )
+                             
+                             numx(length ls_pduct)
+                             ls_p(apply 'append(apply 'append ls_pduct))
+                             )
+                       
+                       (setq array_mesh(vlax-make-safearray vlax-vbDouble(cons 0(1-(length ls_p)))))
+                       (vlax-safearray-fill array_mesh ls_p)
+                       (setq vnam
+                             (vla-Add3DMesh
+                              (vla-get-ModelSpace(vla-get-ActiveDocument (vlax-get-acad-object)))
+                              numx numy array_mesh)
+                             
+                             )
+                       )
+                     )
+                   
+                   (vla-put-color vnam int_colduct_temp)
+                   (setq ls_vnam_copy(cons vnam ls_vnam_copy))
+                   (vla-put-visible vnam :vlax-true)
+                   (set_xda vnam(list(cons 1000 "DUCTSOLID")
+                                     (cons 1000 "DIAM")(cons 1040 diam_duct_temp)
+                                     )
+                            "terraduct3d")
+                   
+                   (setq ls_p(apply 'append ls_pcenterline)
+                         array_p(vlax-make-safearray vlax-vbDouble(cons 0(1-(length ls_p)))))
+                   (vlax-safearray-fill array_p ls_p)
+                   (setq vnam(vla-Add3dPoly
+                              (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
+                              array_p))
+                   (setq ls_vnam_copy(cons vnam ls_vnam_copy))
+                   (set_xda vnam(list(cons 1000 "CENTERLINE"))"terraduct3d")
+
+                   
+                   (if(setq numy(if(= int_protectcon_temp 0)
+                                    (if(= filet_protect_temp 0.)4 8)
+                                  (if(= int_protectcon_temp 1)
+                                      (if(= filet_protect_temp 0.)-4 -6)
+                                    )))
+                       (progn
+                         (setq int_corner numy
+                               
+                               w(* 0.5 width_protect_temp)
+                               h(* 0.5 height_protect_temp)
+                               f filet_protect_temp
+                               
+                               ls_pmesh
+                               (mapcar
+                                '(lambda(lst / p v vecx vecy)
+                                   (setq p(car lst)v(cadr lst)
+                                         v(unit_vector(carxyz v 0.))
+                                         vecx(trans-x(list 1 0 0)v(list 0 0 1))
+                                         vecy(trans-x(list 0 1 0)v(list 0 0 1))
+                                         )
+                                   
+                                   (vl-remove
+                                    nil
+                                    (mapcar '(lambda(lst / bool iw iwf ih ihf)
+                                               (mapcar 'set '(bool iw iwf ih ihf)lst)
+                                               (if(vl-position numy bool)
+                                                   (mapcar '(lambda(a x y)(+(*(+(* iw w)(* iwf f))x)
+                                                                            (*(+(* ih h)(* ihf f))y) a))
+                                                           p vecx vecy))
+                                               )
+                                            (list(list(list 8 4)-1  1 1 0)
+                                                 (list(list 8)  -1  0 1 -1)
+                                                 (list(list -6 -4)-1 0 0 0)
+                                                 (list(list 8 4 -6 -4)-1 0 -1 1)
+                                                 (list(list 8 -6)-1  1 -1 0)
+                                                 (list(list 8 -6) 1 -1 -1 0)
+                                                 (list(list 8 4 -6 -4) 1 0 -1 1)
+                                                 (list(list -6 -4) 1 0 0 0)
+                                                 (list(list 8)   1  0 1 -1)
+                                                 (list(list 8 4) 1 -1 1 0)
+                                                 ))
+                                    )
+                                   )
+                                (reverse ls_pmesh)
+                                )
+                               
+                               numx(length ls_pmesh)
+                               numy(abs numy)
+                               ls_p(apply 'append(apply 'append ls_pmesh))
+                               )
+                         
+                         (setq array_mesh(vlax-make-safearray vlax-vbDouble(cons 0(1-(length ls_p)))))
+                         (vlax-safearray-fill array_mesh ls_p)
+                         (setq vnam
+                               (vla-Add3DMesh
+                                (vla-get-ModelSpace(vla-get-ActiveDocument (vlax-get-acad-object)))
+                                numx numy array_mesh)
+
+                               )
+                         
+                         (vla-put-color vnam int_colprotect)
+                         (vla-put-nclose vnam :vlax-true)
+
+                         (setq ls_vnam_copy(cons vnam ls_vnam_copy))
+                         (set_xda vnam(list(cons 1000 "CONMESH")
+                                           (cons 1000 "CORNER")(cons 1071 int_corner)
+                                           (cons 1000 "WIDTH")(cons 1040 width_protect_temp)
+                                           (cons 1000 "HEIGHT")(cons 1040 height_protect_temp)
+                                           (cons 1000 "FILET")(cons 1040 height_protect_temp)
+                                           )
+                                  "terraduct3d")
+                         ))
+                   
+                   (setq ls_xdata(list(cons 1000 "DUCTBLOCK")))
+                   
+                   )
+                  ((= str "CCBOX")
+
+                   (mapcar '(lambda(lst val / sym str_type)
+                              (setq sym(car lst)str_type(cadr lst))
+                              (if(= str_type "REAL")(setq val(atof val))
+                                (if(= str_type "INT")(setq val(atoi val))))
+                              (set sym val)
+                              )
+                           (list(list 'str_name)
+                                (list 'int_colccbox_temp "INT")
+                                (list 'z_bottom "REAL")
+                                (list 'z_top "REAL")
+                                (list 'z_ground "REAL")
+                                (list 'x0 "REAL") (list 'y0 "REAL")
+                                (list 'x1 "REAL") (list 'y1 "REAL")
+                                (list 'x2 "REAL") (list 'y2 "REAL")
+                                (list 'offset_levelingcon_temp "REAL")
+                                (list 'height_levelingcon_temp "REAL")
+                                (list 'xc "REAL") (list 'yc "REAL")
+                                (list 'height_manhole_temp "REAL")
+                                (list 'radius_manhole_temp "REAL")
+                                )
+                           (cdr lst))
+                   
+                   (setq vecx(list(- x1 x0)(- y1 y0)0)
+                         distx(distance(list x0 y0)(list x1 y1))
+                         vecx(mapcar '(lambda(a)(/ a distx))vecx)
+                         vecy(list(- x2 x0)(- y2 y0)0)
+                         disty(distance(list x0 y0)(list x2 y2))
+                         vecy(mapcar '(lambda(a)(/ a disty))vecy)
+                         p_ccbox0(mapcar '(lambda(a x y)(+(* x distx 0.5)(* y disty 0.5)a))
+                                         (list x0 y0 z_bottom)vecx vecy)
+                         
+                         entna(rac_sld(* 0.5 distx)(* 0.5 disty)(- z_top z_bottom)
+                                      p_ccbox0 0(list 0 0 1)vecx(getvar "CLAYER")nil)
+                         vnam(vlax-ename->vla-object entna)
+                         ls_vnam_copy(cons vnam ls_vnam_copy)
+                         )
+                   (set_xda vnam(list(cons 1000 "CCBOXSOLID") ) "terraduct3d")
+                   (vla-put-color vnam int_colccbox_temp)
+                   
+                   (setq vec_normal(list(-(car vecy))(-(cadr vecy))0)
+                         p0(mapcar '(lambda(a x y)(+ a(* -0.5 distx x)(* -0.5 disty y)))
+                                   p_ccbox0 vecx vecy)
+                         dist_normal(apply '+(mapcar '* p0 vec_normal))
+                         )
+                   
+                   (mapcar
+                    '(lambda(lst / p0 p1 vec_normal dist_normal vecy ang hh str_xdata)
+                       (mapcar 'set '(p0 p1 vec_normal dist_normal vecy ang hh str_xdata)lst)
+                       (setq entna(make_2pdimension
+                                   nil(list p0 p1 vec_normal dist_normal vecy ang hh
+                                            "" str_dimstyle_ductlevel))
+                             vnam(vlax-ename->vla-object entna)
+                             ls_vnam_copy(cons vnam ls_vnam_copy)
+                             )
+                       (set_xda vnam(list(cons 1000 str_xdata) )
+                                "terraduct3d")
+                       )
+                    (list(list p0 (mapcar '(lambda(a b)(+ a(* b distx)))p0 vecx)
+                               vec_normal dist_normal(list 0 0 1)0.(* 0.2(- z_top z_bottom))
+                               "CCBOXWIDTH-X")
+                         (list p0 (mapcar '+ p0(list 0 0(- z_top z_bottom)))
+                               vec_normal dist_normal(mapcar '- vecx)(* 0.5 pi)
+                               (* 0.2(- z_top z_bottom))
+                               "CCBOXHEIGHT")
+                         (list(mapcar '+ p0(list 0 0(- z_top z_bottom)))
+                              (carxyz p0 z_ground)
+                              vec_normal dist_normal(mapcar '- vecx)(* 0.5 pi)
+                              (* 0.2(- z_top z_bottom))
+                              "CCBOXVBACANT")
+                         (list(mapcar '(lambda(a b)(+ a(* -1 b disty))) p0 vec_normal)
+                              p0 (mapcar '- vecx)(-(apply '+(mapcar '* vecx p0)))
+                              (list 0 0 1)0.(* 0.2(- z_top z_bottom))
+                              "CCBOXWIDTH-Y")
+                         )
+                    )
+
+                   (if(< height_levelingcon_temp 1e-8)T
+                     (progn
+                       (setq entna(rac_sld(+(* 0.5 distx)offset_levelingcon_temp)
+                                          (+(* 0.5 disty)offset_levelingcon_temp)
+                                          height_levelingcon_temp
+                                          (carxyz p_ccbox0(- z_bottom height_levelingcon_temp))
+                                          0(list 0 0 1)vecx(getvar "CLAYER")nil)
+                             vnam(vlax-ename->vla-object entna)
+                             ls_vnam_copy(cons vnam ls_vnam_copy)
+                             )
+                       
+                       (set_xda vnam(list(cons 1000 "LEVELINGCON")
+                                         (cons 1000 "OFFSET")(cons 1040 offset_levelingcon_temp)
+                                         (cons 1000 "HEIGHT")(cons 1040 height_levelingcon_temp)
+                                         )
+                                "terraduct3d")
+                       (vla-put-color vnam int_colccbox_temp)
+                       
+                       ))
+                   
+                   (if(or(= radius_manhole_temp 0.)(= height_manhole_temp 0.))T
+                     (progn
+                       (setq entna(pole_sld radius_manhole_temp
+                                            height_manhole_temp
+                                            (list xc yc z_top)
+                                            (list 0 0 1)(getvar "CLAYER")nil)
+                             vnam(vlax-ename->vla-object entna)
+                             ls_vnam_copy(cons vnam ls_vnam_copy)
+                             )
+                       
+                       (set_xda vnam(list(cons 1000 "MANHOLE")
+                                         (cons 1000 "CENTER-X")(cons 1040(car p_manhole))
+                                         (cons 1000 "CENTER-Y")(cons 1040(cadr p_manhole))
+                                         (cons 1000 "DIAM")(cons 1040(* 2. radius_manhole_temp))
+                                         (cons 1000 "HEIGHT")(cons 1040 height_ccboxtop_temp)
+                                         )
+                                "terraduct3d")
+                       (vla-put-color vnam int_colccbox_temp)
+                       
+                       ))
+
+                   (setq ls_xdata(list(cons 1000 "CCBOXBLOCK")
+                                      (cons 1000 "PROJECT-D")(cons 1000(if str_lasground str_lasground ""))
+                                      (cons 1000 "PROJECT-H")(cons 1040(if height_ground height_ground 0.))
+                                      ))
+                   
+                   )
+                  ((= str "PROJECTROAD")
+                   (setq int_col(atoi(cadr lst))ls_p(list))
+                   
+                   (while(progn(setq lst(car ls_str_in)ls_str_in(cdr ls_str_in)
+                                     str_type(car lst))
+                               (= str_type "POINT"));;PROJECTROADEND
+                     (setq i(atoi(cadr lst))
+                           p(mapcar 'atof(cddr lst)))
+                     (mapcar '(lambda(a)(setq ls_p(cons a ls_p)))p)
+                     (if(= i 1)
+                         (setq v(vla-addcircle
+                                 (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                                 (vlax-3d-point p)radius_node)
+                               ls_vnam_copy(cons v ls_vnam_copy)
+                               )
+                       )
+                     
+                     )
+
+                   (setq ls_p(reverse ls_p))
+                   (setq array_p(vlax-make-safearray vlax-vbDouble(cons 0 (1-(length ls_p)))))
+                   (vlax-safearray-fill array_p ls_p)
+                   (setq vnam(vla-Add3dPoly
+                              (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))array_p)
+                         ls_vnam_copy(cons vnam ls_vnam_copy)
+                         )
+                   (vla-put-color vnam int_col)
+
+                   (setq ls_xdata(list(cons 1000 "PROJECT")(cons 1000 "PROJECT")(cons 1000 "")))
+                   
+                   )
+                  )
+                 
+                 (setq ls_vla-release(cons block ls_vla-release))
+                 
+                 (vla-copyobjects
+                  (vla-get-ActiveDocument(vlax-get-acad-object))
+                  (vlax-make-variant
+                   (vlax-safearray-fill
+                    (vlax-make-safearray
+                     vlax-vbObject(cons 0(1-(length ls_vnam_copy))) )
+                    ls_vnam_copy)
+                   )
+                  block)
+                 
+                 (setq vnam(vla-InsertBlock
+                            (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
+                            (vlax-3d-point 0 0 0)str_name 1 1 1 0)
+                       )
+                 
+                 (set_xda vnam ls_xdata "terraduct3d")
+                 
+                 (mapcar '(lambda(v)
+                            (vla-delete v)
+                            (exckillobj v)
+                            )
+                         ls_vnam_copy)
+                 ))
            
            )
+
+         (x-alert
+          (if ls_existblock
+              (if(= int_overwrite_readcsv 0)
+                  (list ;;既存のブロック名称であったため上書きせずに読込完了しました
+                   26082 23384 12398 12502 12525 12483 12463 21517 31216 12391 12354 12387 12383 12383 12417 19978 26360 12365 12379 12378 12395 35501 36796 23436 20102 12375 12414 12375 12383
+                   "\n" (vl-princ-to-string ls_existblock)
+                   )
+                (list ;;既存のブロックを削除して新たに読み込みました
+                 26082 23384 12398 12502 12525 12483 12463 12434 21066 38500 12375 12390 26032 12383 12395 35501 12415 36796 12415 12414 12375 12383
+                 "\n"(vl-princ-to-string ls_existblock)
+                 )
+                )
+            (list ;;既存のブロック名称と干渉せずすべて読込完了しました
+             26082 23384 12398 12502 12525 12483 12463 21517 31216 12392 24178 28169 12379 12378 12377 12409 12390 35501 36796 23436 20102 12375 12414 12375 12383
+             )))
          
+         (setq ls_existblock(list))
          
-         
-         (str_edit "readcsvmode")
          )
         )
        
        
 
        
-       
        ))
     
     ;;CLICK,KEYBOAD
     
     )
-   
+
    
    
    )
