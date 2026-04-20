@@ -251,13 +251,25 @@
            (setq str_mark(strcat(if(<(strlen str_mark)6)str_mark(substr str_mark 2))
                                 (chr int_ascii)))
            )
-         (if(null int_ascii)(progn(alert "面作成前にファイル読み込みが終了しました")(quit)))
+         (if(null int_ascii)(progn(alert(mix_strasc(list 38754 20316 25104 21069 12395 12501 12449 12452 12523 35501 12415 36796 12415 12364 32066 20102 12375 12414 12375 12383 )))(quit)));;面作成前にファイル読み込みが終了しました
+         
+         
+         ;;setxrec
+             ;; (setq array_data(vlax-make-safearray vlax-vbVariant(cons 0 3))
+             ;;       array_type(vlax-make-safearray vlax-vbInteger(cons 0 3)))
+             ;; (vlax-safearray-fill array_type(list 1040 1040 1040 1040))
+             ;; (vlax-safearray-fill array_data(list size_grid z_ave z_min z_max))
+             ;; (vla-SetXRecordData xrec array_type array_data )
+         ;;(mapcar 'vlax-variant-value(vlax-safearray->list array_data))
+
          
          (mapcar '(lambda(int_str)(set(read(strcat "array_point_"(itoa int_str)))nil))
                  (inclist 0 100))
          (setq num_parray 10000000 );;nsp 10000 rsp 0.0001
          (setq str_mark "")
 
+
+         (setq str_prearray "")
          (while(and(/= str_mark "</Pnts>")(setq int_ascii(read-char file_r)))
            (setq str_mark(strcat(if(<(strlen str_mark)7)str_mark(substr str_mark 2))
                                 (chr int_ascii)))
@@ -270,9 +282,14 @@
                  )
                (while(/=(read-char file_r)62));;62=>
                
-               (setq sym_array(read(strcat "array_point_"(itoa(/ int_id num_parray)))))
-               (if(eval sym_array)T
-                 (set sym_array(vlax-make-safearray vlax-vbdouble(cons 1(* num_parray 3)))) )
+               (setq str_array(itoa(/ int_id num_parray))
+                     sym_array(read(strcat "array_point_" str_array)))
+
+               (if(= str_prearray str_array)T
+                 (if(setq val_array(eval sym_array))T
+                   (setq val_array(vlax-make-safearray vlax-vbdouble(cons 1(* num_parray 3)))) ))
+               (setq str_prearray str_array)
+               
                (mapcar '(lambda(a / str)
                           (while(vl-position(setq int_ascii(read-char file_r))(list 9 32)))
                           (setq str(chr int_ascii))
@@ -281,14 +298,12 @@
                           (set a(atof str))
                           )
                        '(x y z));;60=< 32=space
-
                
-               (mapcar '(lambda(c ic)
-                          (vlax-safearray-put-element(eval sym_array)(+(* int_id 3)ic)c))
+               (mapcar '(lambda(c ic)(vlax-safearray-put-element val_array(+(* int_id 3)ic)c))
                        (list y x z)(list -2 -1 0))
                ))
            )
-         (if(null int_ascii)(progn(alert "面作成前にファイル読み込みが終了しました")(quit)))
+         (if(null int_ascii)(progn(alert(mix_strasc(list 38754 20316 25104 21069 12395 12501 12449 12452 12523 35501 12415 36796 12415 12364 32066 20102 12375 12414 12375 12383 )))(quit)))
          ;; <P id="558">-104791.36456945 1064.78002749 16.17998000</P>
          ;; </Pnts>
          ;; <Faces>
@@ -346,10 +361,13 @@
                
                (setq point1 nil point2 nil point3 nil)
                (mapcar '(lambda( int_id / num pmat x y z)
-                          (setq pmat(eval(read(strcat "array_point_"(itoa(/ int_id num_parray)))))
-                                x(vlax-safearray-get-element pmat(-(* int_id 3)2))
-                                y(vlax-safearray-get-element pmat(-(* int_id 3)1))
-                                z(vlax-safearray-get-element pmat(-(* int_id 3)0))
+                          (setq str_array(itoa(/ int_id num_parray)))
+                          (if(= str_array str_prearray)T
+                            (setq val_array(eval(read(strcat "array_point_" str_array)))))
+                          (setq str_prearray str_array
+                                x(vlax-safearray-get-element val_array(-(* int_id 3)2))
+                                y(vlax-safearray-get-element val_array(-(* int_id 3)1))
+                                z(vlax-safearray-get-element val_array(-(* int_id 3)0))
                                 )
                           (if xmin (setq xmin(min x xmin)xmax(max x xmax)
                                          ymin(min y ymin)ymax(max y ymax))
@@ -1560,10 +1578,7 @@
                (cons "key" "inputxml")
                (cons "label"(mix_strasc(list "xml" 12487 12540 12479 12434 12464 12522 12483 12489 12392 12375 12390 35501 36796)))))
         "  }"
-        (list_to_dcltext;;XML未実装
-         (list "text"(cons "width" "20")(cons "fixed_width" "true")
-               (cons "value"(mix_strasc(list 8251 "XML" 26410 23455 35013 )))))
-
+        
         " :row"
         " {"
         "  alignment = left;"
@@ -1670,13 +1685,21 @@
                           (done_dialog 1))
                         )
                       )
+
                 
                 (action_tile "accept" "(accept_ground)")
                 (setq dialog-box (start_dialog))
                 (unload_dialog load_dcl)
 
                 (if func_las(setq height_ground nil str_lasground(func_las)) )
-                (if(or str_lasground height_ground) (setq bool_loop nil))
+                
+                (if(or str_lasground height_ground) (setq bool_loop nil)
+                  (if(=(getvar "DIASTAT")0)
+                      (progn ;;設定なしでキャンセルします\nモデル作成には標高の設定が必要なので必ず行ってください
+                        (alert(mix_strasc(list 35373 23450 12394 12375 12391 12461 12515 12531 12475 12523 12375 12414 12377 "\n" 12514 12487 12523 20316 25104 12395 12399 27161 39640 12398 35373 23450 12364 24517 35201 12394 12398 12391 24517 12378 34892 12387 12390 12367 12384 12373 12356 )))
+                        (setq bool_loop nil)
+                        ))
+                  )
                 )
               
               )
@@ -2374,7 +2397,7 @@
                    (if func_grdisp nil
                      (list str_guideinitial2_c
                            (if(= int_guideclick 1)
-                               (list "\n{\\C" "53"  ";"
+                               (list "\n{\\C" "53" ";"
                                      12463 12522 12483 12463 25805 20316 28961 21177 "}")
                              str_guideinitial2_y)
                            ))
@@ -2410,7 +2433,7 @@
                            ;;  (T
                            ;;   (setq int_exchageguidegr5 nil
                            ;;         lst
-                                   
+                           
                            (mapcar
                             '(lambda(lst / num str str_bool str_key str_item str_val func_con sym_input
                                          bool_selectmenu bool_starselectmenu
