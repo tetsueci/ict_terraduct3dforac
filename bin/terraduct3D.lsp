@@ -254,15 +254,6 @@
          (if(null int_ascii)(progn(alert(mix_strasc(list 38754 20316 25104 21069 12395 12501 12449 12452 12523 35501 12415 36796 12415 12364 32066 20102 12375 12414 12375 12383 )))(quit)));;面作成前にファイル読み込みが終了しました
          
          
-         ;;setxrec
-             ;; (setq array_data(vlax-make-safearray vlax-vbVariant(cons 0 3))
-             ;;       array_type(vlax-make-safearray vlax-vbInteger(cons 0 3)))
-             ;; (vlax-safearray-fill array_type(list 1040 1040 1040 1040))
-             ;; (vlax-safearray-fill array_data(list size_grid z_ave z_min z_max))
-             ;; (vla-SetXRecordData xrec array_type array_data )
-         ;;(mapcar 'vlax-variant-value(vlax-safearray->list array_data))
-
-         
          (mapcar '(lambda(int_str)(set(read(strcat "array_point_"(itoa int_str)))nil))
                  (inclist 0 100))
          (setq num_parray 10000000 );;nsp 10000 rsp 0.0001
@@ -768,6 +759,19 @@
              (cons "SYMBOL" 'int_editdepth);;(cons "TEMP" 'int_inputdepth_temp)
              (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0)))
         
+        (list(cons "TEXT"(mix_strasc(list 26032 12375 12367 20870 24359 12398 20301 32622 12434 35373 23450 12377 12427 12392 12365)))
+             (cons "EXPLANE"(mix_strasc(list 8251 "2" 22238 30446 20197 38477 12398 32232 38598 26178 12399 20219 24847 12395 35373 23450 12391 12365 12414 12377  )));;※2回目以降の編集時は任意に設定できます
+             (cons "ITEM" "POPUP_LIST");;新しく円弧の位置を設定するとき
+             (cons "VALLIST"(setq ls_type_editarcposition
+                                  (mapcar
+                                   'mix_strasc;;手動,起点側終点を通過,終点側起点を通過
+                                   (list(list 25163 21205)
+                                        (list 36215 28857 20596 32066 28857 12434 36890 36942)
+                                        (list 32066 28857 20596 36215 28857 12434 36890 36942)
+                                        ))))
+             (cons "SYMBOL" 'int_editarcposition);;(cons "TEMP" 'int_inputdepth_temp)
+             (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0)))
+        
         (list(cons "TEXT"(mix_strasc(list 31649 12398 12514 12487 12522 12531 12464 )))
              (cons "ITEM" "POPUP_LIST");;管のモデリング
              (cons "VALLIST"(mapcar 'mix_strasc
@@ -784,7 +788,12 @@
                                                (list 12354 12426 " ( " 19979 21322 " )")
                                                (list 12394 12375)))))
              (cons "SYMBOL" 'int_protectcon)(cons "TEMP" 'int_protectcon_temp)
-             (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0)))
+             (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0))
+             (cons "BREAK" 0)
+             )
+        
+        (list(cons "TEXT"(mix_strasc(list "")))
+             (cons "ITEM" "TEXT"))
         
         (list(cons "TEXT"(mix_strasc(list 31649 30452 24452))) 
              (cons "ITEM" "EDIT_BOX");;管直径
@@ -817,6 +826,55 @@
                                          (list 35377 21487 12377 12427) )))
              (cons "SYMBOL" 'int_allow_noroad)(cons "TEMP" 'int_allow_noroad_temp)
              (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0))
+             )
+
+        (list(cons "TEXT"(mix_strasc(list 12304 31649 36335 29305 27530 37096 20849 36890 12305)))
+             (cons "ITEM" "TEXT"))
+        
+        (list(cons "SYMBOL" 'str_dimstyle_ductlevel)(cons "INITIALFUNC"(lambda(a)nil))
+             (cons "EXPLANE"(mix_strasc(list 27161 39640 23544 27861 12473 12479 12452 12523)))
+             )
+        
+        (list(cons "TEXT"(mix_strasc(list 27161 39640 23544 27861 12473 12479 12452 12523)))
+             (cons "ITEM" "POPUP_LIST")(cons "VALLIST" ls_dimstyle);;標高寸法スタイル
+             (cons "EXPLANE"(mix_strasc(list 8251 12371 12428 12363 12425 20316 25104 12373 12428 12427 12418 12398 12395 23550 12375 12390 26377 21177)))
+             (cons "SYMBOL" 'int_dimstyle_ductlevel)(cons "TYPE" "INT")
+             (cons "INITIALFUNC" (lambda(a)
+                                   (if(if str_dimstyle_ductlevel
+                                          (setq i(vl-position str_dimstyle_ductlevel ls_dimstyle)))T
+                                     (setq i(vl-position(getvar "DIMSTYLE")ls_dimstyle)))
+                                   i))
+             
+             (cons "ACTIONLIST"((lambda( / )
+                                  (setq action_dimlevel
+                                        (lambda(str / i)
+                                          (setq i(atoi(get_tile str))
+                                                int_dimstyle_ductlevel i
+                                                str_dimstyle_ductlevel(nth i ls_dimstyle))
+                                          )
+                                        )
+                                  "action_dimlevel"
+                                  )))
+             (cons "NOEXPORT"(lambda()nil))
+             )
+        
+        (list(cons "SYMBOL" 'str_dimstyle_ductlevel)
+             (cons "INITIALFUNC"(lambda(a)(nth int_dimstyle_ductlevel ls_dimstyle)))
+             (cons "NOEXPORT"(lambda()T))
+             )
+
+        (list(cons "TEXT"(mix_strasc(list 27161 39640 20024 12417 26689 25968 ))) 
+             (cons "ITEM" "EDIT_BOX");;標高丸め桁数
+             (cons "SYMBOL" 'int_unitelevation);;
+             (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)1)))
+
+        
+        (list(cons "TEXT"(mix_strasc(list 21517 31216 12398 19978 26360 12365 )));;
+             (cons "ITEM" "POPUP_LIST")
+             (cons "VALLIST"(mapcar 'mix_strasc(list(list 35377 21487 12375 12394 12356)
+                                                    (list 35377 21487 12377 12427 ))))
+             (cons "SYMBOL" 'int_allow_overwrite)(cons "TYPE" "INT")
+             (cons "INITIALFUNC" (lambda(a)0))
              (cons "BREAK" 0)
              )
         
@@ -855,68 +913,16 @@
              (cons "ITEM" "EDIT_BOX");; 均しコン高さ
              (cons "EXPLANE"(mix_strasc(list 8251 22343 12375 12467 12531 39640 12373 12364 "0" 12398 12392 12365 20316 25104 12373 12428 12394 12356 )));;0のとき作成されない
              (cons "SYMBOL" 'height_levelingcon)(cons "TEMP" 'height_levelingcon_temp)
-             (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.1)))
-        
-        (list(cons "TEXT"(mix_strasc(list 12304 31649 36335 29305 27530 37096 20849 36890 12305)))
-             (cons "ITEM" "TEXT"))
-
-        
-        (list(cons "SYMBOL" 'str_dimstyle_ductlevel)(cons "INITIALFUNC"(lambda(a)nil))
-             (cons "EXPLANE"(mix_strasc(list 27161 39640 23544 27861 12473 12479 12452 12523)))
-             )
-        
-        (list(cons "TEXT"(mix_strasc(list 27161 39640 23544 27861 12473 12479 12452 12523)))
-             (cons "ITEM" "POPUP_LIST")(cons "VALLIST" ls_dimstyle);;標高寸法スタイル
-             (cons "EXPLANE"(mix_strasc(list 8251 12371 12428 12363 12425 20316 25104 12373 12428 12427 12418 12398 12395 23550 12375 12390 26377 21177)))
-             (cons "SYMBOL" 'int_dimstyle_ductlevel)(cons "TYPE" "INT")
-             (cons "INITIALFUNC" (lambda(a)
-                                   (if(if str_dimstyle_ductlevel
-                                          (setq i(vl-position str_dimstyle_ductlevel ls_dimstyle)))T
-                                     (setq i(vl-position(getvar "DIMSTYLE")ls_dimstyle)))
-                                   i))
-             
-             (cons "ACTIONLIST"((lambda( / )
-                                  (setq action_dimlevel
-                                        (lambda(str / i)
-                                          (setq i(atoi(get_tile str))
-                                                int_dimstyle_ductlevel i
-                                                str_dimstyle_ductlevel(nth i ls_dimstyle))
-                                          )
-                                        )
-                                  "action_dimlevel"
-                                  )))
-             (cons "NOEXPORT"(lambda()nil))
-             )
-        
-        (list(cons "SYMBOL" 'str_dimstyle_ductlevel)
-             (cons "INITIALFUNC"(lambda(a)(nth int_dimstyle_ductlevel ls_dimstyle)))
-             (cons "NOEXPORT"(lambda()T))
-             )
-
-        
-        
-
-        (list(cons "TEXT"(mix_strasc(list 27161 39640 20024 12417 26689 25968 ))) 
-             (cons "ITEM" "EDIT_BOX");;標高丸め桁数
-             (cons "SYMBOL" 'int_unitelevation);;
-             (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)1)))
-
-        
-        (list(cons "TEXT"(mix_strasc(list 21517 31216 12398 19978 26360 12365 )));;
-             (cons "ITEM" "POPUP_LIST")
-             (cons "VALLIST"(mapcar 'mix_strasc(list(list 35377 21487 12375 12394 12356)
-                                                    (list 35377 21487 12377 12427 ))))
-             (cons "SYMBOL" 'int_allow_overwrite)(cons "TYPE" "INT")
-             (cons "INITIALFUNC" (lambda(a)0))
+             (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.1))
              (cons "BREAK" 0)
              )
-        
 
-        (list(cons "TEXT"(mix_strasc(list 12304 26908 35388 12305)))
+        (list(cons "TEXT"(mix_strasc(list 12304 35377 23481 20516 12305)))
              (cons "ITEM" "TEXT"))
 
         (list(cons "TEXT"(mix_strasc(list 24178 28169 35377 23481 20516)))
              (cons "ITEM" "EDIT_BOX");; 干渉許容値
+             (cons "EXPLANE"(mix_strasc(list 8251 12431 12378 12363 12394 24178 28169 12434 35377 12377 12392 12365 36000 12398 20516 12434 20837 21147 )));;※わずかな干渉を許すとき負の値を入力
              (cons "SYMBOL" 'allow_influence)(cons "TEMP" 'allow_influence_temp)
              (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.01)))
         
@@ -1756,7 +1762,8 @@
                   (setq ii -1 num_column(1+ num_column)))
               )
            ls_initialparameters)
-          (setq num_page_max(1+(fix(/ num_column num_column_max))))
+          (setq num_page_max(fix(/ num_column num_column_max)))
+          (if(=(rem num_column num_column_max)0)T(setq num_page_max(1+ num_page_max)))
           ))
        
        
@@ -2349,6 +2356,7 @@
             (setq int_selectmenu nil ls_vnam_select nil initial_selectmenu nil 
                   bool_input nil str_input "" ls_vnam_select nil bool_getpoint nil
                   int_exchangeguide_gr5 nil)
+            (setq str_funcmarker "INITIAL")
             (func_grinitial(list T))
             ))
         (setq str_edit_loop str_edit
@@ -2543,6 +2551,7 @@
                    ))
                 )
                )
+              (setq str_funcmarker "DISPLAY")
 
               (setq nn 0 start 1)
               (while(setq count(vl-string-search "\n" str start))
@@ -2764,6 +2773,7 @@
           
           (if guidegr5_unique(guidegr5_unique))
           (if func_gr5(func_gr5))
+          (setq str_funcmarker "MOVE")
           
           (if(if bool_selectent p_selerac)
               (progn
@@ -2968,6 +2978,7 @@
                 ))
 
             (if func_gr3(func_gr3))
+            (setq str_funcmarker "CLICK")
             )
            )
           (if(= int_grread 3)(setq bool_getpoint nil))
@@ -4818,7 +4829,7 @@
        (if bool_firsttime_editduct
            (setq bool_firsttime_editduct
                  (if(< bool_firsttime_editduct 1)(1+ bool_firsttime_editduct))))
-       
+
        (setq bool
              ((lambda(lst / a ls_nent bool entna str_height ls_current
                           entna_arc vnam_arc ls_currentarc p00 p01 p11 p10 vnam
@@ -4890,6 +4901,8 @@
                     
                     (while lst
                       (setq ls_current(car lst)lst(cdr lst))
+
+                      
                       (if(vl-position(cadr(assoc "OBJ" ls_current))ls_nent)
                           (cond
                            ((setq a(assoc "DEPTH" ls_current))
@@ -4999,8 +5012,9 @@
                                         )
                                   )
                               
-                              (if(setq lst(cdr(assoc "POSITION" ls_current)))
+                              (if(cdr(assoc "POSITION" ls_current))
                                   (progn
+                                    
                                     (setq bool T )
                                     (vla-put-color vnam_arc 2)
                                     
@@ -5016,9 +5030,9 @@
                                           (cdr(connect_twist_curve
                                                (list nil p00 p01 p10 p11
                                                      (cdr(assoc "RADIUS" ls_current))length_arccenter)))
-                                          
 
-                                          
+                                          ls_currentarc0(assoc(list "ARC" ii 0)ls_vnam_duct)
+                                          ls_currentarc1(assoc(list "ARC" ii 1)ls_vnam_duct)
                                           str_edit "insertarc")
                                     
                                     )
@@ -5036,7 +5050,7 @@
                                   )
                                 )
                               )
-                            
+
                             )
                            
                            ((setq num_line(cadr(assoc "LINE" ls_current)))
@@ -5091,6 +5105,7 @@
                            )
                         )
                       )
+                    
                     )
                    )
                   
@@ -5373,6 +5388,7 @@
 
            (if(and vnam_line0 vnam_line1 )
                (progn
+                 
                  (if(setq ls_currentarc0(assoc(list "ARC" num_duct 0)ls_vnam_duct))T
                    (setq ls_currentarc0(list(list "ARC" num_duct 0)(list "OBJ" )
                                             (cons "RADIUS" radius_bend_temp)
@@ -5392,12 +5408,11 @@
                                     (strcat(itoa num_duct)"-"(itoa(1+ num_duct))":")))
                        )
 
-                 
-                 
 
                  (if(=(car ls_arc)"BREAK")
                      (if(cdr ls_arc)
                          (setq num_duct(1+ int_max_duct)
+                               bool_arcfirsttime(/= int_editarcposition 0)
                                ls_arcmove(cdr ls_arc)
                                str_edit "insertarc")
                        (setq num_duct(1+ int_max_duct)
@@ -5508,9 +5523,9 @@
                               vec_x(mapcar '(lambda(a)(* a rr))vec13)
                               vec_y(mapcar '(lambda(a)(* a rr))vec0)
                               d(* rr ang) n(1+(fix(/ d pitch_mesh))) d(/ ang n)
-                              ang(- d))
+                              ang 0)
                         
-                        (while(>(setq n(1- n))-1)
+                        (while(>(setq n(1- n))0)
                           (setq ang(+ ang d)c(cos ang)s(sin ang)
                                 v(mapcar '(lambda(x y)(+ (* -1 s x)(* c y)))vec13 vec0)
                                 pm(mapcar '(lambda(a x y)(+ a(* c x)(* s y)))p15 vec_x vec_y)
@@ -5609,6 +5624,7 @@
                            
                            )
                      (vla-put-color vnam int_colduct_temp)
+                     (vla-put-nclose vnam :vlax-true)
                      (if(= int_hidesolid 1)(vla-put-visible vnam :vlax-false))
                      
                      (addkillobj vnam)
@@ -5709,8 +5725,6 @@
          )
 
         ((and(null bool_ductedit)vnam_insertduct(= str_type "DUCTBLOCK"))
-         
-         
          
          (setq str(vla-get-name vnam_insertduct)
                vnam(vla-Item(vla-get-Blocks (vla-get-ActiveDocument(vlax-get-acad-object)))str)
@@ -6033,33 +6047,37 @@
              (progn
                (setq vnam(vla-Item(vla-get-Blocks (vla-get-ActiveDocument(vlax-get-acad-object)))
                                   (vla-get-name vnam_insertduct)))
+
+               (setq vnam_road_temp nil)
                (vlax-for
                 obj vnam
-                (if(if vnam_road nil(=(vla-get-ObjectName obj)"AcDb3dPolyline"))
+                (if(if vnam_road_temp nil(=(vla-get-ObjectName obj)"AcDb3dPolyline"))
                     (progn 
                       (setq ls_p(vl-catch-all-apply 'vla-get-coordinates(list obj))
-                            vnam_road
+                            vnam_road_temp
                             (vla-Add3dPoly
                              (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
                              ls_p)
-                            ls_vnam_killobj(cons vnam_road ls_vnam_killobj)
+                            ls_vnam_killobj(cons vnam_road_temp ls_vnam_killobj)
                             )
 
                       (if(and(null ls_vnam_duct)(= int_getcolor_ductroad 0))
                           (progn
                             (setq int_colduct_temp(get_visual_color obj))
-                            (vla-put-color vnam_road int_colduct_temp)
+                            (vla-put-color vnam_road_temp int_colduct_temp)
                             (setq hand_road(vla-get-handle obj))
                             )
-                        (vla-put-color vnam_road(get_visual_color obj))
+                        (vla-put-color vnam_road_temp(get_visual_color obj))
                         )
                       
                       )
                   )
                 )
                
-               (if vnam_road
-                   (setq ls_p_road(split_list 3(vlax-safearray->list(vlax-variant-value ls_p)))))
+               (if vnam_road_temp
+                   (setq vnam_road vnam_road_temp
+                         ls_p_road(split_list 3(vlax-safearray->list(vlax-variant-value ls_p)))))
+               
                )
            
            (if(if(setq vnam(car ls_vnam_select))
@@ -6447,7 +6465,8 @@
                  
                  (if(setq p(cadar lst))
                      (cond
-                      ((<(distance p p_line01)1e-8)(setq ls_limit0 lst bool_loop nil))
+                      ((<(distance p p_line01)1e-8)
+                       (setq ls_limit0 lst bool_loop nil p_limit0 p_temp))
                       ((>(*(apply '+(mapcar '*(mapcar '- p p_line01)vec_line0))delta_arc)0)
                        (setq delta_arc(* -0.1 delta_arc)) )
                       )
@@ -6464,7 +6483,8 @@
                        )
                  (if(setq p(cadar lst))
                      (cond
-                      ((<(distance p p_line10)1e-8)(setq ls_limit1 lst bool_loop nil))
+                      ((<(distance p p_line10)1e-8)
+                       (setq ls_limit1 lst bool_loop nil p_limit1 p_temp))
                       ((>(*(apply '+(mapcar '*(mapcar '- p p_line10)vec_line1))delta_arc)0)
                        (setq delta_arc(* -0.1 delta_arc)) )
                       )
@@ -6522,7 +6542,7 @@
                        
                        )
                       ) )
-
+                   
                    
                    ls_guideexplane
                    (mapcar
@@ -6560,7 +6580,7 @@
                                (lambda()
 
                                  (if(= bool_linetype 2)
-                                     (setq int_baseline 0 elem_grread(car(last ls_limit0)))
+                                     (setq int_baseline 0 elem_grread p_limit0)
                                    (setq int_baseline 0 elem_grread p_line01 ))
                                  (setq bool_replacegrread T int_grread 3)
                                  
@@ -6573,7 +6593,7 @@
                          (cons "LOADFUNCTION"
                                (lambda()
                                  (if(= bool_linetype 2)
-                                     (setq int_baseline 0 elem_grread(cadr(last ls_limit1)))
+                                     (setq int_baseline 0 elem_grread p_limit1)
                                    (setq int_baseline 1 elem_grread p_line10))
                                  (setq bool_replacegrread T int_grread 3)
                                  
@@ -6595,6 +6615,11 @@
                     )
                    
                    )
+             
+             (if bool_arcfirsttime
+                 (setq bool_arcfirsttime nil bool_replacegrread T
+                       int_grread 2 elem_grread(+ 49 int_editarcposition)
+                       ))
              
              ))
        
@@ -6763,7 +6788,6 @@
               )
             p_temp 'ls_arc_temp int_baseline )
 
-
            (if ls_arc_temp
                (progn
                  
@@ -6806,8 +6830,10 @@
     (cons
      "CLICK"
      (lambda();;gr3
+
        (if(if point_decide T (setq point_decide ls_arc_temp))
            (progn
+             
              (setq ls_vnam_duct
                    (subst(list(assoc "ARC" ls_currentarc0)
                               (assoc "OBJ" ls_currentarc0)
@@ -7819,8 +7845,8 @@
                                    'allow_influence_temp))
                     (cons "LOADUNCTION"
                           (lambda()nil))
-                    ;;干渉がこの値よりも大きいものが表記の対象となります\nわずかな干渉を見逃す場合は0より大きい値を入力してください
-                    (cons "HELP"(lambda()(mix_strasc(list 24178 28169 12364 12371 12398 20516 12424 12426 12418 22823 12365 12356 12418 12398 12364 34920 35352 12398 23550 35937 12392 12394 12426 12414 12377 "\n" 12431 12378 12363 12394 24178 28169 12434 35211 36867 12377 22580 21512 12399 "0" 12424 12426 22823 12365 12356 20516 12434 20837 21147 12375 12390 12367 12384 12373 12356 (if int_selectmenu str_guide_inputval str_guide_selectval) ))))
+                    ;;2つの管の表面から表面までの最短距離がこの値よりも小さいとき表示します\nわずかな干渉を許すときは負の値を入力してください
+                    (cons "HELP"(lambda()(mix_strasc(list "2" 12388 12398 31649 12398 34920 38754 12363 12425 34920 38754 12414 12391 12398 26368 30701 36317 38626 12364 12371 12398 20516 12424 12426 12418 23567 12373 12356 12392 12365 34920 31034 12375 12414 12377 "\n" 12431 12378 12363 12394 24178 28169 12434 35377 12377 12392 12365 12399 36000 12398 20516 12434 20837 21147 12375 12390 12367 12384 12373 12356 (if int_selectmenu str_guide_inputval str_guide_selectval) ))))
                     )
                
                (list(list 69);;E干渉NG色
@@ -8202,7 +8228,7 @@
                     (cons "LOADFUNCTION"
                           (lambda()(setq str_next nil int_savecsvifc 3) ))
                     (cons "CLICKFUNCTION"
-                          (lambda()(setq bool_replacegrread T int_grread 2 elem_grread 51) ))
+                          (lambda()(setq bool_replacegrread T int_grread 2 elem_grread 52) ))
                     
                     )
                
@@ -8600,6 +8626,8 @@
                              r(* 0.5(cdr(assoc "DIAM" ls_out_parameter)))
                              vecxp nil vecyp nil
                              )
+
+
                        
                        (setq ls_p(mapcar
                                   '(lambda(p / vec vecx vecy)
@@ -8611,6 +8639,7 @@
                                        (setq vecx vecxp))
                                      (setq vecxp vecx)
                                      (if(<(caddr vecy)0)(setq vecy(mapcar '- vecy)))
+                                     
                                      (mapcar '(lambda(i / c s)
                                                 (setq c(cos(* ang_d i))s(sin(* ang_d i)))
                                                 (mapcar '(lambda(a x y)(+(* r c x)(* r s y)a))
@@ -8618,7 +8647,10 @@
                                              ls_intmesh)
                                      )
                                   ls_p)
+                             
                              )
+
+                       
                        
                        (mapcar
                         '(lambda(lst1 lst2 / p01 p02 p03 p04 p11 p12 p13 p14 ls_pmesh jj)
@@ -9082,7 +9114,8 @@
                        (setq size_file(vl-file-size str_data)) ))
                  )
 
-               (if(findfile str_data) T
+               (if(findfile str_data)
+                   T
                  (x-alert(list 35501 12415 36796 12415 12395 22833 25943 12375 12414 12375 12383))
                  )
                
