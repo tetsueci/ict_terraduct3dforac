@@ -759,9 +759,9 @@
              (cons "SYMBOL" 'int_editdepth);;(cons "TEMP" 'int_inputdepth_temp)
              (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0)))
         
-        (list(cons "TEXT"(mix_strasc(list 26032 12375 12367 20870 24359 12398 20301 32622 12434 35373 23450 12377 12427 12392 12365)))
+        (list(cons "TEXT"(mix_strasc(list  26032 35215 20870 24359 12398 35373 23450 20301 32622 )))
              (cons "EXPLANE"(mix_strasc(list 8251 "2" 22238 30446 20197 38477 12398 32232 38598 26178 12399 20219 24847 12395 35373 23450 12391 12365 12414 12377  )));;※2回目以降の編集時は任意に設定できます
-             (cons "ITEM" "POPUP_LIST");;新しく円弧の位置を設定するとき
+             (cons "ITEM" "POPUP_LIST");;新規円弧の設定位置
              (cons "VALLIST"(setq ls_type_editarcposition
                                   (mapcar
                                    'mix_strasc;;手動,起点側終点を通過,終点側起点を通過
