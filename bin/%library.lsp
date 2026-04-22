@@ -1425,8 +1425,7 @@
               accept_att
               (lambda( / bool_lay lst)
                 (save_tile)
-                
-                (setq ls_xdata(vl-sort ls_xdata '(lambda(a b)(<(car a)(cadr b))))
+                (setq ls_xdata(vl-sort ls_xdata '(lambda(a b)(<(car a)(car b))))
                       ls_xdata(mapcar '(lambda(lst)
                                          (if(and(=(cadr lst)"")(=(caddr lst)""))nil
                                            (cdr lst)))
@@ -1435,7 +1434,6 @@
                                       (apply 'append(vl-remove nil ls_xdata)))
                       )
                 (set_xda vnam ls_xdata "attributedata")
-                
                 (done_dialog 1)
                 )
 

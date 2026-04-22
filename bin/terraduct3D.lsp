@@ -2355,15 +2355,13 @@
                     (list "INITIAL" "GUIDE" "MOVE" "CLICK" "KEYBOAD"))
             (setq int_selectmenu nil ls_vnam_select nil initial_selectmenu nil 
                   bool_input nil str_input "" ls_vnam_select nil bool_getpoint nil
-                  int_exchangeguide_gr5 nil)
+                  int_exchangeguide_gr5 nil
+                  str_addsnap ""
+                  )
             (setq str_funcmarker "INITIAL")
             (func_grinitial(list T))
             ))
-        (setq str_edit_loop str_edit
-              ;; str_guidesnap
-              ;; (if bool_point(mix_strasc(list "\ns:" 12473 12490 12483 12503 20999 26367 " " 29694 22312
-              ;;                                "<"(if bool_snap "ON" "OFF") ">"))"")
-              )
+        (setq str_edit_loop str_edit )
 
         (if((lambda( / str nn count start)
               (setq
@@ -2754,7 +2752,7 @@
            )
           
           (if(if(and(zerop (logand 16384 (getvar 'OSMODE)))bool_snap bool_point)
-                 (setq p_snap (osnap elem_grread str_osnaps)))
+                 (setq p_snap (osnap elem_grread(strcat str_osnaps str_addsnap))))
               ((lambda(p c / s ls_p)
                  (setq s(* height_text 0.8)
                        ls_p(mapcar
@@ -3205,6 +3203,7 @@
                           (setq str_next T)
                           )
                          ((setq func_input(cdr(assoc "GETPOINT" a)))
+                          ((lambda(str)(if str(setq str_addsnap str)))(cdr(assoc "GETPOINTSNAP" a)))
                           (setq func_input(cdr(assoc "LOADFUNCTION" a))
                                 int_selectmenu(vl-position a ls_guidemenu)
                                 bool_point T bool_getpoint T
@@ -4952,7 +4951,7 @@
                                        vnam_line(vlax-3d-point p13)))
                                   
                                   (setq entna_depth nil
-                                        bool_noeditdepth nil
+                                        bool_noeditdepth T
                                         bool nil )
                                   )
                               (progn
@@ -4998,6 +4997,7 @@
                                    (mix_strasc(list 32076 36335 12398 26354 12370 21322 24452))
                                    (mix_strasc(list "0" 12424 12426 22823 12365 12356 20516 12434 20837 21147 12375 12390 12367 12384 12373 12356 ))
                                    )
+                                  
                                   (setq rr(atof str_radius)
                                         bool nil
                                         bool_noeditdepth T
@@ -5010,6 +5010,17 @@
                                               ls_current ls_vnam_duct)
                                         
                                         )
+
+                                  (if(=(caddr ls_currentarc)0)T
+                                    ((lambda(lst)
+                                       (setq ls_vnam_duct
+                                             (subst(subst(cons "RADIUS" rr)(assoc "RADIUS" lst)lst)
+                                                   lst ls_vnam_duct)
+                                             )
+                                       )
+                                     (assoc(list "ARC"(cadr ls_currentarc)0)ls_vnam_duct)
+                                     ))
+                                  
                                   )
                               
                               (if(cdr(assoc "POSITION" ls_current))
@@ -5425,7 +5436,7 @@
                    (mapcar
                     '(lambda(ls_current lst / e vnam vec_normal pc p0 p1 p2 length_straight e_out)
                        (mapcar 'set '(pc p0 p1 p2 vec_normal length_straight)lst)
-                       
+                     
                        (setq e(cadr(assoc "OBJ" ls_current))
                              dist_normal(apply '+(mapcar '* pc vec_normal))
                              e_out
@@ -7060,13 +7071,15 @@
                
                (list(list 52);;マンホール-中心を選択
                     (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20013 24515 12434 36984 25246 ))
-                    (cons "GETPOINT"(lambda()(list p_manhole(itoa str_colmanhole))))
+                    (cons "GETPOINT" (lambda() (list p_manhole(itoa str_colmanhole))))
+                    (cons "GETPOINTSNAP" ",_cen")
                     (cons "LOADFUNCTION"
                           (lambda(bool)
                             (setq int_selectmenu nil)
                             (if(/= int_ccboxmode 0)
                                 (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
                               (progn
+                                (setq str_addsnap "")
                                 (if bool(setq p_manhole elem_grread))
                                 (setq bool_replacegrread T int_grread 2 elem_grread 53)
                                 ))
@@ -7077,13 +7090,15 @@
                     )
                (list(list 53);;マンホール-円周上の点を選択
                     (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20870 21608 19978 12398 28857 12434 36984 25246 ))
-                    (cons "GETPOINT"(lambda()(list p_manhole_edge(itoa str_colmanhole_edge))))
+                    (cons "GETPOINT" (lambda()(list p_manhole_edge(itoa str_colmanhole_edge))))
+                    (cons "GETPOINTSNAP" ",_nea")
                     (cons "LOADFUNCTION"
                           (lambda(bool)
                             (setq int_selectmenu nil)
                             (if(/= int_ccboxmode 0)
                                 (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
                               (progn
+                                (setq str_addsnap "")
                                 (if bool(setq p_manhole_edge elem_grread))
                                 (if(and p_manhole p_manhole_edge)
                                     (setq diam_manhole_temp
@@ -9256,7 +9271,7 @@
                               )
                              ls_str_in(cddr ls_str_in)
                              p_line0(cadar ls_dim)p_line1(cadadr ls_dim)
-                             vec_line(unit_vector(mapcar '- p_line0 p_line1))
+                             vec_line(unit_vector(carxyz(mapcar '- p_line0 p_line1)0))
                              )
 
                        (mapcar
@@ -9484,6 +9499,8 @@
                    (vla-put-color vnam int_colduct_temp)
                    (setq ls_vnam_copy(cons vnam ls_vnam_copy))
                    (vla-put-visible vnam :vlax-true)
+                   (vla-put-nclose vnam :vlax-true)
+                   
                    (set_xda vnam(list(cons 1000 "DUCTSOLID")
                                      (cons 1000 "DIAM")(cons 1040 diam_duct_temp)
                                      )
