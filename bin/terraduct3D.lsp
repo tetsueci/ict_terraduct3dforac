@@ -8,7 +8,7 @@
       prev_select_sessionname ""
       )
 
-(defun load_las_to_grid()
+(defun load_las_to_grid(str_lasxml)
   ;; (setq cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app"))
   
   (setq str_data(strcat cpath_terraduct3d "\\pyexe\\grid_points.csv")
@@ -17,8 +17,8 @@
         int_time 100 ms_loop nil ms_max 20000 
         size_grid 0.5
         )
-  
-  (setq str_laspath(getfiled "Select las file" (getvar "DWGPREFIX")"las" 0))
+
+  (setq str_laspath(getfiled(strcat "Select " str_lasxml " file")(getvar "DWGPREFIX")str_lasxml 0))
   (if(null str_laspath)
       (alert(mix_strasc(list 12501 12449 12452 12523 12364 36984 25246 12373 12428 12414 12379 12435 12391 12375 12383)))
     
@@ -33,7 +33,7 @@
       
       (setq wsh (vlax-create-object "WScript.Shell"))
       (setq cmd(strcat "\"" str_path "\" "
-                       "\"" "las"    "\" "
+                       "\"" str_lasxml  "\" "
                        "\"" str_laspath "\""))
       (vlax-invoke-method wsh 'Run cmd 0 :vlax-true)
       (vlax-release-object wsh)
@@ -209,318 +209,6 @@
   )
 
 
-(defun addsearch-bl(bool str lst / i b a n ls_s)
-  (setq i(ascii str)ls_s(assoc i lst))
-  (if bool(subst(cons i(cons str(cdr ls_s)))ls_s lst)
-    (vl-position str ls_s))
-  )
-
-
-(defun load_xml_to_grid()
-
-  (setq bool_loop T size_file nil
-        int_time 100 ms_loop nil ms_max 20000
-        size_grid 0.5
-        )
-  
-  (setq str_xmlpath(getfiled "Select xml file" (getvar "DWGPREFIX")"xml" 0))
-  (if(null str_xmlpath)
-      (alert(mix_strasc(list 12501 12449 12452 12523 12364 36984 25246 12373 12428 12414 12379 12435 12391 12375 12383)))
-    
-    (progn
-      
-      (setq str_xmlfile str_xmlpath )
-      
-      (while(setq num(vl-string-search "\\" str_xmlfile))
-        (setq str_xmlfile(substr str_xmlfile(+ num 2))))
-      
-      ;; (if(findfile str_data)(vl-file-delete str_data))
-      
-      ((lambda
-         ( / num_start num_last num_elem str_grid bool_file 
-             coords_sa rgb_sa coords rgb lst ls_result num_0)
-         
-         (setq num_limit 100000 num_start 0 num_last nil num_elem 1000 str_grid "1"
-               delta_grid(atof str_grid))
-         
-         (setq spantime0(getvar "MILLISECS"))
-         
-         (setq file_r (open str_xmlpath "r"))
-         (setq str_mark "")
-         (while(and(/= str_mark "<Pnts>")(setq int_ascii(read-char file_r)))
-           (setq str_mark(strcat(if(<(strlen str_mark)6)str_mark(substr str_mark 2))
-                                (chr int_ascii)))
-           )
-         (if(null int_ascii)(progn(alert(mix_strasc(list 38754 20316 25104 21069 12395 12501 12449 12452 12523 35501 12415 36796 12415 12364 32066 20102 12375 12414 12375 12383 )))(quit)));;面作成前にファイル読み込みが終了しました
-         
-         
-         (mapcar '(lambda(int_str)(set(read(strcat "array_point_"(itoa int_str)))nil))
-                 (inclist 0 100))
-         (setq num_parray 10000000 );;nsp 10000 rsp 0.0001
-         (setq str_mark "")
-
-
-         (setq str_prearray "")
-         (while(and(/= str_mark "</Pnts>")(setq int_ascii(read-char file_r)))
-           (setq str_mark(strcat(if(<(strlen str_mark)7)str_mark(substr str_mark 2))
-                                (chr int_ascii)))
-           (if(/= int_ascii 34)T
-             (progn
-               (setq int_id 0)
-               (while(/=(setq int_ascii(read-char file_r))34);;34="
-                 (if(and(> int_ascii 47)(< int_ascii 58))
-                     (setq int_id(+(* int_id 10)int_ascii -48)))
-                 )
-               (while(/=(read-char file_r)62));;62=>
-               
-               (setq str_array(itoa(/ int_id num_parray))
-                     sym_array(read(strcat "array_point_" str_array)))
-
-               (if(= str_prearray str_array)T
-                 (if(setq val_array(eval sym_array))T
-                   (setq val_array(vlax-make-safearray vlax-vbdouble(cons 1(* num_parray 3)))) ))
-               (setq str_prearray str_array)
-               
-               (mapcar '(lambda(a / str)
-                          (while(vl-position(setq int_ascii(read-char file_r))(list 9 32)))
-                          (setq str(chr int_ascii))
-                          (while(null(vl-position(setq int_ascii(read-char file_r))(list 9 32 60)))
-                            (setq str(strcat str(chr int_ascii))))
-                          (set a(atof str))
-                          )
-                       '(x y z));;60=< 32=space
-               
-               (mapcar '(lambda(c ic)(vlax-safearray-put-element val_array(+(* int_id 3)ic)c))
-                       (list y x z)(list -2 -1 0))
-               ))
-           )
-         (if(null int_ascii)(progn(alert(mix_strasc(list 38754 20316 25104 21069 12395 12501 12449 12452 12523 35501 12415 36796 12415 12364 32066 20102 12375 12414 12375 12383 )))(quit)))
-         ;; <P id="558">-104791.36456945 1064.78002749 16.17998000</P>
-         ;; </Pnts>
-         ;; <Faces>
-         ;; <F n="0 2 0">1 2 3</F>
-
-         (setq ls_gp(list))
-         (setq str_mark "" num_face 0 xmin nil xmax nim ymin nil ymax nil)
-         (setq z_ave 0. z_min nil z_max nil)
-         
-         (while(and(/= str_mark "</Faces>")(setq int_ascii(read-char file_r)))
-           (setq str_mark(strcat(if(<(strlen str_mark)8)str_mark(substr str_mark 2))
-                                (chr int_ascii)))
-           (if(/= int_ascii 110)T;;"34 60< 110n
-             (progn
-               
-               (if(=(rem num_face 10)0)
-                   (princ(strcat "\nFACE:"(itoa num_face)" "
-                                 (rtos(*(-(getvar "MILLISECS")spantime0)0.001)2 2)" sec")))
-               (setq num_face(1+ num_face))
-
-               (setq ls_edge(list)
-                     int_ascii(read-char file_r)
-                     str_edge ""
-                     id_fo1 nil id_fo2 nil id_fo3 nil
-                     )
-               
-               (while(/=(setq int_ascii(read-char file_r))62)
-                 (cond
-                  ((and id_fo1 id_fo2 id_fo3))
-                  ((vl-position int_ascii(list 9 32 34 61))
-                   (cond
-                    ((= str_edge ""))
-                    ((null id_fo1)(setq id_fo1(atoi str_edge)))
-                    ((null id_fo2)(setq id_fo2(atoi str_edge)))
-                    ((null id_fo3)(setq id_fo3(atoi str_edge)))
-                    )
-                   (setq str_edge "")
-                   )
-                  (T(setq str_edge(strcat str_edge(chr int_ascii))))
-                  )
-                 )
-
-               (if id_fo1 T(setq id_fo1 0))
-               (if id_fo2 T(setq id_fo2 0))
-               (if id_fo3 T(setq id_fo3 0))
-               
-               (mapcar '(lambda(a / str int_sum)
-                          (while(vl-position(setq int_ascii(read-char file_r))(list 9 32)))
-                          (setq str(chr int_ascii))
-                          (while(null(vl-position(setq int_ascii(read-char file_r))(list 9 32 60)))
-                            (setq str(strcat str(chr int_ascii))))
-                          (set a(atoi str))
-                          )
-                       '(id_p1 id_p2 id_p3 ));;
-               
-               (setq point1 nil point2 nil point3 nil)
-               (mapcar '(lambda( int_id / num pmat x y z)
-                          (setq str_array(itoa(/ int_id num_parray)))
-                          (if(= str_array str_prearray)T
-                            (setq val_array(eval(read(strcat "array_point_" str_array)))))
-                          (setq str_prearray str_array
-                                x(vlax-safearray-get-element val_array(-(* int_id 3)2))
-                                y(vlax-safearray-get-element val_array(-(* int_id 3)1))
-                                z(vlax-safearray-get-element val_array(-(* int_id 3)0))
-                                )
-                          (if xmin (setq xmin(min x xmin)xmax(max x xmax)
-                                         ymin(min y ymin)ymax(max y ymax))
-                            (mapcar 'set '(xmin xmax ymin ymax)(list x x y y))
-                            )
-                          (if point2 (setq point3(list x y z))
-                            (if point1 (setq point2(list x y z))
-                              (setq point1(list x y z))))
-                          )
-                       (list id_p1 id_p2 id_p3)
-                       )
-               (while(/=(read-char file_r)62))
-
-               ;;グリッド作成
-               
-               (setq ls_x(mapcar '(lambda(p / n x)
-                                    (setq x(car p))
-                                    (if(>(setq n(/ x size_grid))0)(fix n)
-                                      (-(1+(fix(abs n))))))
-                                 (list point1 point2 point3))
-                     ls_y(mapcar '(lambda(p / n x)
-                                    (setq x(cadr p))
-                                    (if(>(setq n(/ x size_grid))0)(fix n)
-                                      (-(1+(fix(abs n))))))
-                                 (list point1 point2 point3))
-                     nx_max(apply 'max ls_x)ny_max(apply 'max ls_y)
-                     nx_min(apply 'min ls_x)ny_min(apply 'min ls_y)
-                     
-                     vec1(mapcar '- point2 point1)
-                     vec2(mapcar '- point3 point2)
-                     vech(unit_vector(cross_product vec1 vec2))
-                     )
-
-               (if(<(abs(caddr vech))1e-8)nil
-                 (mapcar
-                  '(lambda(lst / pt z nx ny x y)
-                     (setq nx(car lst)ny(cadr lst)
-                           x(*(+ nx 0.5)size_grid)y(*(+ ny 0.5)size_grid)
-                           pt(list x y 0))
-                     (setq lst(mapcar '(lambda(pa pb)
-                                         (-(*(-(car pb)(car pa))(-(cadr pt)(cadr pa)))
-                                           (*(-(cadr pb)(cadr pa))(-(car pt)(car pa)))))
-                                      (list point1 point2 point3)
-                                      (list point2 point3 point1))
-                           )
-                     (if(or(apply 'and(mapcar '(lambda(a)(<= a 0.))lst))
-                           (apply 'and(mapcar '(lambda(a)(>= a 0.))lst)))
-                         (progn
-                           (setq z(/(apply '+(mapcar '*(mapcar '- point1 pt)vech))(caddr vech))
-                                 z_ave(+ z_ave z))
-                           (if z_min(setq z_min(min z z_min)z_max(max z z_max))
-                             (setq z_min z z_max z))
-                           (setq ls_grid(cons(list(strcat(itoa nx)"$"(itoa ny))z)ls_grid)
-                                 ls_gp(cons(list x y z)ls_gp))
-                           
-                           )
-                       )
-                     )
-                  (apply 'append
-                         (mapcar '(lambda(y)
-                                    (mapcar '(lambda(x)(list x y))(inclist nx_min(1+ nx_max))))
-                                 (inclist ny_min(1+ ny_max))))
-                  )
-                 )
-               
-               ))
-           )
-         (close file_r)
-         
-         
-         (if(= int_inputlasinsert 0)T
-           (progn
-             (setq str_bname(strcat "input-xmlgrid-" str_xmlfile ))
-             (if(vl-catch-all-error-p
-                 (setq block(vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
-                 (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname) )
-               (progn
-                 (if(setq set_ent(ssget "X"(list(cons 2 str_bname))))
-                     (progn
-                       (setq num(sslength set_ent))
-                       (while(>(setq num(1- num))-1)
-                         (setq vnam(vlax-ename->vla-object(ssname set_ent num)))
-                         (vla-delete vnam)
-                         )
-                       ))
-                 (vla-delete block)
-                 (mapcar '(lambda(v)
-                            (vlax-release-object v)
-                            (setq ls_vla-release(vl-remove v ls_vla-release))
-                            )
-                         (list block))
-                 (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname))
-                 )
-               )
-             (setq ls_vla-release(cons block ls_vla-release) )
-
-             (mapcar '(lambda(p)(vla-addpoint block(vlax-3d-point p)))ls_gp)
-             
-             ))
-
-         
-         (if(= int_inputlasinsert 0)T
-           (mapcar '(lambda(v)
-                      (vlax-release-object v)
-                      (setq ls_vla-release(vl-remove v ls_vla-release))
-                      )
-                   (list block))
-           )
-         
-         (if(= int_inputlasinsert 1)
-             (vla-InsertBlock
-              (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
-              (vlax-3d-point 0 0 0)str_bname 1 1 1 0)
-           )
-         
-                  
-         (setq ls_xdata(list))
-         (setq dict_name(strcat "lasgrid" "-" str_xmlfile ))
-         ;; (setq dict_grid(vl-catch-all-apply 'vla-Item (list dicts_all(strcat dict_name))))
-
-         (if(if nil(assoc dict_name ls_lasgrid);;あれば作る必要がない
-              (progn ;;あったら消して作る
-                (if(setq dict_grid(cdr(assoc dict_name ls_lasgrid)))(vla-delete dict_grid))
-                nil
-                ) )
-             (progn  nil ) ;;すでにあるものを使うとき 通ることはない
-           (progn ;;新しく作るとき
-             
-             (setq z_ave(/ z_ave(length ls_grid)))
-             (setq dict_grid(vla-Add dicts_all dict_name))
-             (setq xrec(vla-AddXRecord dict_grid "GRID-SIZE_CENTER"))
-             (setq array_data(vlax-make-safearray vlax-vbVariant(cons 0 3))
-                   array_type(vlax-make-safearray vlax-vbInteger(cons 0 3)))
-             (vlax-safearray-fill array_type(list 1040 1040 1040 1040))
-             (vlax-safearray-fill array_data(list size_grid z_ave z_min z_max))
-             (vla-SetXRecordData xrec array_type array_data )
-
-             (setq array_data(vlax-make-safearray vlax-vbVariant(cons 0 0))
-                   array_type(vlax-make-safearray vlax-vbInteger(cons 0 0)))
-             (vlax-safearray-fill array_type (list 1040))
-             (mapcar
-              '(lambda(lst)
-                 (setq xrec(vla-AddXRecord dict_grid(strcat(car lst))))
-                 (vlax-safearray-fill array_data(cdr lst))
-                 (vla-SetXRecordData xrec array_type array_data )
-                 )
-              ls_grid)
-             
-             (if(setq lst(assoc dict_name ls_lasgrid))(vl-remove lst ls_lasgrid))
-             (setq ls_lasgrid(cons(cons dict_name dict_grid)ls_lasgrid))
-             )
-           )
-         
-         (alert(mix_strasc(list 35501 36796 23436 20102)))
-         ))
-      ))
-  
-  ;; (*error* "")
-  dict_name
-  )
-
-
 (defun c:devtd3d( / e v array_Type array_Data)
   (if(setq e(car(entsel)))
       (progn
@@ -529,9 +217,6 @@
         (if array_data(split_list 0(cdr(mapcar 'vlax-variant-value
                                                (vlax-safearray->list array_data)))))))
   )
-
-
-
 
 
 (defun x-alert(lst / str)
@@ -1632,7 +1317,7 @@
       (close open_file)
 
       (setq settile_selectground
-            (lambda( / func_las bool_loop)
+            (lambda( / func_las bool_loop str_inputdata)
               (setq bool_loop T)
               (while bool_loop
                 (setq load_dcl (load_dialog path_selectgrounddcl))
@@ -1660,7 +1345,8 @@
                         )
                       accept_datainput
                       (lambda(n)
-                        (setq func_las(if(= n 0)load_las_to_grid load_xml_to_grid))
+                        (setq str_inputdata(if(= n 0)"las" "xml"))
+                        ;;(setq func_las(if(= n 0)load_las_to_grid load_xml_to_grid))
                         (setq int_inputlasinsert(atoi(get_tile "insertblock")))
                         (done_dialog 1)
                         )
@@ -1696,8 +1382,9 @@
                 (action_tile "accept" "(accept_ground)")
                 (setq dialog-box (start_dialog))
                 (unload_dialog load_dcl)
-
-                (if func_las(setq height_ground nil str_lasground(func_las)) )
+                
+                (if str_inputdata(setq height_ground nil str_lasground(load_las_to_grid str_inputdata)) )
+                ;;(if func_las(setq height_ground nil str_lasground(func_las)) )
                 
                 (if(or str_lasground height_ground) (setq bool_loop nil)
                   (if(=(getvar "DIASTAT")0)
@@ -6413,7 +6100,7 @@
                                        vec_line0 vec_line1 length_s
                                        bool_linetype lst)
                      ls_arcmove)
-             (setq point_decide nil)
+             (setq point_decide nil ls_limit0 nil ls_limit1 nil)
 
              (cond
               ((= bool_linetype 0)
@@ -6462,8 +6149,7 @@
                ;;  lst)
                (setq vec_normal(unit_vector(cross_product(mapcar '- p_line10 p_line01)vec_line0))
                      dist_normal(apply '+(mapcar '* vec_normal p_line01)))
-                     
-
+               
                
                (setq delta_arc(* -0.1 radius_arcmove) bool_loop T d 0)
                (while bool_loop
@@ -6477,10 +6163,15 @@
                  (if(setq p(cadar lst))
                      (cond
                       ((<(distance p p_line01)1e-8)
-                       (setq ls_limit0 lst bool_loop nil p_limit0 p_temp))
-                      ((>(*(apply '+(mapcar '*(mapcar '- p p_line01)vec_line0))delta_arc)0)
-                       (setq delta_arc(* -0.1 delta_arc)) )
+                       (setq ls_limit0 lst p_limit0 p_temp bool_loop nil))
+                      (T
+                       (setq ls_limit0 lst p_limit0 p_temp)
+                       (if(>(*(apply '+(mapcar '*(mapcar '- p p_line01)vec_line0))delta_arc)0)
+                           (setq delta_arc(* -0.1 delta_arc)) )
+                       )
                       )
+                   (if(null ls_limit0)(setq delta_arc(* -2. delta_arc))
+                     (setq bool_loop nil))
                    )
                  )
                
@@ -6496,9 +6187,14 @@
                      (cond
                       ((<(distance p p_line10)1e-8)
                        (setq ls_limit1 lst bool_loop nil p_limit1 p_temp))
-                      ((>(*(apply '+(mapcar '*(mapcar '- p p_line10)vec_line1))delta_arc)0)
-                       (setq delta_arc(* -0.1 delta_arc)) )
+                      (T
+                       (setq ls_limit1 lst p_limit1 p_temp)
+                       (if(>(*(apply '+(mapcar '*(mapcar '- p p_line10)vec_line1))delta_arc)0)
+                           (setq delta_arc(* -0.1 delta_arc)) )
+                       )
                       )
+                   (if(null ls_limit1)(setq delta_arc(* -2. delta_arc))
+                     (setq bool_loop nil))
                    )
                  )
                
@@ -6518,6 +6214,7 @@
                
                )
               )
+             
              
              (setq ls_entna_arctemp
                    (mapcar '(lambda(i / v e)
