@@ -268,7 +268,7 @@
    cal_viewtopleft
    (lambda(ratio_height
            deltax deltay deltaz bool_3d 
-           / p_viewcenter height_view ls_screen_size_yx width_view bool_plane)
+           / height_view ls_screen_size_yx width_view bool_plane)
      (setq p_viewcenter(getvar "VIEWCTR")
            height_view(getvar "VIEWSIZE")
            height_text(* height_view ratio_height)
@@ -838,7 +838,7 @@
 (defun addkillobj(x)(setq ls_vnam_killobj(cons x ls_vnam_killobj)) )
 (defun exckillobj(x)(setq ls_vnam_killobj(vl-remove x ls_vnam_killobj)) )
 
-(defun terraduct3d-menu( str  / str ls_grfunc get_vnam_guide)
+(defun terraduct3d-menu( str  / str ls_grfunc get_vnam_guide ls_guide_drawing)
 
   (setq str_edit str)
 
@@ -1093,7 +1093,8 @@
           (mix_strasc(list "\n" 23550 35937 12392 12377 12427 20301 32622 12434 12463 12522 12483 12463 12375 12390 12367 12384 12373 12356))
           ;;対象とする位置をクリックしてください
           
-          
+          str_noguidedrawing(mix_strasc(list "\n\n" 22259 35299 28310 20633 20013 ));;図解準備中
+          str_startguidedrawing(mix_strasc(list "\n\n" 22259 35299 12364 22987 12414 12426 12414 12377 ));;図解が始まります
           
           ;;項目を選択すると値を変更できます
           
@@ -1102,7 +1103,7 @@
           cal_viewtopleft
           (lambda(ratio_height
                   deltax deltay deltaz bool_3d 
-                  / p_viewcenter height_view ls_screen_size_yx width_view bool_plane)
+                  /  height_view ls_screen_size_yx width_view bool_plane)
             (setq p_viewcenter(getvar "VIEWCTR")
                   height_view(getvar "VIEWSIZE")
                   height_text(* height_view ratio_height)
@@ -2282,6 +2283,56 @@
           )
 
         (cond
+         (ls_guide_drawing
+          ;;図解中;Esc以外の任意キー,左右クリックで戻る
+          (vla-put-textstring vnam_guide(mix_strasc(list 22259 35299 20013 ";Esc" 20197 22806 12398 20219 24847 12461 12540 "," 24038 21491 12463 12522 12483 12463 12391 25147 12427 )))
+
+          (setq p_gr5 nil)
+          (while(progn
+                  (setq ls_grread(grread t 15(if bool_point 0 2))
+                        int_grread(car ls_grread) elem_grread(cadr ls_grread) )
+                  (if(or(= int_grread 2)(= int_grread 3)(= int_grread 25))
+                      (setq str_guide_prev "" vec_view_gr5loop nil
+                            ls_guide_drawing nil)
+                    T))
+            (if(= int_grread 5)
+                (progn
+                  (cal_viewtopleft textsize_guide_bo_temp x_guidebase y_guidebase_temp 10. T )
+                  (if(equal p_gr5 p_viewcenter)T
+                    (progn
+                      (redraw)
+                      (vla-put-normal vnam_guide(vlax-3d-point vec_view))
+                      (vla-put-InsertionPoint vnam_guide(vlax-3d-point point_base))
+                      (vla-put-Height vnam_guide(* 2. height_text))
+                      (vla-put-rotation vnam_guide ang_viewtwist)
+                      
+                      ((lambda(lst / d pc)
+                         (setq d(* height_text(car lst)))
+                         (mapcar
+                          '(lambda(lst / p1 p2 c p01 p02)
+                             (setq p1(car lst)p2(cadr lst))
+                             (if(setq c(caddr lst))T(setq c 7))
+                             (if(and p1 p2)
+                                 (progn
+                                   (setq p01(mapcar '(lambda(a x y z);;zいらない
+                                                       (+ a(*(apply '+(mapcar '*(list x y)p1))d)))
+                                                    p_viewcenter vec_x_onview vec_y_onview vec_view)
+                                         p02(mapcar '(lambda(a x y z)
+                                                       (+ a(*(apply '+(mapcar '*(list x y)p2))d)))
+                                                    p_viewcenter vec_x_onview vec_y_onview vec_view)
+                                         )
+                                   (grdraw p01 p02 c)
+                                   ))
+                             )
+                          (cdr lst))
+                         )
+                       ls_guide_drawing)
+                      (setq p_gr5 p_viewcenter)
+                      ))
+                      
+                  ))
+            )
+          )
          
          ((vl-position int_grread(list 11 12))
           (vla-put-Height vnam_guide(* 1.6 height_text))
@@ -2379,7 +2430,6 @@
           
           (redraw)
 
-          ;;todo図解モード
           ((lambda(num_e num_g ls_bool / p1 p2 ny y nx lst)
              (if(or(= num_g 0)(= int_guideclick 1))T
                (if((lambda( / d)
@@ -2702,20 +2752,6 @@
                         )
                    (setq str(func)))
                 (alert str))
-            
-            (if func_guide_drawing
-                (progn
-                  (vla-put-Height vnam_guide(* 1.6 height_text))
-                  (vla-put-textstring ;;
-                   vnam_guide 
-                   (mix_strasc(list )))
-                  
-                  
-                  (func_guide_drawing)
-                  (getint(mix_strasc(list 21491 12463 12522 12483 12463 ",Enter" 12391 25147 12427)))
-                  (setq func_guide_drawing nil)
-                  (setq str_guide_prev "" vec_view_gr5loop nil)
-                  ))
             
             )
            
@@ -3429,7 +3465,7 @@
                      vnam_currentinsert nil
                      )
                )
-             (setq int_selectmenu_ductedit nil
+             (setq int_selectmenu_ductedit nil int_adddepth nil
                    p_roadclick_temp nil
 
                    func_guidemenu
@@ -3570,14 +3606,139 @@
                             ))
                     ;;保護コンクリートの形状を「全周」、「下半のみ」、「なし」から選択します
                     ;;管の中心と同じ位置を中心とする長方形形状,「全周」の半分の高さの長方形\n※高さ入力値の考え方は全周と同じなので、入力値の半分の高さとなる
-                    (cons "HELP"(lambda()
-                                  (mix_strasc
-                                   (list 20445 35703 12467 12531 12463 12522 12540 12488 12398 24418 29366 12434
-                                         "\n- " 20840 21608 ":" 31649 12398 20013 24515 12392 21516 12376 20301 32622 12434 20013 24515 12392 12377 12427 38263 26041 24418 24418 29366
-                                         "\n- " 19979 21322 12398 12415 ":" "," 12300 20840 21608 12301 12398 21322 20998 12398 39640 12373 12398 38263 26041 24418 "\n  " 8251 39640 12373 20837 21147 20516 12398 32771 12360 26041 12399 20840 21608 12392 21516 12376 12394 12398 12391 12289 20837 21147 20516 12398 21322 20998 12398 39640 12373 12392 12394 12427
-                                         "\n- " 12394 12375  "\n" 12363 12425 36984 25246 12375 12414 12377
-                                         "\n\n" 22259 35299 28310 20633 20013 
-                                         ))))
+                    (cons "HELP"
+                          (lambda()
+                            
+                            (setq ls_guide_drawing
+                                  (list
+                                   1
+                                   
+                                   (list(list -12.0 5.0 0.0)(list -2.0 5.0 0.0)3)
+                                   (list(list -2.0 5.0 0.0)(list -2.0 -5.0 0.0)3)
+                                   (list(list -2.0 -5.0 0.0)(list -12.0 -5.0 0.0)3)
+                                   (list(list -12.0 -5.0 0.0)(list -12.0 5.0 0.0)3)
+                                   (list(list -12.5 -5.0 0.0)(list -16.5 -5.0 0.0)30)
+                                   (list(list -12.5 5.0 0.0)(list -16.5 5.0 0.0)30)
+                                   (list(list -16.0 -4.0 0.0)(list -16.0 4.0 0.0)30)
+                                   (list(list -15.7321 -4.0 0.0)(list -16.0 -5.0 0.0)30)
+                                   (list(list -16.0 -5.0 0.0)(list -16.2679 -4.0 0.0)30)
+                                   (list(list -16.0 -5.0 0.0)(list -16.0 -4.0 0.0)30)
+                                   (list(list -16.2679 4.0 0.0)(list -16.0 5.0 0.0)30)
+                                   (list(list -16.0 5.0 0.0)(list -15.7321 4.0 0.0)30)
+                                   (list(list -16.0 5.0 0.0)(list -16.0 4.0 0.0)30)
+                                   (list(list 17.0 0.0 0.0)(list 18.0 0.0 0.0)3)
+                                   (list(list 18.0 0.0 0.0)(list 18.0 -5.0 0.0)3)
+                                   (list(list 18.0 -5.0 0.0)(list 8.0 -5.0 0.0)3)
+                                   (list(list 8.0 -5.0 0.0)(list 8.0 0.0 0.0)3)
+                                   (list(list 8.0 0.0 0.0)(list 9.0 0.0 0.0)3)
+                                   (list(list -3.0 0.0 0.0)(list -3.1363 1.03528 0.0)256)
+                                   (list(list -3.1363 1.03528 0.0)(list -3.5359 2.0 0.0)256)
+                                   (list(list -3.5359 2.0 0.0)(list -4.17157 2.82843 0.0)256)
+                                   (list(list -4.17157 2.82843 0.0)(list -5.0 3.4641 0.0)256)
+                                   (list(list -5.0 3.4641 0.0)(list -5.96472 3.8637 0.0)256)
+                                   (list(list -5.96472 3.8637 0.0)(list -7.0 4.0 0.0)256)
+                                   (list(list -7.0 4.0 0.0)(list -8.03528 3.8637 0.0)256)
+                                   (list(list -8.03528 3.8637 0.0)(list -9.0 3.4641 0.0)256)
+                                   (list(list -9.0 3.4641 0.0)(list -9.82843 2.82843 0.0)256)
+                                   (list(list -9.82843 2.82843 0.0)(list -10.4641 2.0 0.0)256)
+                                   (list(list -10.4641 2.0 0.0)(list -10.8637 1.03528 0.0)256)
+                                   (list(list -10.8637 1.03528 0.0)(list -11.0 -1.2865e-15 0.0)256)
+                                   (list(list -11.0 -1.2865e-15 0.0)(list -10.8637 -1.03528 0.0)256)
+                                   (list(list -10.8637 -1.03528 0.0)(list -10.4641 -2.0 0.0)256)
+                                   (list(list -10.4641 -2.0 0.0)(list -9.82843 -2.82843 0.0)256)
+                                   (list(list -9.82843 -2.82843 0.0)(list -9.0 -3.4641 0.0)256)
+                                   (list(list -9.0 -3.4641 0.0)(list -8.03528 -3.8637 0.0)256)
+                                   (list(list -8.03528 -3.8637 0.0)(list -7.0 -4.0 0.0)256)
+                                   (list(list -7.0 -4.0 0.0)(list -5.96472 -3.8637 0.0)256)
+                                   (list(list -5.96472 -3.8637 0.0)(list -5.0 -3.4641 0.0)256)
+                                   (list(list -5.0 -3.4641 0.0)(list -4.17157 -2.82843 0.0)256)
+                                   (list(list -4.17157 -2.82843 0.0)(list -3.5359 -2.0 0.0)256)
+                                   (list(list -3.5359 -2.0 0.0)(list -3.1363 -1.03528 0.0)256)
+                                   (list(list -3.1363 -1.03528 0.0)(list -3.0 0.0 0.0)256)
+                                   (list(list 17.0 0.0 0.0)(list 16.8637 1.03528 0.0)256)
+                                   (list(list 16.8637 1.03528 0.0)(list 16.4641 2.0 0.0)256)
+                                   (list(list 16.4641 2.0 0.0)(list 15.8284 2.82843 0.0)256)
+                                   (list(list 15.8284 2.82843 0.0)(list 15.0 3.4641 0.0)256)
+                                   (list(list 15.0 3.4641 0.0)(list 14.0353 3.8637 0.0)256)
+                                   (list(list 14.0353 3.8637 0.0)(list 13.0 4.0 0.0)256)
+                                   (list(list 13.0 4.0 0.0)(list 11.9647 3.8637 0.0)256)
+                                   (list(list 11.9647 3.8637 0.0)(list 11.0 3.4641 0.0)256)
+                                   (list(list 11.0 3.4641 0.0)(list 10.1716 2.82843 0.0)256)
+                                   (list(list 10.1716 2.82843 0.0)(list 9.5359 2.0 0.0)256)
+                                   (list(list 9.5359 2.0 0.0)(list 9.1363 1.03528 0.0)256)
+                                   (list(list 9.1363 1.03528 0.0)(list 9.0 -1.2865e-15 0.0)256)
+                                   (list(list 9.0 -1.2865e-15 0.0)(list 9.1363 -1.03528 0.0)256)
+                                   (list(list 9.1363 -1.03528 0.0)(list 9.5359 -2.0 0.0)256)
+                                   (list(list 9.5359 -2.0 0.0)(list 10.1716 -2.82843 0.0)256)
+                                   (list(list 10.1716 -2.82843 0.0)(list 11.0 -3.4641 0.0)256)
+                                   (list(list 11.0 -3.4641 0.0)(list 11.9647 -3.8637 0.0)256)
+                                   (list(list 11.9647 -3.8637 0.0)(list 13.0 -4.0 0.0)256)
+                                   (list(list 13.0 -4.0 0.0)(list 14.0353 -3.8637 0.0)256)
+                                   (list(list 14.0353 -3.8637 0.0)(list 15.0 -3.4641 0.0)256)
+                                   (list(list 15.0 -3.4641 0.0)(list 15.8284 -2.82843 0.0)256)
+                                   (list(list 15.8284 -2.82843 0.0)(list 16.4641 -2.0 0.0)256)
+                                   (list(list 16.4641 -2.0 0.0)(list 16.8637 -1.03528 0.0)256)
+                                   (list(list 16.8637 -1.03528 0.0)(list 17.0 0.0 0.0)256)
+                                   (list(list 7.5 -5.0 0.0)(list 3.5 -5.0 0.0)30)
+                                   (list(list 7.5 5.0 0.0)(list 3.5 5.0 0.0)30)
+                                   (list(list 4.0 -4.0 0.0)(list 4.0 4.0 0.0)30)
+                                   (list(list 4.26795 -4.0 0.0)(list 4.0 -5.0 0.0)30)
+                                   (list(list 4.0 -5.0 0.0)(list 3.73205 -4.0 0.0)30)
+                                   (list(list 4.0 -5.0 0.0)(list 4.0 -4.0 0.0)30)
+                                   (list(list 3.73205 4.0 0.0)(list 4.0 5.0 0.0)30)
+                                   (list(list 4.0 5.0 0.0)(list 4.26795 4.0 0.0)30)
+                                   (list(list 4.0 5.0 0.0)(list 4.0 4.0 0.0)30)
+                                   (list(list -17.058 -0.499814 0.0)(list -17.058 0.501034 0.0)30)
+                                   (list(list -16.3944 0.501034 0.0)(list -16.3944 -0.499814 0.0)30)
+                                   (list(list -17.058 0.0244395 0.0)(list -16.3944 0.0244395 0.0)30)
+                                   (list(list 2.92967 -0.499814 0.0)(list 2.92967 0.501034 0.0)30)
+                                   (list(list 3.59691 0.501034 0.0)(list 3.59691 -0.499814 0.0)30)
+                                   (list(list 2.92967 0.0244395 0.0)(list 3.59691 0.0244395 0.0)30)
+                                   (list(list -8.41327 -7.66339 0.0)(list -8.41327 -8.99785 0.0)4)
+                                   (list(list -9.41411 -7.66339 0.0)(list -7.41242 -7.66339 0.0)4)
+                                   (list(list -9.24547 -8.28663 0.0)(list -7.58106 -8.28663 0.0)4)
+                                   (list(list -9.57909 -8.99785 0.0)(list -7.24744 -8.99785 0.0)4)
+                                   (list(list -7.91468 -6.96316 0.0)(list -7.24744 -7.49842 0.0)4)
+                                   (list(list -8.41327 -6.49757 0.0)(list -7.91468 -6.96316 0.0)4)
+                                   (list(list -8.91186 -6.96316 0.0)(list -8.41327 -6.49757 0.0)4)
+                                   (list(list -9.57909 -7.49842 0.0)(list -8.91186 -6.96316 0.0)4)
+                                   (list(list -5.91665 -8.66424 0.0)(list -5.91665 -8.16565 0.0)4)
+                                   (list(list -4.74716 -8.66424 0.0)(list -5.91665 -8.66424 0.0)4)
+                                   (list(list -4.74716 -8.16565 0.0)(list -4.74716 -8.66424 0.0)4)
+                                   (list(list -5.91665 -8.16565 0.0)(list -4.74716 -8.16565 0.0)4)
+                                   (list(list -5.9753 -7.1648 0.0)(list -4.6885 -7.1648 0.0)4)
+                                   (list(list -6.08162 -7.66339 0.0)(list -4.58218 -7.66339 0.0)4)
+                                   (list(list -5.33373 -6.83118 0.0)(list -5.33373 -7.66339 0.0)4)
+                                   (list(list -4.41721 -8.99785 0.0)(list -4.41721 -6.66621 0.0)4)
+                                   (list(list -4.74716 -8.99785 0.0)(list -4.41721 -8.99785 0.0)4)
+                                   (list(list -6.48489 -8.84388 0.0)(list -6.58021 -8.99785 0.0)4)
+                                   (list(list -6.34191 -8.53226 0.0)(list -6.48489 -8.84388 0.0)4)
+                                   (list(list -6.2466 -7.90902 0.0)(list -6.34191 -8.53226 0.0)4)
+                                   (list(list -6.2466 -6.66621 0.0)(list -6.2466 -7.90902 0.0)4)
+                                   (list(list -6.2466 -6.66621 0.0)(list -4.41721 -6.66621 0.0)4)
+                                   (list(list 11.9923 -7.49842 0.0)(list 12.4909 -7.99701 0.0)6)
+                                   (list(list 11.3251 -7.1648 0.0)(list 11.9923 -7.49842 0.0)6)
+                                   (list(list 11.3251 -6.49757 0.0)(list 11.3251 -8.99785 0.0)6)
+                                   (list(list 10.3279 -6.49757 0.0)(list 12.6595 -6.49757 0.0)6)
+                                   (list(list 13.6567 -6.66621 0.0)(list 13.9903 -6.99982 0.0)6)
+                                   (list(list 13.9903 -6.99982 0.0)(list 14.159 -7.32977 0.0)6)
+                                   (list(list 15.1561 -6.99982 0.0)(list 14.8225 -7.32977 0.0)6)
+                                   (list(list 15.3248 -6.66621 0.0)(list 15.1561 -6.99982 0.0)6)
+                                   (list(list 14.4926 -6.49757 0.0)(list 14.4926 -8.99785 0.0)6)
+                                   (list(list 15.6584 -8.16565 0.0)(list 13.3268 -8.16565 0.0)6)
+                                   (list(list 13.4917 -7.49842 0.0)(list 15.4898 -7.49842 0.0)6)
+                                   
+                                   )
+                                  )
+                            
+                            (mix_strasc
+                             (list 20445 35703 12467 12531 12463 12522 12540 12488 12398 24418 29366 12434
+                                   "\n- " 20840 21608 ":" 31649 12398 20013 24515 12392 21516 12376 20301 32622 12434 20013 24515 12392 12377 12427 38263 26041 24418 24418 29366
+                                   "\n- " 19979 21322 12398 12415 ":" "," 12300 20840 21608 12301 12398 21322 20998 12398 39640 12373 12398 38263 26041 24418 "\n  " 8251 39640 12373 20837 21147 20516 12398 32771 12360 26041 12399 20840 21608 12392 21516 12376 12394 12398 12391 12289 20837 21147 20516 12398 21322 20998 12398 39640 12373 12392 12394 12427
+                                   "\n- " 12394 12375  "\n" 12363 12425 36984 25246 12375 12414 12377
+                                   str_startguidedrawing
+                                   
+                                   ))))
                     )
                
                (list(list 68) ;;D.管直径
@@ -3607,7 +3768,63 @@
                                       bool_noeditdepth T))
                             ))
                     ;;保護コンクリートの幅（水平方向）を入力
-                    (cons "HELP"(lambda()(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 12398 24133 65288 27700 24179 26041 21521 65289 12434 20837 21147(if int_selectmenu str_guide_inputval str_guide_selectval) ))))
+                    (cons "HELP"
+                          (lambda()
+                            (setq ls_guide_drawing
+                                  (list
+                                   1
+                                   
+                                   (list(list -5.5 3.0 0.0)(list -8.0 3.0 0.0)4)
+                                   (list(list -7.5 6.25 0.0)(list -7.5 1.75 0.0)4)
+                                   (list(list -3.0 5.5 0.0)(list -3.0 8.0 0.0)4)
+                                   (list(list -6.25 7.5 0.0)(list -1.75 7.5 0.0)4)
+                                   (list(list -3.5 5.0 0.0)(list -10.625 5.0 0.0)2)
+                                   (list(list -3.5 -5.0 0.0)(list -10.625 -5.0 0.0)2)
+                                   (list(list -10.0 5.0 0.0)(list -10.0 -5.0 0.0)2)
+                                   (list(list -5.0 3.5 0.0)(list -5.0 10.625 0.0)6)
+                                   (list(list 5.0 3.5 0.0)(list 5.0 10.625 0.0)6)
+                                   (list(list -5.0 10.0 0.0)(list 5.0 10.0 0.0)6)
+                                   (list(list -5.0 3.0 0.0)(list -3.0 5.0 0.0)3)
+                                   (list(list -3.0 5.0 0.0)(list 3.0 5.0 0.0)3)
+                                   (list(list 3.0 5.0 0.0)(list 5.0 3.0 0.0)3)
+                                   (list(list 5.0 3.0 0.0)(list 5.0 -3.0 0.0)3)
+                                   (list(list 5.0 -3.0 0.0)(list 3.0 -5.0 0.0)3)
+                                   (list(list 3.0 -5.0 0.0)(list -3.0 -5.0 0.0)3)
+                                   (list(list -3.0 -5.0 0.0)(list -5.0 -3.0 0.0)3)
+                                   (list(list -5.0 -3.0 0.0)(list -5.0 3.0 0.0)3)
+                                   (list(list 3.75 10.3349 0.0)(list 5.0 10.0 0.0)6)
+                                   (list(list 5.0 10.0 0.0)(list 3.75 9.66512 0.0)6)
+                                   (list(list -3.75 9.66512 0.0)(list -5.0 10.0 0.0)6)
+                                   (list(list -5.0 10.0 0.0)(list -3.75 10.3349 0.0)6)
+                                   (list(list -9.66512 -3.75 0.0)(list -10.0 -5.0 0.0)2)
+                                   (list(list -10.0 -5.0 0.0)(list -10.3349 -3.75 0.0)2)
+                                   (list(list -10.3349 3.75 0.0)(list -10.0 5.0 0.0)2)
+                                   (list(list -10.0 5.0 0.0)(list -9.66512 3.75 0.0)2)
+                                   (list(list -1.75 7.16512 0.0)(list -3.0 7.5 0.0)4)
+                                   (list(list -3.0 7.5 0.0)(list -1.75 7.83488 0.0)4)
+                                   (list(list -6.25 7.83488 0.0)(list -5.0 7.5 0.0)4)
+                                   (list(list -5.0 7.5 0.0)(list -6.25 7.16512 0.0)4)
+                                   (list(list -7.83488 1.75 0.0)(list -7.5 3.0 0.0)4)
+                                   (list(list -7.5 3.0 0.0)(list -7.16513 1.75 0.0)4)
+                                   (list(list -7.16513 6.25 0.0)(list -7.5 5.0 0.0)4)
+                                   (list(list -7.5 5.0 0.0)(list -7.83488 6.25 0.0)4)
+                                   (list(list -0.625 11.5625 0.0)(list -0.208333 10.3125 0.0)6)
+                                   (list(list 0.208333 10.3125 0.0)(list 0.625 11.5625 0.0)6)
+                                   (list(list -0.208333 10.3125 0.0)(list 0.0 10.9583 0.0)6)
+                                   (list(list 0.0 10.9583 0.0)(list 0.208333 10.3125 0.0)6)
+                                   (list(list -4.41667 7.8125 0.0)(list -4.41667 9.0625 0.0)4)
+                                   (list(list -4.41667 9.0625 0.0)(list -3.58333 9.0625 0.0)4)
+                                   (list(list -4.41667 8.4375 0.0)(list -3.97917 8.4375 0.0)4)
+                                   (list(list -8.64583 3.375 0.0)(list -8.64583 4.625 0.0)4)
+                                   (list(list -8.64583 4.625 0.0)(list -7.8125 4.625 0.0)4)
+                                   (list(list -8.64583 4.0 0.0)(list -8.20833 4.0 0.0)4)
+                                   (list(list -11.1458 -0.625 0.0)(list -11.1458 0.625 0.0)2)
+                                   (list(list -10.3125 0.625 0.0)(list -10.3125 -0.625 0.0)2)
+                                   (list(list -11.1458 0.0 0.0)(list -10.3125 0.0 0.0)2)
+                                   ))
+                            
+                            (mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 12398 24133 65288 27700 24179 26041 21521 65289 12434 20837 21147(if int_selectmenu str_guide_inputval str_guide_selectval)
+                                             str_startguidedrawing))))
                     )
                (list(list 72) ;;H.保護コンクリート高さ
                     (cons "ITEM"(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 39640 12373)))
@@ -3621,11 +3838,66 @@
                                       bool_noeditdepth T))
                             ))
                     ;;保護コンクリートの高さ（鉛直方向）を入力
-                    (cons "HELP"(lambda()(mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 12398 39640 12373 65288 37467 30452 26041 21521 65289 12434 20837 21147
-                                                          (if int_selectmenu str_guide_inputval str_guide_selectval)
-                                                          "\n\n" 22259 35299 28310 20633 20013 
-                                                          
-                                                          ))))
+                    (cons "HELP"
+                          (lambda()
+                            (setq ls_guide_drawing
+                                  (list
+                                   1
+                                   
+                                   (list(list -5.5 3.0 0.0)(list -8.0 3.0 0.0)4)
+                                   (list(list -7.5 6.25 0.0)(list -7.5 1.75 0.0)4)
+                                   (list(list -3.0 5.5 0.0)(list -3.0 8.0 0.0)4)
+                                   (list(list -6.25 7.5 0.0)(list -1.75 7.5 0.0)4)
+                                   (list(list -3.5 5.0 0.0)(list -10.625 5.0 0.0)2)
+                                   (list(list -3.5 -5.0 0.0)(list -10.625 -5.0 0.0)2)
+                                   (list(list -10.0 5.0 0.0)(list -10.0 -5.0 0.0)2)
+                                   (list(list -5.0 3.5 0.0)(list -5.0 10.625 0.0)6)
+                                   (list(list 5.0 3.5 0.0)(list 5.0 10.625 0.0)6)
+                                   (list(list -5.0 10.0 0.0)(list 5.0 10.0 0.0)6)
+                                   (list(list -5.0 3.0 0.0)(list -3.0 5.0 0.0)3)
+                                   (list(list -3.0 5.0 0.0)(list 3.0 5.0 0.0)3)
+                                   (list(list 3.0 5.0 0.0)(list 5.0 3.0 0.0)3)
+                                   (list(list 5.0 3.0 0.0)(list 5.0 -3.0 0.0)3)
+                                   (list(list 5.0 -3.0 0.0)(list 3.0 -5.0 0.0)3)
+                                   (list(list 3.0 -5.0 0.0)(list -3.0 -5.0 0.0)3)
+                                   (list(list -3.0 -5.0 0.0)(list -5.0 -3.0 0.0)3)
+                                   (list(list -5.0 -3.0 0.0)(list -5.0 3.0 0.0)3)
+                                   (list(list 3.75 10.3349 0.0)(list 5.0 10.0 0.0)6)
+                                   (list(list 5.0 10.0 0.0)(list 3.75 9.66512 0.0)6)
+                                   (list(list -3.75 9.66512 0.0)(list -5.0 10.0 0.0)6)
+                                   (list(list -5.0 10.0 0.0)(list -3.75 10.3349 0.0)6)
+                                   (list(list -9.66512 -3.75 0.0)(list -10.0 -5.0 0.0)2)
+                                   (list(list -10.0 -5.0 0.0)(list -10.3349 -3.75 0.0)2)
+                                   (list(list -10.3349 3.75 0.0)(list -10.0 5.0 0.0)2)
+                                   (list(list -10.0 5.0 0.0)(list -9.66512 3.75 0.0)2)
+                                   (list(list -1.75 7.16512 0.0)(list -3.0 7.5 0.0)4)
+                                   (list(list -3.0 7.5 0.0)(list -1.75 7.83488 0.0)4)
+                                   (list(list -6.25 7.83488 0.0)(list -5.0 7.5 0.0)4)
+                                   (list(list -5.0 7.5 0.0)(list -6.25 7.16512 0.0)4)
+                                   (list(list -7.83488 1.75 0.0)(list -7.5 3.0 0.0)4)
+                                   (list(list -7.5 3.0 0.0)(list -7.16513 1.75 0.0)4)
+                                   (list(list -7.16513 6.25 0.0)(list -7.5 5.0 0.0)4)
+                                   (list(list -7.5 5.0 0.0)(list -7.83488 6.25 0.0)4)
+                                   (list(list -0.625 11.5625 0.0)(list -0.208333 10.3125 0.0)6)
+                                   (list(list 0.208333 10.3125 0.0)(list 0.625 11.5625 0.0)6)
+                                   (list(list -0.208333 10.3125 0.0)(list 0.0 10.9583 0.0)6)
+                                   (list(list 0.0 10.9583 0.0)(list 0.208333 10.3125 0.0)6)
+                                   (list(list -4.41667 7.8125 0.0)(list -4.41667 9.0625 0.0)4)
+                                   (list(list -4.41667 9.0625 0.0)(list -3.58333 9.0625 0.0)4)
+                                   (list(list -4.41667 8.4375 0.0)(list -3.97917 8.4375 0.0)4)
+                                   (list(list -8.64583 3.375 0.0)(list -8.64583 4.625 0.0)4)
+                                   (list(list -8.64583 4.625 0.0)(list -7.8125 4.625 0.0)4)
+                                   (list(list -8.64583 4.0 0.0)(list -8.20833 4.0 0.0)4)
+                                   (list(list -11.1458 -0.625 0.0)(list -11.1458 0.625 0.0)2)
+                                   (list(list -10.3125 0.625 0.0)(list -10.3125 -0.625 0.0)2)
+                                   (list(list -11.1458 0.0 0.0)(list -10.3125 0.0 0.0)2)
+                                   ))
+                            
+                            (mix_strasc(list 20445 35703 12467 12531 12463 12522 12540 12488 12398 39640 12373 65288 37467 30452 26041 21521 65289 12434 20837 21147
+                                             (if int_selectmenu str_guide_inputval str_guide_selectval)
+                                             str_startguidedrawing
+                                             
+                                             ))))
                     )
                
                (list(list 70) ;;F.保護コンクリート面取り
@@ -3640,10 +3912,65 @@
                                       bool_noeditdepth T))
                             ))
                     ;;保護コンクリートの面取り（直角二等辺三角形で切り取られるので等辺の長さ）を入力\n0のとき面取りを行いません
-                    (cons "HELP"(lambda()(mix_strasc(list  20445 35703 12467 12531 12463 12522 12540 12488 12398 38754 21462 12426 65288 30452 35282 20108 31561 36794 19977 35282 24418 12391 20999 12426 21462 12425 12428 12427 12398 12391 31561 36794 12398 38263 12373 65289 12434 20837 21147 "\n0" 12398 12392 12365 38754 21462 12426 12434 34892 12356 12414 12379 12435
-                                                           (if int_selectmenu str_guide_inputval str_guide_selectval)
-                                                           "\n\n" 22259 35299 28310 20633 20013 
-                                                           ))))
+                    (cons "HELP"
+                          (lambda()
+                            (setq ls_guide_drawing
+                                  (list
+                                   1
+                                   
+                                   (list(list -5.5 3.0 0.0)(list -8.0 3.0 0.0)4)
+                                   (list(list -7.5 6.25 0.0)(list -7.5 1.75 0.0)4)
+                                   (list(list -3.0 5.5 0.0)(list -3.0 8.0 0.0)4)
+                                   (list(list -6.25 7.5 0.0)(list -1.75 7.5 0.0)4)
+                                   (list(list -3.5 5.0 0.0)(list -10.625 5.0 0.0)2)
+                                   (list(list -3.5 -5.0 0.0)(list -10.625 -5.0 0.0)2)
+                                   (list(list -10.0 5.0 0.0)(list -10.0 -5.0 0.0)2)
+                                   (list(list -5.0 3.5 0.0)(list -5.0 10.625 0.0)6)
+                                   (list(list 5.0 3.5 0.0)(list 5.0 10.625 0.0)6)
+                                   (list(list -5.0 10.0 0.0)(list 5.0 10.0 0.0)6)
+                                   (list(list -5.0 3.0 0.0)(list -3.0 5.0 0.0)3)
+                                   (list(list -3.0 5.0 0.0)(list 3.0 5.0 0.0)3)
+                                   (list(list 3.0 5.0 0.0)(list 5.0 3.0 0.0)3)
+                                   (list(list 5.0 3.0 0.0)(list 5.0 -3.0 0.0)3)
+                                   (list(list 5.0 -3.0 0.0)(list 3.0 -5.0 0.0)3)
+                                   (list(list 3.0 -5.0 0.0)(list -3.0 -5.0 0.0)3)
+                                   (list(list -3.0 -5.0 0.0)(list -5.0 -3.0 0.0)3)
+                                   (list(list -5.0 -3.0 0.0)(list -5.0 3.0 0.0)3)
+                                   (list(list 3.75 10.3349 0.0)(list 5.0 10.0 0.0)6)
+                                   (list(list 5.0 10.0 0.0)(list 3.75 9.66512 0.0)6)
+                                   (list(list -3.75 9.66512 0.0)(list -5.0 10.0 0.0)6)
+                                   (list(list -5.0 10.0 0.0)(list -3.75 10.3349 0.0)6)
+                                   (list(list -9.66512 -3.75 0.0)(list -10.0 -5.0 0.0)2)
+                                   (list(list -10.0 -5.0 0.0)(list -10.3349 -3.75 0.0)2)
+                                   (list(list -10.3349 3.75 0.0)(list -10.0 5.0 0.0)2)
+                                   (list(list -10.0 5.0 0.0)(list -9.66512 3.75 0.0)2)
+                                   (list(list -1.75 7.16512 0.0)(list -3.0 7.5 0.0)4)
+                                   (list(list -3.0 7.5 0.0)(list -1.75 7.83488 0.0)4)
+                                   (list(list -6.25 7.83488 0.0)(list -5.0 7.5 0.0)4)
+                                   (list(list -5.0 7.5 0.0)(list -6.25 7.16512 0.0)4)
+                                   (list(list -7.83488 1.75 0.0)(list -7.5 3.0 0.0)4)
+                                   (list(list -7.5 3.0 0.0)(list -7.16513 1.75 0.0)4)
+                                   (list(list -7.16513 6.25 0.0)(list -7.5 5.0 0.0)4)
+                                   (list(list -7.5 5.0 0.0)(list -7.83488 6.25 0.0)4)
+                                   (list(list -0.625 11.5625 0.0)(list -0.208333 10.3125 0.0)6)
+                                   (list(list 0.208333 10.3125 0.0)(list 0.625 11.5625 0.0)6)
+                                   (list(list -0.208333 10.3125 0.0)(list 0.0 10.9583 0.0)6)
+                                   (list(list 0.0 10.9583 0.0)(list 0.208333 10.3125 0.0)6)
+                                   (list(list -4.41667 7.8125 0.0)(list -4.41667 9.0625 0.0)4)
+                                   (list(list -4.41667 9.0625 0.0)(list -3.58333 9.0625 0.0)4)
+                                   (list(list -4.41667 8.4375 0.0)(list -3.97917 8.4375 0.0)4)
+                                   (list(list -8.64583 3.375 0.0)(list -8.64583 4.625 0.0)4)
+                                   (list(list -8.64583 4.625 0.0)(list -7.8125 4.625 0.0)4)
+                                   (list(list -8.64583 4.0 0.0)(list -8.20833 4.0 0.0)4)
+                                   (list(list -11.1458 -0.625 0.0)(list -11.1458 0.625 0.0)2)
+                                   (list(list -10.3125 0.625 0.0)(list -10.3125 -0.625 0.0)2)
+                                   (list(list -11.1458 0.0 0.0)(list -10.3125 0.0 0.0)2)
+                                   ))
+                            
+                            (mix_strasc(list  20445 35703 12467 12531 12463 12522 12540 12488 12398 38754 21462 12426 65288 30452 35282 20108 31561 36794 19977 35282 24418 12391 20999 12426 21462 12425 12428 12427 12398 12391 31561 36794 12398 38263 12373 65289 12434 20837 21147 "\n0" 12398 12392 12365 38754 21462 12426 12434 34892 12356 12414 12379 12435
+                                              (if int_selectmenu str_guide_inputval str_guide_selectval)
+                                              str_startguidedrawing
+                                              ))))
                     )
                
                (list(list 90);;Zキャンセル項目を選択
@@ -4100,29 +4427,183 @@
                     (cons "STATUS"
                           (lambda()
                             (mix_strasc
-                             (if entna_depth
-                                 (if int_adddepth;;挿入中,挿入可,深度寸法選択時に実行可能
-                                     (list "{\\C" str_gcol_y ";" 25407 20837 20013 "}")
-                                   (list "{\\C" str_gcol_g ";" 25407 20837 21487 "}")
+                             (if(apply 'or(mapcar '(lambda(lst)(assoc "LINE" lst))ls_vnam_duct))
+                                 (if int_adddepth;;直線部を選択してください,挿入可能
+                                     (list "{\\C" str_gcol_y ";" 30452 32218 37096 12434 36984 25246 12375 12390 12367 12384 12373 12356 "}")
+                                   (list "{\\C" str_gcol_g ";" 25407 20837 21487 33021 "}")
                                    )
-                               (list "{\\C" str_gcol_p ";"
-                                     28145 24230 23544 27861 36984 25246 26178 12395 23455 34892 21487
-                                     "}"))
+                               (list "{\\C" str_gcol_p ";" ;;直線部がないので挿入できません
+                                      30452 32218 37096 12364 12394 12356 12398 12391 25407 20837 12391 12365 12414 12379 12435 "}"))
                              )
                             ))
                     (cons "LOADFUNCTION"
-                          ;;todo編集時のみ
-                          (lambda()(if entna_depth
-                                       (if int_adddepth T
-                                         (setq int_adddepth 0
-                                               bool_replacegrread T
-                                               int_grread 3 elem_grread(list 0 0 0)))
-                                     (x-alert(list 28145 24230 23544 27861 12434
-                                                   36984 25246 12375 12390 12367 12384 12373 12356 ))
+                          (lambda()(if(apply 'or(mapcar '(lambda(lst)(assoc "LINE" lst))ls_vnam_duct))
+                                       (progn;;直線部を選択してください
+                                         (x-alert(list  30452 32218 37096 12434 36984 25246 12375 12390 12367 12384 12373 12356 ))
+                                         (setq int_adddepth 0 )
+                                         )
+                                     ;;現在の作業において、まだ直線部が生成されていません
+                                     (x-alert(list 29694 22312 12398 20316 26989 12395 12362 12356 12390 12289 12414 12384 30452 32218 37096 12364 29983 25104 12373 12428 12390 12356 12414 12379 12435))
                                      ))
                           )
-                    ;;現在選択中の直線部に直線部を追加します
-                    (cons "HELP"(lambda()(mix_strasc(list 29694 22312 36984 25246 20013 12398 30452 32218 37096 12395 30452 32218 37096 12434 36861 21152 12375 12414 12377))))
+                    
+                    
+                    (cons "HELP"
+                          (lambda()
+                            (setq ls_guide_drawing
+                                  (list
+                                   1
+                                   
+                                   (list(list -15.0 9.0 0.0)(list 15.0 9.0 0.0)256)
+                                   (list(list -15.0 9.0 0.0)(list 15.0 9.0 0.0)256)
+                                   (list(list -11.7321 6.0 0.0)(list -12.0 5.0 0.0)30)
+                                   (list(list -12.0 5.0 0.0)(list -12.2679 6.0 0.0)30)
+                                   (list(list -12.0 5.0 0.0)(list -12.0 9.0 0.0)30)
+                                   (list(list -12.2679 8.0 0.0)(list -12.0 9.0 0.0)30)
+                                   (list(list -12.0 9.0 0.0)(list -11.7321 8.0 0.0)30)
+                                   (list(list 11.2679 6.0 0.0)(list 11.0 5.0 0.0)30)
+                                   (list(list 11.0 5.0 0.0)(list 10.7321 6.0 0.0)30)
+                                   (list(list 11.0 5.0 0.0)(list 11.0 9.0 0.0)30)
+                                   (list(list 10.7321 8.0 0.0)(list 11.0 9.0 0.0)30)
+                                   (list(list 11.0 9.0 0.0)(list 11.2679 8.0 0.0)30)
+                                   (list(list -12.0 5.0 0.0)(list 11.0 5.0 0.0)3)
+                                   (list(list -15.0 -4.0 0.0)(list 15.0 -4.0 0.0)256)
+                                   (list(list -11.7321 -7.0 0.0)(list -12.0 -8.0 0.0)30)
+                                   (list(list -12.0 -8.0 0.0)(list -12.2679 -7.0 0.0)30)
+                                   (list(list -12.0 -8.0 0.0)(list -12.0 -4.0 0.0)30)
+                                   (list(list -12.2679 -5.0 0.0)(list -12.0 -4.0 0.0)30)
+                                   (list(list -12.0 -4.0 0.0)(list -11.7321 -5.0 0.0)30)
+                                   (list(list 11.2679 -7.0 0.0)(list 11.0 -8.0 0.0)30)
+                                   (list(list 11.0 -8.0 0.0)(list 10.7321 -7.0 0.0)30)
+                                   (list(list 11.0 -8.0 0.0)(list 11.0 -4.0 0.0)30)
+                                   (list(list 10.7321 -5.0 0.0)(list 11.0 -4.0 0.0)30)
+                                   (list(list 11.0 -4.0 0.0)(list 11.2679 -5.0 0.0)30)
+                                   (list(list -12.0 -8.0 0.0)(list -6.0 -8.0 0.0)3)
+                                   (list(list 5.0 -8.0 0.0)(list 11.0 -8.0 0.0)3)
+                                   (list(list -4.0 -11.0 0.0)(list 2.0 -11.0 0.0)6)
+                                   (list(list -11.7321 -10.0 0.0)(list -12.0 -11.0 0.0)4)
+                                   (list(list -12.0 -11.0 0.0)(list -12.2679 -10.0 0.0)4)
+                                   (list(list -12.0 -11.0 0.0)(list -12.0 -8.0 0.0)4)
+                                   (list(list -12.2679 -9.0 0.0)(list -12.0 -8.0 0.0)4)
+                                   (list(list -12.0 -8.0 0.0)(list -11.7321 -9.0 0.0)4)
+                                   (list(list -7.87298 -8.0 0.0)(list -7.35182 -8.0691 0.0)6)
+                                   (list(list -7.35182 -8.0691 0.0)(list -6.86667 -8.27161 0.0)6)
+                                   (list(list -6.86667 -8.27161 0.0)(list -6.45105 -8.59355 0.0)6)
+                                   (list(list -6.45105 -8.59355 0.0)(list -6.13368 -9.01266 0.0)6)
+                                   (list(list -6.13368 -9.01266 0.0)(list -5.93649 -9.5 0.0)6)
+                                   (list(list -4.0 -11.0 0.0)(list -4.52116 -10.9309 0.0)6)
+                                   (list(list -4.52116 -10.9309 0.0)(list -5.00631 -10.7284 0.0)6)
+                                   (list(list -5.00631 -10.7284 0.0)(list -5.42193 -10.4065 0.0)6)
+                                   (list(list -5.42193 -10.4065 0.0)(list -5.7393 -9.98734 0.0)6)
+                                   (list(list -5.7393 -9.98734 0.0)(list -5.93649 -9.5 0.0)6)
+                                   (list(list 5.87298 -8.0 0.0)(list 5.35182 -8.0691 0.0)6)
+                                   (list(list 5.35182 -8.0691 0.0)(list 4.86667 -8.27161 0.0)6)
+                                   (list(list 4.86667 -8.27161 0.0)(list 4.45105 -8.59355 0.0)6)
+                                   (list(list 4.45105 -8.59355 0.0)(list 4.13368 -9.01266 0.0)6)
+                                   (list(list 4.13368 -9.01266 0.0)(list 3.93649 -9.5 0.0)6)
+                                   (list(list 2.0 -11.0 0.0)(list 2.52116 -10.9309 0.0)6)
+                                   (list(list 2.52116 -10.9309 0.0)(list 3.00631 -10.7284 0.0)6)
+                                   (list(list 3.00631 -10.7284 0.0)(list 3.42193 -10.4065 0.0)6)
+                                   (list(list 3.42193 -10.4065 0.0)(list 3.7393 -9.98734 0.0)6)
+                                   (list(list 3.7393 -9.98734 0.0)(list 3.93649 -9.5 0.0)6)
+                                   (list(list -3.73205 -10.0 0.0)(list -4.0 -11.0 0.0)30)
+                                   (list(list -4.0 -11.0 0.0)(list -4.26795 -10.0 0.0)30)
+                                   (list(list -4.0 -11.0 0.0)(list -4.0 -4.0 0.0)30)
+                                   (list(list -4.26795 -5.0 0.0)(list -4.0 -4.0 0.0)30)
+                                   (list(list -4.0 -4.0 0.0)(list -3.73205 -5.0 0.0)30)
+                                   (list(list 2.26795 -10.0 0.0)(list 2.0 -11.0 0.0)30)
+                                   (list(list 2.0 -11.0 0.0)(list 1.73205 -10.0 0.0)30)
+                                   (list(list 2.0 -11.0 0.0)(list 2.0 -4.0 0.0)30)
+                                   (list(list 1.73205 -5.0 0.0)(list 2.0 -4.0 0.0)30)
+                                   (list(list 2.0 -4.0 0.0)(list 2.26795 -5.0 0.0)30)
+                                   (list(list 8.66123 4.33552 0.0)(list 9.1595 3.66803 0.0)3)
+                                   (list(list 8.16061 3.66803 0.0)(list 8.66123 4.33552 0.0)3)
+                                   (list(list 8.66123 4.33552 0.0)(list 8.66123 2.16852 0.0)3)
+                                   (list(list 12.4429 2.32364 0.0)(list 12.6591 2.16852 0.0)3)
+                                   (list(list 12.1233 2.55632 0.0)(list 12.4429 2.32364 0.0)3)
+                                   (list(list 11.4793 2.32364 0.0)(list 11.6932 2.47876 0.0)3)
+                                   (list(list 11.1596 2.16852 0.0)(list 11.4793 2.32364 0.0)3)
+                                   (list(list 12.1233 3.33428 0.0)(list 12.1233 2.63388 0.0)3)
+                                   (list(list 11.6932 3.33428 0.0)(list 11.6932 2.63388 0.0)3)
+                                   (list(list 11.1596 2.63388 0.0)(list 12.6591 2.63388 0.0)3)
+                                   (list(list 11.3735 3.02404 0.0)(list 12.4429 3.02404 0.0)3)
+                                   (list(list 12.6591 3.55756 0.0)(list 12.6591 3.72444 0.0)3)
+                                   (list(list 12.6098 3.50116 0.0)(list 12.6591 3.55756 0.0)3)
+                                   (list(list 12.0387 3.50116 0.0)(list 12.6098 3.50116 0.0)3)
+                                   (list(list 11.9917 3.55756 0.0)(list 12.0387 3.50116 0.0)3)
+                                   (list(list 11.9917 3.94537 0.0)(list 11.9917 3.55756 0.0)3)
+                                   (list(list 12.5628 3.94537 0.0)(list 11.9917 3.94537 0.0)3)
+                                   (list(list 12.5628 4.33552 0.0)(list 12.5628 3.94537 0.0)3)
+                                   (list(list 12.0387 4.33552 0.0)(list 12.5628 4.33552 0.0)3)
+                                   (list(list 11.8248 3.55756 0.0)(list 11.8248 3.72444 0.0)3)
+                                   (list(list 11.7778 3.50116 0.0)(list 11.8248 3.55756 0.0)3)
+                                   (list(list 11.2066 3.50116 0.0)(list 11.7778 3.50116 0.0)3)
+                                   (list(list 11.1596 3.55756 0.0)(list 11.2066 3.50116 0.0)3)
+                                   (list(list 11.1596 3.94537 0.0)(list 11.1596 3.55756 0.0)3)
+                                   (list(list 11.7308 3.94537 0.0)(list 11.1596 3.94537 0.0)3)
+                                   (list(list 11.7308 4.33552 0.0)(list 11.7308 3.94537 0.0)3)
+                                   (list(list 11.2066 4.33552 0.0)(list 11.7308 4.33552 0.0)3)
+                                   (list(list 11.491 2.00164 0.0)(list 12.8237 2.00164 0.0)3)
+                                   (list(list 10.9928 2.15677 0.0)(list 11.491 2.00164 0.0)3)
+                                   (list(list 10.8259 2.31189 0.0)(list 10.9928 2.15677 0.0)3)
+                                   (list(list 10.8259 2.31189 0.0)(list 10.4921 2.00164 0.0)3)
+                                   (list(list 10.8259 3.40009 0.0)(list 10.8259 2.31189 0.0)3)
+                                   (list(list 10.4921 3.40009 0.0)(list 10.8259 3.40009 0.0)3)
+                                   (list(list 10.659 4.33552 0.0)(list 10.8259 3.86781 0.0)3)
+                                   (list(list 14.5136 4.33552 0.0)(list 15.5853 4.33552 0.0)3)
+                                   (list(list 15.4654 2.15677 0.0)(list 15.8227 2.00164 0.0)3)
+                                   (list(list 14.9907 2.7796 0.0)(list 15.4654 2.15677 0.0)3)
+                                   (list(list 14.8708 3.08985 0.0)(list 14.9907 2.7796 0.0)3)
+                                   (list(list 14.8708 3.40009 0.0)(list 14.8708 3.08985 0.0)3)
+                                   (list(list 14.396 2.62448 0.0)(list 14.1563 2.00164 0.0)3)
+                                   (list(list 14.5136 3.24497 0.0)(list 14.396 2.62448 0.0)3)
+                                   (list(list 14.5136 4.33552 0.0)(list 14.5136 3.24497 0.0)3)
+                                   (list(list 15.5853 3.40009 0.0)(list 14.5136 3.40009 0.0)3)
+                                   (list(list 15.5853 4.33552 0.0)(list 15.5853 3.40009 0.0)3)
+                                   (list(list 14.5136 4.33552 0.0)(list 15.5853 4.33552 0.0)3)
+                                   (list(list 14.1446 3.00054 0.0)(list 14.2644 3.16741 0.0)3)
+                                   (list(list 13.9072 2.83366 0.0)(list 14.1446 3.00054 0.0)3)
+                                   (list(list 13.5499 2.66679 0.0)(list 13.9072 2.83366 0.0)3)
+                                   (list(list 13.9072 2.00164 0.0)(list 13.7873 2.00164 0.0)3)
+                                   (list(list 13.9072 4.50005 0.0)(list 13.9072 2.00164 0.0)3)
+                                   (list(list 13.5499 3.8349 0.0)(list 14.2644 3.8349 0.0)3)
+                                   (list(list -0.335853 -1.33113 0.0)(list -0.335853 1.6679 0.0)2)
+                                   (list(list 0.331642 1.6679 0.0)(list 0.331642 -1.33113 0.0)2)
+                                   (list(list 0.996787 -0.665986 0.0)(list -0.00210513 -1.66488 0.0)2)
+                                   (list(list -0.00210513 -1.66488 0.0)(list -1.001 -0.665986 0.0)2)
+                                   (list(list -15.9985 -9.99908 0.0)(list -15.9985 -8.9992 0.0)4)
+                                   (list(list -15.9985 -8.9992 0.0)(list -15.5702 -8.9992 0.0)4)
+                                   (list(list -15.5702 -8.9992 0.0)(list -15.4284 -9.04746 0.0)4)
+                                   (list(list -15.4284 -9.04746 0.0)(list -15.3802 -9.09421 0.0)4)
+                                   (list(list -15.3802 -9.09421 0.0)(list -15.3334 -9.18922 0.0)4)
+                                   (list(list -15.3334 -9.18922 0.0)(list -15.3334 -9.28424 0.0)4)
+                                   (list(list -15.3334 -9.28424 0.0)(list -15.3802 -9.38076 0.0)4)
+                                   (list(list -15.3802 -9.38076 0.0)(list -15.4284 -9.42751 0.0)4)
+                                   (list(list -15.4284 -9.42751 0.0)(list -15.5702 -9.47577 0.0)4)
+                                   (list(list -15.5702 -9.47577 0.0)(list -15.9985 -9.47577 0.0)4)
+                                   (list(list -15.6667 -9.47577 0.0)(list -15.3334 -9.99908 0.0)4)
+                                   (list(list -14.1435 -8.80918 0.0)(list -15.0001 -10.3324 0.0)4)
+                                   (list(list -13.3819 -8.9992 0.0)(list -13.857 -8.9992 0.0)4)
+                                   (list(list -13.857 -8.9992 0.0)(list -13.9052 -9.42751 0.0)4)
+                                   (list(list -13.9052 -9.42751 0.0)(list -13.857 -9.38076 0.0)4)
+                                   (list(list -13.857 -9.38076 0.0)(list -13.7152 -9.3325 0.0)4)
+                                   (list(list -13.7152 -9.3325 0.0)(list -13.572 -9.3325 0.0)4)
+                                   (list(list -13.572 -9.3325 0.0)(list -13.4287 -9.38076 0.0)4)
+                                   (list(list -13.4287 -9.38076 0.0)(list -13.3337 -9.47577 0.0)4)
+                                   (list(list -13.3337 -9.47577 0.0)(list -13.2869 -9.61753 0.0)4)
+                                   (list(list -13.2869 -9.61753 0.0)(list -13.2869 -9.71405 0.0)4)
+                                   (list(list -13.2869 -9.71405 0.0)(list -13.3337 -9.85581 0.0)4)
+                                   (list(list -13.3337 -9.85581 0.0)(list -13.4287 -9.95082 0.0)4)
+                                   (list(list -13.4287 -9.95082 0.0)(list -13.572 -9.99908 0.0)4)
+                                   (list(list -13.572 -9.99908 0.0)(list -13.7152 -9.99908 0.0)4)
+                                   (list(list -13.7152 -9.99908 0.0)(list -13.857 -9.95082 0.0)4)
+                                   (list(list -13.857 -9.95082 0.0)(list -13.9052 -9.90407 0.0)4)
+                                   (list(list -13.9052 -9.90407 0.0)(list -13.952 -9.80906 0.0)4)
+                                   ))
+
+                            ;;直線部を選択して直線部を追加します\n一旦、下方向に曲げ半径の1/5倍の値でオフセットさせるので深度を調整してください
+                            (mix_strasc(list 30452 32218 37096 12434 36984 25246 12375 12390 30452 32218 37096 12434 36861 21152 12375 12414 12377 "\n" 19968 26086 12289 19979 26041 21521 12395 26354 12370 21322 24452 12398 "1/5" 20493 12398 20516 12391 12458 12501 12475 12483 12488 12373 12379 12427 12398 12391 28145 24230 12434 35519 25972 12375 12390 12367 12384 12373 12356 str_startguidedrawing ))))
+
                     
                     )
                
@@ -4522,10 +5003,10 @@
                           num_line ii str_entselect vnam_select str_wholetype
                           
                           )
-
                 (cond
                  ((= int_ductmode 2) T)
                  (entna_depth nil)
+                 (int_adddepth nil)
                  (bool_noeditdepth nil)
                  (p_roadclick_temp nil)
                  (p_click
@@ -4818,6 +5299,126 @@
 
        (cond
         (bool )
+
+        ((if int_adddepth
+             (if(setq set_ent(ssget "CP"(mapcar '(lambda(v / vec)
+                                                   (setq vec(mapcar
+                                                             '(lambda(x y)(* 0.4 height_text
+                                                                             (+(*(car v)x)(*(cadr v)y))))
+                                                             vec_x_onview vec_y_onview))
+                                                   (mapcar '+ elem_grread vec)
+                                                   )
+                                                (list(list 1 1)(list 1 -1)(list -1 -1)(list -1 1))
+                                                )
+                                    (list(cons 0 "LINE"))))
+                 (progn
+                   (setq vnam_line(vlax-ename->vla-object(ssname set_ent 0)))
+                   (null(apply 'or(mapcar
+                                   '(lambda(lst / num)
+                                      (if(setq num(vl-position(list "OBJ" vnam_line)lst))
+                                          (setq num_line(cadr(assoc "LINE" lst))))
+                                      )
+                                   ls_vnam_duct)))
+                   )
+               T)
+           )
+         ;;選択対象ではありません/n管路の直線部を選択してください
+         (x-alert(list 36984 25246 23550 35937 12391 12399 12354 12426 12414 12379 12435 "/n" 31649 36335 12398 30452 32218 37096 12434 36984 25246 12375 12390 12367 12384 12373 12356 ))
+         )
+        
+        ((and int_adddepth num_line)
+         
+         (setq ps(vlax-curve-getstartpoint vnam_line)
+               pe(vlax-curve-getendpoint vnam_line)
+
+               ls_p0(mapcar '(lambda(d1 d2 b / p)
+                               (setq p(mapcar '(lambda(a b)(+(* d1 a)(* d2 b)))ps pe))
+                               (if b(mapcar '+ p(list 0 0 (-(* 0.2 radius_bend_temp))))p))
+                            (list 0.7 0.6 0.4 0.3 0)(list 0.3 0.4 0.6 0.7 1.)(list nil T T nil nil))
+               
+               ls_p1(project_to_ground
+                     ls_p0(list 0 0 1)(list str_lasground height_ground))
+
+               entna(cadr(assoc "OBJ"(assoc(list "DEPTH" num_line 1)ls_vnam_duct)))
+               vec_normal(cdr(assoc 210(entget entna)))
+               
+               ls_entna
+               (mapcar '(lambda(p0 p1 / d str e vnam)
+                          (setq d(apply '+(mapcar '* vec_normal p0))
+                                str(strcat "GL"(if(<(-(caddr p0)(caddr p1))0)"-" "+")"<>\\P"
+                                           "EL = "(rtos(caddr p0)2 int_unitelevation))
+                                )
+                          (setq e(make_2pdimension
+                                  entna(list p1 p0 vec_normal d
+                                             nil(* 0.5 pi) 0. str str_dimstyle_ductlevel)))
+                          (if entna
+                              (setq entna nil)
+                            (progn
+                              (setq vnam(vlax-ename->vla-object e))
+                              (vla-put-color vnam int_colductdimedit)
+                              (addkillobj vnam)
+                              (list p0 e vnam)
+                              )
+                            )
+                          )
+                       ls_p0 ls_p1)
+               ls_entna(cdr ls_entna)
+               vnam(cadr(assoc "OBJ"(assoc(list "LINE" num_line)ls_vnam_duct)))
+               
+               )
+         (vla-put-endpoint vnam(vlax-3d-point(car ls_p0)))
+
+         (setq ls_vnam_duct
+               (mapcar
+                '(lambda(lst / str ls_num)
+                   (setq ls_num(car lst)str(car ls_num))
+                   (if(if(vl-position str(list "LINE" "DEPTH" "ARC"))
+                          (>(cadr ls_num)num_line))
+                       (subst(mapcar '(lambda(a b)(if b(+ 2 a)a))
+                                     ls_num(list nil T nil))
+                             ls_num lst)
+                     lst)
+                   )
+                ls_vnam_duct)
+               )
+
+         (setq ps nil)
+         (mapcar
+          '(lambda(lst / p i)
+             (setq p(car lst)lst(cdr lst))
+             (if ps
+                 (progn
+                   (setq vnam_line
+                         (vla-addline
+                          (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                          (vlax-3d-point ps)(vlax-3d-point p))
+                         ls_vnam_duct(cons(list(list "LINE" num_line)
+                                               (list "OBJ" vnam_line))
+                                          ls_vnam_duct)
+                         ps nil i 1
+                         )
+                   (vla-put-color vnam_line int_colductdimedit)
+                   (addkillobj vnam_line)
+                   )
+               (setq num_line(1+ num_line)ps p i 0)
+               )
+             
+             (setq ls_vnam_duct
+                   (cons(list(list "DEPTH" num_line i)
+                             (cons "OBJ" lst)
+                             (list "ROAD" vnam_road hand_road) )
+                        ls_vnam_duct)
+                   )
+             )
+          ls_entna)
+         
+         
+         (setq int_adddepth nil bool_noeditdepth T int_max_duct(+ int_max_duct 2)
+               int_editarcposition_temp 1
+               bool_replacegrread T int_grread 3 elem_grread(list 0 0 0)
+               )
+         
+         )
         
         ((if(and(vl-position int_ductdepth(list 0 1))bool_ductedit
                 (< int_editdepth 2)
@@ -4847,111 +5448,17 @@
          (setq vec_normal(unit_vector(carxyz(if vec_road(mapcar '- vec_road)vec_view)0.))
                vec_x_offset(trans-x(list 1. 0. 0.)vec_normal(list 0 0 1)))
          
-         
          (if bool_noeditdepth(setq bool_noeditdepth nil)
            (progn
              (if p_road T
                (setq p_road(mapcar '(lambda(a b)(+ a(* b offset_duct)))p_ground vec_x_offset)))
              
-
-             (if(= int_adddepth 0)
-                 (progn
-                   (vla-put-color vnam_depth int_colductdimedit)
-                   
-                   ((lambda(lst / ii)
-                      (while lst
-                        (if(equal(cadr(assoc "OBJ"(car lst)))entna_depth)
-                            (setq lst(assoc "DEPTH"(car lst))
-                                  int_duct_insert(cadr lst)
-                                  int_side_insert(caddr lst)
-                                  lst nil)
-                          (setq lst(cdr lst)))
-                        )
-                      )
-                    ls_vnam_duct)
-
-                   (setq ls_vnam_duct
-                         (mapcar
-                          '(lambda(lst / lst0 str ii)
-                             (setq lst0(car lst)str(car lst0)ii(cadr lst0))
-                             (if(or(and(vl-position str(list "LINE" "DEPTH" "ARC"))
-                                       (> ii int_duct_insert))
-                                   (and(vl-position str(list "ARC"))
-                                       (= ii int_duct_insert))
-                                   )
-                                 (cons(mapcar '(lambda(a b)(if b(1+ a)a))lst0(list nil T nil))
-                                      (cdr lst))
-                               lst)
-                             )
-                          ls_vnam_duct)
-                         int_max_duct(1+ int_max_duct))
-                   
-                   (setq vnam(cadr(assoc "OBJ"(assoc(list "LINE" int_duct_insert)ls_vnam_duct)))
-                         p_addline0(vlax-curve-getstartpoint vnam)
-                         p_addline1(vlax-curve-getendpoint vnam)
-                         ls_p_divideinsert
-                         (mapcar '(lambda(r)
-                                    (mapcar '(lambda(a b)(+(*(- 1. r)a)(* r b)))
-                                            p_addline0 p_addline1))
-                                 (if(= int_side_insert 0)
-                                     (list 0.2 0.4)(list 0.6 0.8 )))
-                         )
-                   (vla-put-endpoint vnam(vlax-3d-point(car ls_p_divideinsert)))
-                   
-                   
-                   (setq lst(assoc "OBJ"(assoc(list "DEPTH" int_duct_insert 1)ls_vnam_duct))
-                         entna(cadr lst)vnam(caddr lst)
-                         )
-                   
-                   (setq vnam
-                         (vla-CopyObjects
-                          (vla-get-ActiveDocument(vlax-get-acad-object))
-                          (vlax-make-variant
-                           (vlax-safearray-fill
-                            (vlax-make-safearray vlax-vbObject (cons 0 0))
-                            (list vnam)))
-                          (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
-                          )
-                         vnam(car(vlax-safearray->list(vlax-variant-value vnam)))
-                         ls_vnam_duct(cons(list(list "DEPTH"(1+ int_duct_insert)1)
-                                               (list "OBJ"(vlax-vla-object->ename vnam)vnam)
-                                               (list "ROAD" vnam_road hand_road) )
-                                          ls_vnam_duct)
-                         )
-                   (vla-put-color vnam int_colductdimedit)
-                   (addkillobj vnam)
-                   
-                   (setq ls_gcode(entget entna)
-                         p1(car ls_p_divideinsert)
-                         ls_p_divideinsert(cdr ls_p_divideinsert)
-                         p0(car(project_to_ground
-                                (list p1)(list 0 0 1)(list str_lasground height_ground)))
-                         
-                         vec_normal(cdr(assoc 210 ls_gcode))
-                         dist_normal(apply '+(mapcar '* p0 vec_normal))
-                         str_level(strcat "GL"(if(<(-(caddr p1)(caddr p0))0)"-" "+")"<>\\P"
-                                          "EL = "(rtos(caddr p_depth)2 int_unitelevation))
-                         )
-                   (make_2pdimension
-                    entna(list p0 p1 vec_normal dist_normal
-                               entna(* 0.5 pi) 0. str_level str_dimstyle_ductlevel))
-
-                   (setq p_depth(car ls_p_divideinsert) ls_p_divideinsert nil
-                         p_road(car(project_to_ground
-                                (list p_depth)(list 0 0 1)(list str_lasground height_ground)))
-                         dist_normal(apply '+(mapcar '* p_depth vec_normal))
-                         )
-                   
-                   (setq int_adddepth 1 entna_depth nil int_connecttype 0)
+             (setq dist_normal(apply '+(mapcar '* vec_normal p_road))
+                   p_depth(if(= int_inputdepth_temp 0)(mapcar '+ p_road(list 0. 0. depth_duct))
+                            (if(= int_inputdepth_temp 1)(mapcar '- p_road(list 0. 0. depth_duct))
+                              (if(= int_inputdepth_temp 2)(carxyz p_road depth_duct)
+                                )))
                    )
-
-               (setq dist_normal(apply '+(mapcar '* vec_normal p_road))
-                     p_depth(if(= int_inputdepth_temp 0)(mapcar '+ p_road(list 0. 0. depth_duct))
-                              (if(= int_inputdepth_temp 1)(mapcar '- p_road(list 0. 0. depth_duct))
-                                (if(= int_inputdepth_temp 2)(carxyz p_road depth_duct)
-                                  )))
-                     )
-               )
              
              (setq str_level(strcat "GL"(if(<(-(caddr p_depth)(caddr p_road))0)"-" "+")"<>\\P"
                                     "EL = "(rtos(caddr p_depth)2 int_unitelevation))
@@ -4991,6 +5498,7 @@
                  
                  (addkillobj vnam_depth)
                  ))
+             
              (setq entna_depth nil)
              (vla-put-color vnam_depth int_colductdimedit)
              (if(and(setq entna0(cadr(assoc "OBJ"(assoc(list "DEPTH" int_duct 0)ls_vnam_duct))))
@@ -5026,11 +5534,10 @@
                )
          
          (if(<(abs pitch_mesh)1e-8)(setq pitch_mesh 0.5))
-         
+
          (while(<=(setq num_duct(1+ num_duct))int_max_duct)
            (setq vnam_line0(cadr(assoc "OBJ"(assoc(list "LINE" num_duct)ls_vnam_duct)))
                  vnam_line1(cadr(assoc "OBJ"(assoc(list "LINE"(1+ num_duct))ls_vnam_duct))))
-
            
            (if vnam_line0(setq p00 p10 p01 p11))
            (if vnam_line1
@@ -5105,12 +5612,14 @@
                                     (cdr(assoc "POSITION" ls_currentarc0))
                                     (strcat(itoa num_duct)"-"(itoa(1+ num_duct))":")))
                        )
-
-
+                 
                  (if(=(car ls_arc)"BREAK")
                      (if(cdr ls_arc)
                          (setq num_duct(1+ int_max_duct)
-                               bool_arcfirsttime(/= int_editarcposition 0)
+                               bool_arcfirsttime
+                               (or(/= int_editarcposition 0)
+                                  int_editarcposition_temp)
+                               
                                ls_arcmove(cdr ls_arc)
                                str_edit "insertarc")
                        (setq num_duct(1+ int_max_duct)
@@ -5171,6 +5680,7 @@
                    )
                  
                  ))
+           
            
            (mapcar
             '(lambda(i)
@@ -5240,7 +5750,8 @@
             (if(=(car ls_arc)"BREAK")nil(list 0 1)))
            
            );;ARC
-
+         (if(= str_edit "insertarc")T(setq int_editarcposition_temp nil))
+         
          (if(if ls_arc(=(car ls_arc)"BREAK"))nil
            (progn
 
@@ -5416,7 +5927,7 @@
                    ))
              ))
          
-
+         
          (if(= int_editstatus 2)
              (setq bool_replacegrread T int_grread 2 elem_grread 13))
 
@@ -6323,10 +6834,12 @@
                     )
                    
                    )
-             
+
              (if bool_arcfirsttime
                  (setq bool_arcfirsttime nil bool_replacegrread T
-                       int_grread 2 elem_grread(+ 49 int_editarcposition)
+                       int_grread 2
+                       elem_grread(+ 49(if int_editarcposition_temp
+                                           int_editarcposition_temp int_editarcposition))
                        ))
              
              ))

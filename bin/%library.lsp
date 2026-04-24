@@ -31,6 +31,25 @@
   (princ)
   )
 
+(defun c:get_guidedrawing_line( / set_ent num entna vnam p1 p2 c str)
+  (if(setq set_ent(ssget(list(cons 0 "LINE"))))
+      (progn
+        (setq num(sslength set_ent)str "")
+        (while(>(setq num(1- num))-1)
+          (setq entna(ssname set_ent num)
+                vnam(vlax-ename->vla-object entna)
+                p1(vlax-curve-getstartpoint vnam)
+                p2(vlax-curve-getendpoint vnam)
+                c(vla-get-color vnam)
+                str(strcat str "(list(list "(substr(vl-princ-to-string p1)2)
+                           "(list "(substr(vl-princ-to-string p2)2)(itoa c)")\n")
+                )
+          )
+        (copy_to_clip str)
+        
+        ))
+  )
+
 ;;<<<<library
 
 (defun bg-dark-p( / key col rgb r g b brightness)
