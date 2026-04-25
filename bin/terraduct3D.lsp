@@ -455,7 +455,7 @@
                                         (list 32066 28857 20596 36215 28857 12434 36890 36942)
                                         ))))
              (cons "SYMBOL" 'int_editarcposition);;(cons "TEMP" 'int_inputdepth_temp)
-             (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)0)))
+             (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)1)))
         
         (list(cons "TEXT"(mix_strasc(list 31649 12398 12514 12487 12522 12531 12464 )))
              (cons "ITEM" "POPUP_LIST");;管のモデリング
@@ -2058,7 +2058,7 @@
                     (list "INITIAL" "GUIDE" "MOVE" "CLICK" "KEYBOAD"))
             (setq int_selectmenu nil ls_vnam_select nil initial_selectmenu nil 
                   bool_input nil str_input "" ls_vnam_select nil bool_getpoint nil
-                  int_exchangeguide_gr5 nil
+                  int_exchangeguide_gr5 nil ls_ssgetinsert nil
                   str_addsnap ""
                   )
             (setq str_funcmarker "INITIAL")
@@ -2600,15 +2600,17 @@
               
               (setq bool_select nil p_selerac nil )
               )
+             
              ((setq vnam(if(setq set_ent(ssget elem_grread ls_ssget ))
                             (vlax-ename->vla-object(setq entna(ssname set_ent 0)))))
               (setq ls_vnam_temp(list vnam) bool_select nil)
               ;; num 1 bool_replacegrread T int_grread 3 elem_grread nil)
               
               )
-             ((setq vnam(if(setq set_ent(ssget elem_grread(list(cons 0 "INSERT"))))
-                               (vlax-ename->vla-object(setq entna(ssname set_ent 0)))))
-
+             
+             ((if ls_ssgetinsert
+                  (setq vnam(if(setq set_ent(ssget elem_grread ls_ssgetinsert))
+                                (vlax-ename->vla-object(setq entna(ssname set_ent 0))))))
               
               (setq p_insert(vlax-safearray->list(vlax-variant-value(vla-get-insertionpoint vnam)))
                     rotation_insert(vla-get-rotation vnam)
@@ -2629,6 +2631,7 @@
                     entna(car ls_nent)
                     ls_gcode(entget entna)
                     )
+              
               (if(=(cdr(assoc 0 ls_gcode))"VERTEX")
                   (progn
                     (while (/= "SEQEND" (cdr(assoc 0(entget entna))))
@@ -2637,35 +2640,39 @@
                     (setq entna(cdr(assoc -2 (entget entna)))
                           ls_gcode(entget entna))
                     ))
-                    
-              (if(apply 'and(mapcar
-                             '(lambda(a / ii dd xx)
-                                (setq ii(car a)dd(cdr a)
-                                      xx(cdr(assoc ii ls_gcode)))
-                                (if(=(type dd)'STR)
-                                    (vl-string-search xx dd)
-                                  (equal xx dd))
-                                )
-                             ls_ssget))
-                  (progn
-                    
-                    (setq vnam(vlax-ename->vla-object entna)
-                          int_col(get_visual_color vnam))
-                    
-                    (setq vnam
-                          (vla-CopyObjects
-                           (vla-get-ActiveDocument(vlax-get-acad-object))
-                           (vlax-make-variant
-                            (vlax-safearray-fill
-                             (vlax-make-safearray vlax-vbObject (cons 0 0))
-                             (list vnam)))
-                           (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
-                           )
-                          vnam(car(vlax-safearray->list(vlax-variant-value vnam)))
-                          
-                          ls_vnam_temp(cons vnam ls_vnam_temp)
-                          )
+              
 
+              (setq vnam(vlax-ename->vla-object entna)
+                    int_col(get_visual_color vnam)
+
+                    vnam
+                    (vla-CopyObjects
+                     (vla-get-ActiveDocument(vlax-get-acad-object))
+                     (vlax-make-variant
+                      (vlax-safearray-fill
+                       (vlax-make-safearray vlax-vbObject (cons 0 0))
+                       (list vnam)))
+                     (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
+                     )
+                    vnam(car(vlax-safearray->list(vlax-variant-value vnam)))
+                    )
+
+              (if(ssget "L" ls_ssget)
+                  (progn
+              
+                    ;; (if(apply 'and(mapcar
+                    ;;                '(lambda(a / ii dd xx)
+                    ;;                   (setq ii(car a)dd(cdr a)
+                    ;;                         xx(cdr(assoc ii ls_gcode)))
+                    ;;                   (if(=(type dd)'STR)
+                    ;;                       (vl-string-search xx dd)
+                    ;;                     (equal xx dd))
+                    ;;                   )
+                    ;;                ls_ssget))
+                    ;;     (progn
+
+                    
+                    (setq ls_vnam_temp(cons vnam ls_vnam_temp) )
                     (vla-put-color vnam int_col)
                     (vla-scaleentity vnam(vlax-3d-point 0 0 0)x_scale)
                     (vla-Rotate3D
@@ -2675,13 +2682,18 @@
                     
                     (addkillobj vnam)
                     
-                    
-                    
-                    ))
+                    )
+                (vla-delete vnam)
+                )
               
               
               )
+             
              ((= int_selectmode -1) );;単体選択
+             ((and(null ls_vnam_temp)(null p_selerac))
+              (setq p_selerac elem_grread bool_select T)
+              )
+             
              )
 
             
@@ -2704,9 +2716,6 @@
                           )
                        ls_vnam_temp)))
 
-            (if(= int_selectmode -1)T
-              (if(and(null ls_vnam_temp)(null p_selerac))
-                  (setq p_selerac elem_grread bool_select T) ))
             
             
             (if(= int_selectmode -1) (setq ls_vnam_select ls_vnam_temp)
@@ -2913,11 +2922,13 @@
                           (setq sym_input(func_input)
                                 func_input(cdr(assoc "LOADFUNCTION" a))
                                 int_selectmenu nil)
+                          
                           (settile_strinput
                            sym_input func_input
                            (mix_strasc(cdr(assoc "ITEM" a)))
                            (cdr(assoc "STRINPUTALERT" a))
                            )
+                          
                           (setq str_next T)
                           )
 
@@ -3197,11 +3208,21 @@
      "INITIAL"
      (lambda(bool);;initial
        (if(car bool)
-           (setq bool_point nil
+           (setq bool_point nil 
                  bool_selectent T bool_select T int_selectmode 0
-                 ls_ssget(list(cons 0 "LINE,LWPOLYLINE,POLYLINE"))
+                 ls_ssget(list(cons -4 "<OR")
+                              (cons 0 "LINE,LWPOLYLINE,POLYLINE")
+                              (cons -4 "<AND")
+                              (cons 0 "INSERT")(list -3(list "terraduct3d"))
+                              (cons -4 "AND>")
+                              (cons -4 "OR>")
+                              )
+                 ls_ssgetinsert(list(cons 0 "INSERT")
+                                    (cons -4 "<NOT")(list -3(list "terraduct3d"))(cons -4 "NOT>") )
                  xtype_ssget nil xdata_ssget nil
+                 int_selectproject 0
 
+                 str_projectname nil
                  func_guidemenu
                  (lambda()
                    (mix_strasc
@@ -3216,13 +3237,17 @@
                   (list(list 32218 20998 "," 12509 12522 12521 12452 12531 12394 12393 12398 32218 24418 12458 12502 12472 12455 12463 12488 12434 36984 25246 12375 12390 )
                        (list 29694 22312 36984 25246 20013 12398 22320 34920 38754 27161 39640 12395 25237 24433 12377 12427 )
                        (list 20870 24359 12434 21547 12416 12509 12522 12521 12452 12531 12398 12392 12365 12289 20870 24359 19978 12398 28857 12399 25237 24433 12373 12428 12414 12379 12435 )
+                       (list 25237 24433 12375 12383 12458 12502 12472 12455 12463 12488 12434 36984 25246 12377 12427 12392 21517 31216 12434 35373 23450 12391 12365 12414 12377
+                             "(" 35373 23450 12399 20219 24847 ")")
                        ;;線分,ポリラインなどの線形オブジェクトを選択して
                        ;;現在選択中の地表面標高に投影する
                        ;;円弧を含むポリラインのとき、円弧上の点は投影されません
+                       ;;投影したオブジェクトを選択すると名称を設定できます(設定は任意です)
                        ))
                  
                  ls_guidemenu
                  (list
+                  
                   (list(list 76);; 地表面標高
                        (cons "ITEM"(mix_strasc(list 22320 34920 38754 27161 39640)))
                        (cons "STATUS"
@@ -3244,25 +3269,73 @@
                        ;;使用する標高を\n-las読込\n-xml読込\n-一定標高の数値入力\nから選択できます
                        (cons "HELP"(lambda()(mix_strasc(list 20351 29992 12377 12427 27161 39640 12434 "\n- las" 35501 36796 "\n- xml" 35501 36796 "\n- " 19968 23450 27161 39640 12398 25968 20516 20837 21147 "\n" 12363 12425 36984 25246 12391 12365 12414 12377 ))))
                        )
-                  (list(list 49);; 投影ピッチ
+
+                  
+                  ;; (list(list 78);;名称
+                  ;;      (cons "ITEM"(mix_strasc(list 21517 31216)))
+                  ;;      (cons "INPUTSTR"
+                  ;;            (lambda( / str i bool func str_bname str_hand)
+                  ;;              (if(=(length ls_vnam_select)1)
+                  ;;                  (if str_projectname 'str_projectname
+                  ;;                    (progn
+                  ;;                      (setq str_hand(vla-get-handle(car ls_vnam_select))i 0)
+                  ;;                      (while
+                  ;;                          (progn
+                  ;;                            (setq str_bname(strcat str_hand "$"(itoa(setq i(1+ i)))))
+                  ;;                            (null
+                  ;;                             (vl-catch-all-error-p
+                  ;;                              (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
+                  ;;                            )
+                  ;;                        )
+                  ;;                      (setq str_projectname str_bname)
+                  ;;                      'str_projectname ))
+                  ;;                (progn;;
+                  ;;                  (setq str_projectname nil)
+                  ;;                  nil
+                  ;;                  )
+                  ;;                )
+                  ;;              )
+                  ;;            )
+                  ;;      (cons "LOADFUNCTION"
+                  ;;            (lambda(str / bool)
+                  ;;              (setq bool
+                  ;;                    (vl-catch-all-error-p
+                  ;;                     (vl-catch-all-apply 'vla-Item(list vnam_blocktable str)))
+                  ;;                    )
+                  ;;              (if bool T
+                  ;;                (if(= int_allow_overwrite 0)nil
+                  ;;                  (progn
+                  ;;                    (alert
+                  ;;                     (mix_strasc(list 26082 12395 23384 22312 12377 12427 12502 12525 12483 12463 21517 31216 12391 12377 12364 19978 26360 12365 12373 12428 12414 12377 ))
+                  ;;                     )
+                  ;;                    T)))
+                  ;;              )
+                  ;;            )
+                  ;;      (cons "STRINPUTALERT"
+                  ;;            (mix_strasc(list 12502 12525 12483 12463 21517 31216 12364 26082 12395 23384 22312 12375 12390 12356 12414 12377 )))
+                  ;;      ;;選択が単一のときのみ設定できます
+                  ;;      (cons "HELP"(lambda()(mix_strasc(list 36984 25246 12364 21336 19968 12398 12392 12365 12398 12415 35373 23450 12391 12365 12414 12377))))
+                  ;;      )
+                  
+                  (list(list 65);; 投影ピッチ
                        (cons "ITEM"(list 25237 24433 12500 12483 12481))
                        (cons "INPUT"(lambda()'pitch_project))
                        ;;選択した線形は、ここで設定したピッチで分割され、その点における標高を取得します\n元々の線形の節点に当たる部分は必ず投影されます\nピッチが0のとき節点のみが投影されます
                        (cons "HELP"(lambda()(mix_strasc(list 36984 25246 12375 12383 32218 24418 12399 12289 12371 12371 12391 35373 23450 12375 12383 12500 12483 12481 12391 20998 21106 12373 12428 12289 12381 12398 28857 12395 12362 12369 12427 27161 39640 12434 21462 24471 12375 12414 12377 "\n" 20803 12293 12398 32218 24418 12398 31680 28857 12395 24403 12383 12427 37096 20998 12399 24517 12378 25237 24433 12373 12428 12414 12377 "\n" 12500 12483 12481 12364 "0" 12398 12392 12365 31680 28857 12398 12415 12364 25237 24433 12373 12428 12414 12377(if int_selectmenu str_guide_inputval str_guide_selectval)  ))))
                        )
                   
-                  (list(list 50);;投影前に節点だった箇所に円
-                       (cons "ITEM"(list  25237 24433 21069 12395 31680 28857 12384 12387 12383 31623 25152 12395 20870 ))
-                       (cons "INPUTSWITCH"
-                             (lambda()
-                               (list 'int_projectnode
-                                     (mapcar 'mix_strasc 
-                                             (list(list "{\\C" str_gcol_y ";" 12354 12426 "}")
-                                                  (list "{\\C" str_gcol_c ";" 12394 12375 "}")))
-                                     )))
-                       ;;ピッチ設定しているとき投影時に節点数が増え、元々節点だった箇所がわかりづらくなるので、円形のマーキングを作るかどうかの設定を行います
-                       (cons "HELP"(lambda()(mix_strasc(list 12500 12483 12481 35373 23450 12375 12390 12356 12427 12392 12365 25237 24433 26178 12395 31680 28857 25968 12364 22679 12360 12289 20803 12293 31680 28857 12384 12387 12383 31623 25152 12364 12431 12363 12426 12389 12425 12367 12394 12427 12398 12391 12289 "\n" 20870 24418 12398 12510 12540 12461 12531 12464 12434 20316 12427 12363 12393 12358 12363 12398 35373 23450 12434 34892 12356 12414 12377 ))))
-                       )
+                  ;; (list(list 50);;投影前に節点だった箇所に円
+                  ;;      (cons "ITEM"(list  25237 24433 21069 12395 31680 28857 12384 12387 12383 31623 25152 12395 20870 ))
+                  ;;      (cons "INPUTSWITCH"
+                  ;;            (lambda()
+                  ;;              (list 'int_projectnode
+                  ;;                    (mapcar 'mix_strasc 
+                  ;;                            (list(list "{\\C" str_gcol_y ";" 12354 12426 "}")
+                  ;;                                 (list "{\\C" str_gcol_c ";" 12394 12375 "}")))
+                  ;;                    )))
+                  ;;      ;;ピッチ設定しているとき投影時に節点数が増え、元々節点だった箇所がわかりづらくなるので、円形のマーキングを作るかどうかの設定を行います
+                  ;;      (cons "HELP"(lambda()(mix_strasc(list 12500 12483 12481 35373 23450 12375 12390 12356 12427 12392 12365 25237 24433 26178 12395 31680 28857 25968 12364 22679 12360 12289 20803 12293 31680 28857 12384 12387 12383 31623 25152 12364 12431 12363 12426 12389 12425 12367 12394 12427 12398 12391 12289 "\n" 20870 24418 12398 12510 12540 12461 12531 12464 12434 20316 12427 12363 12393 12358 12363 12398 35373 23450 12434 34892 12356 12414 12377 ))))
+                  ;;      )
                   
                   (list(list 80);;選択モード切替
                        (cons "ITEM"(list 36984 25246 12514 12540 12489 20999 26367))
@@ -3274,6 +3347,21 @@
                                                   (list "{\\C" str_gcol_c ";" 35299 38500 "}")))
                                      )))
                        (cons "HELP"(lambda()str_guide_selectmode))
+                       )
+
+                  (list(list 81);;投影済みの線をクリックしたとき
+                       (cons "ITEM"(list 25237 24433 28168 12415 12398 32218 12434 12463 12522 12483 12463 12375 12383 12392 12365 ))
+                       (cons "INPUTSWITCH"
+                             (lambda()
+                               (list 'int_selectproject
+                                     (mapcar 'mix_strasc;;名称を設定する,標高変更選択に加える
+                                             (list(list "{\\C" str_gcol_c ";"
+                                                        21517 31216 12434 35373 23450 12377 12427 "}")
+                                                  (list "{\\C" str_gcol_g ";"
+                                                        27161 39640 22793 26356 36984 25246 12395 21152 12360 12427 "}")))
+                                     )))
+                       ;;名称設定時にはこの設定が必要です\n標高変更選択はこの設定を変えなくても範囲選択をすれば対象とすることができます\nクリックで対象としたいときはこの設定が必要です
+                       (cons "HELP"(lambda()(mix_strasc(list 21517 31216 35373 23450 26178 12395 12399 12371 12398 35373 23450 12364 24517 35201 12391 12377 "\n" 27161 39640 22793 26356 36984 25246 12399 12371 12398 35373 23450 12434 22793 12360 12394 12367 12390 12418 31684 22258 36984 25246 12434 12377 12428 12400 23550 35937 12392 12377 12427 12371 12392 12364 12391 12365 12414 12377 "\n" 12463 12522 12483 12463 12391 23550 35937 12392 12375 12383 12356 12392 12365 12399 12371 12398 35373 23450 12364 24517 35201 12391 12377 )))) 
                        )
                   
                   (list(list nil)
@@ -3313,7 +3401,59 @@
     (cons
      "CLICK"
      (lambda()
-       nil
+       (if(if(setq set_ent(ssget elem_grread(list(cons 0 "INSERT"))))
+              (progn
+                
+                (setq vnam(vlax-ename->vla-object(ssname set_ent 0)))
+                (vla-getXData vnam "terraduct3d" 'array_Type 'array_Data )
+                (if array_data
+                    (setq ls_xdata
+                          (split_list 0(mapcar 'vlax-variant-value
+                                               (vlax-safearray->list array_data)))
+                          str_type(cdr(assoc "terraduct3d" ls_xdata)))
+                  (setq str_type nil) )
+                (= str_type "PROJECT")))
+           (cond
+            ((= int_selectproject 0)
+             (setq str_bname(vla-get-name vnam)
+                   str_origin str_bname)
+             
+             (settile_strinput
+              'str_bname
+              (lambda(str / bool)
+                (if(or(= str str_origin)
+                      (vl-catch-all-error-p
+                       (vl-catch-all-apply 'vla-Item(list vnam_blocktable str)))
+                      )
+                    T
+                  (if(= int_allow_overwrite 0)nil
+                    (progn
+                      (alert
+                       (mix_strasc(list 26082 12395 23384 22312 12377 12427 12502 12525 12483 12463 21517 31216 12391 12377 12364 19978 26360 12365 12373 12428 12414 12377 ))
+                       )
+                      T)))
+                )
+              
+              (mix_strasc(list 21517 31216 22793 26356 ));;名称変更
+              (mix_strasc(list 12502 12525 12483 12463 21517 31216 12364 26082 12395 23384 22312 12375 12390 12356 12414 12377 ))
+              )
+
+             (if(and(=(getvar "DIASTAT")1)(/= str_origin str_bname))
+                 (vla-put-name(vl-catch-all-apply 'vla-Item(list vnam_blocktable str_origin))
+                              str_bname))
+             (setq bool_select nil p_selerac nil )
+             
+             )
+            ((= int_selectproject 1)
+             
+             
+             
+             
+             
+             )
+            )
+         )
+       
        ))
     
     (cons
@@ -3333,123 +3473,212 @@
                  ls_vnam_select)
          
          (while ls_vnam_select
-           (setq vnam(car ls_vnam_select)ls_vnam_select(cdr ls_vnam_select)
-                 ls_p(vl-catch-all-apply 'vla-get-coordinates(list vnam))
-                 p0(vl-catch-all-apply 'vlax-curve-getstartpoint(list vnam))
-                 p1(vl-catch-all-apply 'vlax-curve-getendpoint(list vnam))
-                 int_col(get_visual_color vnam)
-                 )
            
-           (if(or(vl-catch-all-error-p p0) (vl-catch-all-error-p p1))
+           (setq vnam(car ls_vnam_select)ls_vnam_select(cdr ls_vnam_select))
+           (if(if(setq bool_reference(=(vla-get-objectname vnam)"AcDbBlockReference"))
+                  (progn
+                    (vla-getXData vnam "terraduct3d" 'array_Type 'array_Data )
+                    (if array_data
+                        (setq ls_xdata
+                              (split_list 0(mapcar 'vlax-variant-value
+                                                   (vlax-safearray->list array_data)))
+                              str_type(cdr(assoc "terraduct3d" ls_xdata)))
+                      (setq str_type nil) )
+                    (= str_type "PROJECT")
+                    
+                    ))
                (progn
-                 nil
+                 (setq ls_p_center(list))
+                 (vlax-for
+                  obj
+                  (vla-Item vnam_blocktable(vla-get-name vnam))
+                  (cond
+                   ((=(vla-get-ObjectName obj)"AcDb3dPolyline")
+                    (setq vnam_update obj
+                          ls_p(split_list 3(vlax-safearray->list(vlax-variant-value(vla-get-coordinates obj))))
+                          )
+                    )
+                   ((=(vla-get-ObjectName obj)"AcDbCircle")
+                    (setq p(vlax-safearray->list(vlax-variant-value(vla-get-center obj)))
+                          ls_p_center (cons p ls_p_center)
+                          p(car(project_to_ground
+                                (list p)(list 0. 0. 1.)(list str_lasground height_ground)))
+                          )
+                    (vla-put-center obj(vlax-3d-point p))
+                    )
+                   )
+                  )
+
+                 (setq ls_p
+                       (vl-remove-if
+                        '(lambda(p / bool)
+                           (setq ls_dummy ls_p_center bool T)
+                           (while ls_dummy
+                             (if(<(distance p(car ls_dummy))1e-8)
+                                 (setq bool nil ls_dummy nil)
+                               (setq ls_dummy(cdr ls_dummy)))
+                             )
+                           bool)
+                        ls_p))
+                 
+                 (setq bool_first T ls_int_node(list 0) int_node 0
+                       ls_p(apply 'append
+                                  (mapcar
+                                   '(lambda(p1 p2 / d n v ls_out ls_int)
+                                      (setq d(distance p1 p2)
+                                            v(unit_vector(mapcar '- p2 p1))
+                                            n(if(= pitch_project 0.)1
+                                               (1+(fix(/ d pitch_project))))
+                                            d(/ d n)
+                                            )
+                                      (if bool_first
+                                          (setq ls_int(inclist 0(1+ n))bool_first nil )
+                                        (setq ls_int(inclist 1(1+ n))))
+                                      
+                                      (setq int_node(+ int_node n)
+                                            ls_int_node(cons int_node ls_int_node))
+                                      (mapcar '(lambda(i)(mapcar '(lambda(a b)(+ a(* i d b))) p1 v))
+                                              ls_int)
+                                      )
+                                   ls_p(cdr ls_p)))
+                       
+                       ls_p(project_to_ground ls_p(list 0. 0. 1.)(list str_lasground height_ground))
+                       
+                       ls_p(apply 'append ls_p)
+                       )
+                 
+                 (setq array_p(vlax-make-safearray vlax-vbDouble(cons 0 (1-(length ls_p)))))
+                 (vlax-safearray-fill array_p ls_p)
+                 (vla-put-coordinates vnam_update array_p)
+                 
                  )
              (progn
-               (if(vl-catch-all-error-p ls_p)(setq ls_p(list p0 p1))
-                 (setq ls_p(vlax-safearray->list(vlax-variant-value ls_p))
-                       ls_p(if(=(vla-get-ObjectName vnam)"AcDbPolyline")
-                               (progn
-                                 (setq z(vla-get-elevation vnam))
-                                 (mapcar '(lambda(a)(carxyz a z))(split_list 2 ls_p))
-                                 )
-                             (split_list 3 ls_p))
-                       )
-                 )
-
-               (setq str_hand(vla-get-handle vnam)i 0)
-               (while
+               (setq ls_p(vl-catch-all-apply 'vla-get-coordinates(list vnam))
+                     p0(vl-catch-all-apply 'vlax-curve-getstartpoint(list vnam))
+                     p1(vl-catch-all-apply 'vlax-curve-getendpoint(list vnam))
+                     int_col(get_visual_color vnam)
+                     )
+               
+               (if(or(vl-catch-all-error-p p0) (vl-catch-all-error-p p1))
                    (progn
-                     (setq str_bname(strcat str_hand "$"(itoa(setq i(1+ i)))))
-                     (null
-                      (vl-catch-all-error-p
-                       (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
+                     nil
                      )
-                 )
-               
-               (setq bool_first T ls_int_node(list 0) int_node 0
-                     ls_p(apply 'append
-                                (mapcar
-                                 '(lambda(p1 p2 / d n v ls_out ls_int)
-                                    (setq d(distance p1 p2)
-                                          v(unit_vector(mapcar '- p2 p1))
-                                          n(if(= pitch_project 0.)1
-                                             (1+(fix(/ d pitch_project))))
-                                          d(/ d n)
-                                          )
-                                    (if bool_first
-                                        (setq ls_int(inclist 0(1+ n))bool_first nil )
-                                      (setq ls_int(inclist 1(1+ n))))
-                                    
-                                    (setq int_node(+ int_node n)
-                                          ls_int_node(cons int_node ls_int_node))
-                                    (mapcar '(lambda(i)(mapcar '(lambda(a b)(+ a(* i d b))) p1 v))
-                                            ls_int)
-                                    )
-                                 ls_p(cdr ls_p)))
-                     
-                     ls_p(project_to_ground ls_p(list 0. 0. 1.)(list str_lasground height_ground))
-                     ;; ls_p(vl-remove nil ls_p)
-
-                     radius_node(if(= pitch_project 0.)0.05 pitch_project)
-                     
-                     ls_vnam
-                     (if(= int_projectnode 1)nil
-                       (mapcar
-                        '(lambda(n / p v)
-                           (if(setq p(nth n ls_p))
-                               (progn
-                                 (setq v(vla-addcircle
-                                         (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
-                                         (vlax-3d-point p)radius_node))
-                                 
-                                 ))
+                 (progn
+                   (if(vl-catch-all-error-p ls_p)(setq ls_p(list p0 p1))
+                     (setq ls_p(vlax-safearray->list(vlax-variant-value ls_p))
+                           ls_p(if(=(vla-get-ObjectName vnam)"AcDbPolyline")
+                                   (progn
+                                     (setq z(vla-get-elevation vnam))
+                                     (mapcar '(lambda(a)(carxyz a z))(split_list 2 ls_p))
+                                     )
+                                 (split_list 3 ls_p))
                            )
-                        ls_int_node))
-                     ls_vnam(vl-remove nil ls_vnam)
-                     
-                     ls_p(apply 'append ls_p)
                      )
-
-               (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname)
-                     ls_vla-release(cons block ls_vla-release))
-               ;; ;; 含まれるすべてのオブジェクトを削除
-               ;; (vlax-for obj block(vla-delete obj))
-               (setq array_p(vlax-make-safearray vlax-vbDouble(cons 0 (1-(length ls_p)))))
-               (vlax-safearray-fill array_p ls_p)
-
-               (setq vnam(vla-Add3dPoly
-                          (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))array_p)
-                     ls_vnam(cons vnam ls_vnam)
+                   
+                   (setq str_hand(vla-get-handle vnam)i 0)
+                   
+                   ;;(setq str_projectname
+                   
+                   (while
+                       (progn
+                         (setq str_bname(strcat str_hand "ROAD$"(itoa(setq i(1+ i)))))
+                         (null
+                          (vl-catch-all-error-p
+                           (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
+                         )
                      )
-               (vla-put-color vnam int_col)
+                   
+                   (setq bool_first T ls_int_node(list 0) int_node 0
+                         ls_p(apply 'append
+                                    (mapcar
+                                     '(lambda(p1 p2 / d n v ls_out ls_int)
+                                        (setq d(distance p1 p2)
+                                              v(unit_vector(mapcar '- p2 p1))
+                                              n(if(= pitch_project 0.)1
+                                                 (1+(fix(/ d pitch_project))))
+                                              d(/ d n)
+                                              )
+                                        (if bool_first
+                                            (setq ls_int(inclist 0(1+ n))bool_first nil )
+                                          (setq ls_int(inclist 1(1+ n))))
+                                        
+                                        (setq int_node(+ int_node n)
+                                              ls_int_node(cons int_node ls_int_node))
+                                        (mapcar '(lambda(i)(mapcar '(lambda(a b)(+ a(* i d b))) p1 v))
+                                                ls_int)
+                                        )
+                                     ls_p(cdr ls_p)))
+                         
+                         ls_p(project_to_ground ls_p(list 0. 0. 1.)(list str_lasground height_ground))
+                         ;; ls_p(vl-remove nil ls_p)
 
-               (vla-copyobjects(vla-get-ActiveDocument(vlax-get-acad-object))
-                               (vlax-make-variant
-                                (vlax-safearray-fill
-                                 (vlax-make-safearray
-                                  vlax-vbObject(cons 0(1-(length ls_vnam))) )
-                                 ls_vnam)
-                                )
-                               block)
-               
-               (setq vnam(vla-InsertBlock
-                          (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
-                          (vlax-3d-point 0 0 0)str_bname 1 1 1 0)
-                     )
-               
-               (set_xda vnam(list(cons 1000 "PROJECT")
-                                 (cons 1000 "PROJECT")(cons 1000 str_hand))
-                        "terraduct3d")
-               
-               
-               (mapcar '(lambda(a)(vla-delete a))ls_vnam)
-               
-               ((lambda(v)
-                  (vlax-release-object v)
-                  (setq ls_vla-release(vl-remove v ls_vlarelease)))
-                block)
+                         radius_node(if(= pitch_project 0.)0.05 pitch_project)
+                         
+                         ls_vnam
+                         (if(= int_projectnode 1)nil
+                           (mapcar
+                            '(lambda(n / p v)
+                               (if(setq p(nth n ls_p))
+                                   (progn
+                                     (setq v(vla-addcircle
+                                             (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                                             (vlax-3d-point p)radius_node))
+                                     
+                                     ))
+                               )
+                            ls_int_node))
+                         ls_vnam(vl-remove nil ls_vnam)
+                         
+                         ls_p(apply 'append ls_p)
+                         )
+
+                   (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname)
+                         ls_vla-release(cons block ls_vla-release))
+                   ;; ;; 含まれるすべてのオブジェクトを削除
+                   ;; (vlax-for obj block(vla-delete obj))
+                   (setq array_p(vlax-make-safearray vlax-vbDouble(cons 0 (1-(length ls_p)))))
+                   (vlax-safearray-fill array_p ls_p)
+
+                   (setq vnam(vla-Add3dPoly
+                              (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))array_p)
+                         ls_vnam(cons vnam ls_vnam)
+                         )
+                   (vla-put-color vnam int_col)
+
+                   (vla-copyobjects(vla-get-ActiveDocument(vlax-get-acad-object))
+                                   (vlax-make-variant
+                                    (vlax-safearray-fill
+                                     (vlax-make-safearray
+                                      vlax-vbObject(cons 0(1-(length ls_vnam))) )
+                                     ls_vnam)
+                                    )
+                                   block)
+                   
+                   (setq vnam(vla-InsertBlock
+                              (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
+                              (vlax-3d-point 0 0 0)str_bname 1 1 1 0)
+                         )
+                   
+                   (set_xda vnam(list(cons 1000 "PROJECT")
+                                     (cons 1000 "PROJECT")(cons 1000 str_hand))
+                            "terraduct3d")
+                   
+                   
+                   (mapcar '(lambda(a)(vla-delete a))ls_vnam)
+                   
+                   ((lambda(v)
+                      (vlax-release-object v)
+                      (setq ls_vla-release(vl-remove v ls_vlarelease)))
+                    block)
+                   ))
                ))
            )
+         
+         (vla-Regen
+          (vla-get-ActiveDocument (vlax-get-acad-object))
+          acAllViewports
+          )
+         
          )
         )
        
@@ -4885,6 +5114,7 @@
          
          (setq p_ground elem_grread)
          (setq p_click p_ground)
+         
          (if(vl-position int_ductdepth(list 0 1))
              (if(or str_lasground height_ground)
                  (if(setq p(car(project_to_ground
@@ -4892,6 +5122,7 @@
                                 (list str_lasground height_ground))))
                      (setq p_ground p)
                    (progn;;
+                     
                      (setq ls_p
                            (project_to_ground
                             (mapcar '(lambda(a)(mapcar '+ p_ground a))
@@ -4907,6 +5138,19 @@
                        )
                      )
                    )
+               (if ls_p_road
+                   (setq p_ground
+                         ((lambda(p v z / cosdist d n bool )
+                            (setq cosdist(caddr v))
+                            (if(<(abs cosdist)1e-8) (setq p(carxyz elem_grread z))
+                              (setq d(/(- z(caddr p))cosdist)
+                                    p(mapcar '(lambda(a b)(+ a(* d b)))p v)) )
+                            p )
+                          p_ground vec_view
+                          (/(apply '+(mapcar 'caddr ls_p_road))(length ls_p_road))
+                          )
+                         )
+                 )
                ))
          
          (if vnam_road
@@ -5049,8 +5293,6 @@
     (cons
      "CLICK"
      (lambda( / p_road  ls_arc bool vnam_insertany str_type);;(d- gr3_home()
-       (if(or str_lasground height_ground)T;;標高の設定がないため各種操作は制限されます
-         (x-alert(list 27161 39640 12398 35373 23450 12364 12394 12356 12383 12417 21508 31278 25805 20316 12399 21046 38480 12373 12428 12414 12377 )))
        
        (if bool_firsttime_editduct
            (setq bool_firsttime_editduct
@@ -5679,12 +5921,35 @@
                          ))
                  
                  (setq rr(cdr(assoc "RADIUS" ls_currentarc0)))
+                 
                  (setq ls_arc(connect_twist_curve ;;(list vec_normal pc p0 p1 p2 length_straight)
                               (list p00 p01 p10 p11 rr length_arccenter
-                                    (cdr(assoc "POSITION" ls_currentarc0))
+                                    ((lambda( / lst px0 px1 vec)
+                                       (setq lst(cdr(assoc "POSITION" ls_currentarc0)))
+                                       ;;(setq px0(cadar lst)px1(caddr(car lst)))
+                                       ;; (if(if(and px0 px1)
+                                       ;;        (and
+                                       ;;         (<(distance(list 0 0 0)
+                                       ;;                    (cross_product
+                                       ;;                     (unit_vector(mapcar '- p01 p00))
+                                       ;;                     (unit_vector(mapcar '- px0 p00))))1e-8)
+                                       ;;         (<(distance(list 0 0 0)
+                                       ;;                    (cross_product
+                                       ;;                     (unit_vector(mapcar '- p11 p10))
+                                       ;;                     (unit_vector(mapcar '- px1 p10))))1e-8)
+                                       ;;         ))
+                                       ;;     lst
+                                       ;;   (progn
+                                       ;;     (setq int_editarcposition_temp 1)
+                                       ;;     nil
+                                       ;;     )
+                                       ;;)
+                                       lst
+                                       
+                                       ))
                                     (strcat(itoa num_duct)"-"(itoa(1+ num_duct))":")))
                        )
-                 
+
                  (if(=(car ls_arc)"BREAK")
                      (if(cdr ls_arc)
                          (setq num_duct(1+ int_max_duct)
@@ -6090,8 +6355,28 @@
                            vnam_road
                            ((lambda(hand_road / entna_road vnam str int_col)
                               (if(setq vnam
-                                       (if(setq entna_road(if hand_road(handent hand_road)))
-                                           (vlax-ename->vla-object entna_road)))
+                                       ((lambda(h / block v)
+                                          (if h T(setq h ""))
+                                          (if(vl-catch-all-error-p
+                                              (setq block(vl-catch-all-apply 'vla-Item(list vnam_blocktable h))))
+                                              nil
+                                            (vlax-for
+                                             obj block
+                                             (if entna_road T
+                                               (if(=(vla-get-ObjectName obj)"AcDb3dPolyline")
+                                                   (setq entna_road(vlax-vla-object->ename obj)
+                                                         v obj
+                                                         ))
+                                               )
+                                             )
+                                            )
+                                          (if entna_road T
+                                            (if(setq entna_road(handent h))
+                                                (setq v(vlax-ename->vla-object entna_road))))
+                                          v
+                                          )
+                                        hand_road)
+                                       )
                                   (if(progn
                                        (setq str(cdr(assoc 2(entget(cdr(assoc 330(entget entna_road)))))))
                                        (vl-position str(list "*Model_Space" "*Paper_Space"))
@@ -6135,6 +6420,24 @@
                            entna(vlax-vla-object->ename vnam)
                            )
 
+                     (if(or str_lasground height_ground)
+                         ((lambda( / p13 p14 lst v pp13 pp14 str)
+                            (setq lst(entget entna)
+                                  p13(cdr(assoc 13 lst))p14(cdr(assoc 14 lst))
+                                  pp13(car(project_to_ground
+                                           (list p13)(list 0 0 1)(list str_lasground height_ground)))
+                                  pp14(mapcar '+ pp13(mapcar '- p14 p13))
+                                  str(strcat "GL"(if(<(-(caddr pp14)(caddr pp13))0)"-" "+")"<>\\P"
+                                             "EL = "(rtos(caddr pp14)2 int_unitelevation))
+                                  lst(subst(cons 13 pp13)(cons 13 p13)lst)
+                                  lst(subst(cons 14 pp14)(cons 14 p14)lst)
+                                  lst(subst(cons 1 str)(assoc 1 lst)lst)
+                                  )
+                            
+                            (entmod lst)
+                            ))
+                       )
+                     
                      (setq ls_vnam_duct(cons(list(list "DEPTH" num_temp int_side)
                                                  (list "OBJ" entna vnam)
                                                  (list "ROAD" vnam_road hand_road) )
@@ -6335,10 +6638,11 @@
 
         ((if(or(= (cdr(assoc "terraduct3d" ls_xdata))"PROJECT")vnam_insertany)
              (progn
-               (setq vnam(vla-Item(vla-get-Blocks (vla-get-ActiveDocument(vlax-get-acad-object)))
-                                  (vla-get-name vnam_insertduct)))
-
-               (setq vnam_road_temp nil)
+               (setq hand_road(vla-get-name vnam_insertduct)
+                     vnam(vla-Item(vla-get-Blocks(vla-get-ActiveDocument(vlax-get-acad-object)))
+                                  hand_road)
+                     vnam_road_temp nil)
+               
                (vlax-for
                 obj vnam
                 (if(if vnam_road_temp nil(=(vla-get-ObjectName obj)"AcDb3dPolyline"))
@@ -6355,7 +6659,7 @@
                           (progn
                             (setq int_colduct_temp(get_visual_color obj))
                             (vla-put-color vnam_road_temp int_colduct_temp)
-                            (setq hand_road(vla-get-handle obj))
+                            
                             )
                         (vla-put-color vnam_road_temp(get_visual_color obj))
                         )
@@ -6884,7 +7188,6 @@
                          (cons "ITEM"(list 36215 28857 20596 32066 28857 12434 36890 36942 12377 12427 20870 24359 12434 25505 29992 12377 12427))
                          (cons "LOADFUNCTION"
                                (lambda()
-
                                  (if(= bool_linetype 2)
                                      (setq int_baseline 0 elem_grread p_limit0)
                                    (setq int_baseline 0 elem_grread p_line01 ))
@@ -7141,7 +7444,6 @@
 
        (if(if point_decide T (setq point_decide ls_arc_temp))
            (progn
-             
              (setq ls_vnam_duct
                    (subst(list(assoc "ARC" ls_currentarc0)
                               (assoc "OBJ" ls_currentarc0)
@@ -9434,7 +9736,7 @@
                  )
                 )
                
-               (setq ls_str_out(cons(strcat "PROJECTROAD,"(as-numstr int_col)"," hand_road)
+               (setq ls_str_out(cons(strcat "PROJECTROAD," str "," (as-numstr int_col)"," hand_road)
                                     ls_str_out)
                      ls_str_out
                      (cons(strcat "ATTRIBUTE"
@@ -9596,17 +9898,17 @@
                  str(car lst)ls_vnam_copy (list))
            
            (cond
-            ((or(= str "DUCTBLOCK")(= str "CCBOX"))
+            ((or(= str "DUCTBLOCK")(= str "CCBOX")(= str "PROJECTROAD"))
              (setq str_name(cadr lst)))
-            ((= str "PROJECTROAD")
-             (setq i 0)
-             (while(progn
-                     (setq str_name(strcat "PROJECTROAD_READ" "$"(itoa(setq i(1+ i)))))
-                     (null(vl-catch-all-error-p
-                           (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_name))))
-                     )
-               )
-             )
+            ;; (
+            ;;  (setq i 0)
+            ;;  (while(progn
+            ;;          (setq str_name(strcat "PROJECTROAD_READ" "$"(itoa(setq i(1+ i)))))
+            ;;          (null(vl-catch-all-error-p
+            ;;                (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_name))))
+            ;;          )
+            ;;    )
+            ;;  )
             (T(setq str_name nil))
             
             )
@@ -9693,7 +9995,7 @@
                                        hand_road(cdr(assoc(cadr lst)ls_hand_road))
                                        )
                                  
-                                 (list p0 p1(if hand_road  hand_road(setq hand_road "")))
+                                 (list p0 p1(if hand_road hand_road(setq hand_road "")))
                                  )
                               ls_str_in (list 0 1)
                               )
@@ -10168,8 +10470,9 @@
                    
                    )
                   ((= str "PROJECTROAD")
-                   (setq int_col(atoi(cadr lst))hand_road(caddr lst)ls_p(list))
-
+                   (setq lst(cddr lst)
+                         int_col(atoi(car lst))hand_road(cadr lst)ls_p(list))
+                   
                    (if(=(caar ls_str_in)"ATTRIBUTE")
                        (setq ls_xdata_att(cdar ls_str_in)
                              ls_str_in(cdr ls_str_in)))
