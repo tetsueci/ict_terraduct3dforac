@@ -767,6 +767,7 @@
     (setq p_height(if(= height_ext 0)p1(mapcar '(lambda(a b)(+ a(* b height_ext)))p1 vec_y)) ) )
   (if str_dimstyle T(setq str_dimstyle(getvar "DIMSTYLE")))
   (if str_lay T(setq str_lay(getvar "CLAYER")))
+  (if dist_normal T(setq dist_normal(apply '+(mapcar '* vec_normal p1))))
 
   (if(if entna_dim(entget entna_dim))
       (progn
@@ -810,6 +811,7 @@
      dist_plane )
 
   (mapcar 'set '(p_cent p_sta p_end p_way r vec_normal dist_normal str_dim str_dimstyle)lst)
+  (if dist_normal T(setq dist_normal(apply '+(mapcar '* vec_normal p_cent))))
 
   (if(if entna_dim(entget entna_dim))
       ;; (entmod(list(cons -1 tm)(cons 10 p_way)(list 11 0 0 dist_plane)(cons 210 vec_normal)

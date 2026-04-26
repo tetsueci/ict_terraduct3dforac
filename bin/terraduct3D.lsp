@@ -2994,6 +2994,12 @@
   )
 
 
+(defun depth_level_str(pg p0 / z)
+  (setq z(caddr p0))
+  (strcat "GL"(if(<(- z(caddr pg))0)"-" "+")"<>\\P"
+          "EL = "(rtos z 2 int_unitelevation))
+  )
+
 (defun grfunc_duct3d( / )
   (list
    
@@ -3794,20 +3800,42 @@
                        )
                       )
                      )
+
+                   ls_exchangelevel nil
                    
                    ls_guideexplane
                    (mapcar
                     'mix_strasc
-                    (list(list " - " 12300 "R=" 8734 12301 12399 20870 24359 12364 12394 12356 12371 12392 12434 34920 12377 )
-                         ;;「R=∞」は円弧がないことを表す
-                         (list " - " 32232 38598 38283 22987 26178 12289 27425 12398 25805 20316 12434 12377 12427 12414 12391 12399 12477 12522 12483 12489 12364 38750 34920 31034 12395 12394 12426 12414 12377 )
-                         ;;編集開始時、次の操作をするまではソリッドが非表示になります
-                         ))
+                    (list))
                    
                    )
              (setq 
               ls_guidemenu
               (list
+
+               (list(list 76);; 地表面標高
+                    (cons "ITEM"(mix_strasc(list 22320 34920 38754 27161 39640)))
+                    (cons "STATUS"
+                          (lambda()
+                            (if str_lasground
+                                (mix_strasc
+                                 (list "{\\C" str_gcol_c ";" 12487 12540 12479 "} : "
+                                       (vl-string-subst "" "lasgrid-" str_lasground)))
+                              (if height_ground
+                                  (mix_strasc
+                                   (list"{\\C" str_gcol_g ";" 27161 39640 "} : "
+                                        (as-numstr height_ground)))
+                                (mix_strasc
+                                 (list "{\\C" str_gcol_r ";"
+                                       36984 25246 12373 12428 12390 12356 12414 12379 12435 "}"))
+                                ))
+                            ))
+                    (cons "LOADFUNCTION"(lambda()(settile_selectground)))
+                    ;;使用する標高を\n-las読込\n-xml読込\n-一定標高の数値入力\nから選択できます
+                    (cons "HELP"(mix_strasc(list 20351 29992 12377 12427 27161 39640 12434 "\n- las" 35501 36796 "\n- xml" 35501 36796 "\n- " 19968 23450 27161 39640 12398 25968 20516 20837 21147 "\n" 12363 12425 36984 25246 12391 12365 12414 12377 )))
+                    
+                    )
+               
                
                (list(list 67);;管の色
                     (cons "ITEM"(mix_strasc(list 31649 12398 33394)))
@@ -4359,29 +4387,7 @@
                     (cons "HELP"(lambda()"no guide"))
                     
                     )
-               
-               (list(list 76);; 地表面標高
-                    (cons "ITEM"(mix_strasc(list 22320 34920 38754 27161 39640)))
-                    (cons "STATUS"
-                          (lambda()
-                            (if str_lasground
-                                (mix_strasc
-                                 (list "{\\C" str_gcol_c ";" 12487 12540 12479 "} : "
-                                       (vl-string-subst "" "lasgrid-" str_lasground)))
-                              (if height_ground
-                                  (mix_strasc
-                                   (list"{\\C" str_gcol_g ";" 27161 39640 "} : "
-                                        (as-numstr height_ground)))
-                                (mix_strasc
-                                 (list "{\\C" str_gcol_r ";"
-                                       36984 25246 12373 12428 12390 12356 12414 12379 12435 "}"))
-                                ))
-                            ))
-                    (cons "LOADFUNCTION"(lambda()(settile_selectground)))
-                    ;;使用する標高を\n-las読込\n-xml読込\n-一定標高の数値入力\nから選択できます
-                    (cons "HELP"(mix_strasc(list 20351 29992 12377 12427 27161 39640 12434 "\n- las" 35501 36796 "\n- xml" 35501 36796 "\n- " 19968 23450 27161 39640 12398 25968 20516 20837 21147 "\n" 12363 12425 36984 25246 12391 12365 12414 12377 )))
-                    
-                    )
+
 
                (list(list 49);;高度入力方法
                     (cons "ITEM"(mix_strasc(list 28145 24230 20837 21147 26041 27861 )))
@@ -4683,7 +4689,7 @@
                     (cons "LOADFUNCTION"
                           (lambda()(if(apply 'or(mapcar '(lambda(lst)(assoc "LINE" lst))ls_vnam_duct))
                                        (progn;;深度を入力して直線部を選択してください
-                                         (x-alert(list 28145 24230 12434 20837 21147 12375 12390 30452 32218 37096 12434 36984 25246 12375 12390 12367 12384 12373 12356 ))
+                                         (princ(mix_strasc(list "\n" 28145 24230 12434 20837 21147 12375 12390 30452 32218 37096 12434 36984 25246 12375 12390 12367 12384 12373 12356 )))
                                          (setq int_adddepth 0 )
                                          )
                                      ;;現在の作業において、まだ直線部が生成されていません
@@ -4893,6 +4899,101 @@
 
                     
                     )
+
+               (list(list 88);;X基準となる線形を変更
+                    (cons "ITEM"(mix_strasc(list 22522 28310 12392 12394 12427 32218 24418 12434 22793 26356  )))
+                    (cons "STATUS"
+                          (lambda()
+                            (mix_strasc
+                             (if ls_vnam_duct
+                                 (if ls_exchangelevel;;個選択中/線形選択で完了
+                                     (list "{\\C" str_gcol_y "; "(as-numstr(1-(length ls_exchangelevel))) " }"
+                                           20491 36984 25246 20013 " / "
+                                           "{\\C" str_gcol_g ";" 32218 24418 36984 25246 12391 23436 20102 "}")
+                                   (list "{\\C" str_gcol_g ";" 23455 34892 21487 33021 "}")
+                                   )
+                               (list "{\\C" str_gcol_p ";" ;;管路編集中に実行可能
+                                     31649 36335 32232 38598 20013 12395 23455 34892 21487 33021 "}"))
+                             )
+                            ))
+                    (cons "LOADFUNCTION"
+                          (lambda()(if ls_vnam_duct
+                                       (progn;;変更する深さ寸法を選択し、変更先の線形を選択してください
+                                         (princ(mix_strasc(list 28145 24230 12434 20837 21147 12375 12390 30452 32218 37096 12434 36984 25246 12375 12390 12367 12384 12373 12356 )))
+                                         (setq ls_exchangelevel (list nil))
+                                         )
+                                     ;;管路編集中に使用できる機能です
+                                     (x-alert(list 31649 36335 32232 38598 20013 12395 20351 29992 12391 12365 12427 27231 33021 12391 12377 ))
+                                     ))
+                          )
+                    
+                    (cons "HELP"
+                          (lambda()
+                            ;;基準となる線形を変更したいときに使用\n変更する深さ寸法をクリックで選択後、線形を選択すると基準を変更することができます\n基本的にZ方向の変分のみを想定した機能ですが、平面的に形状が異なる線形も対象にできます\n平面的に形状が異なる線形を対象にしたとき、高さ変化が大きすぎるとき\n円弧形状が破綻する可能性があるので必要に応じて修正してください
+                            (mix_strasc
+                             (list 22522 28310 12392 12394 12427 32218 24418 12434 22793 26356 12375 12383 12356 12392 12365 12395 20351 29992
+                                   "\n" 22793 26356 12377 12427 28145 12373 23544 27861 12434 12463 12522 12483 12463 12391 36984 25246 24460 12289 32218 24418 12434 36984 25246 12377 12427 12392 22522 28310 12434 22793 26356 12377 12427 12371 12392 12364 12391 12365 12414 12377
+                                   "\n" 22522 26412 30340 12395 "Z" 26041 21521 12398 22793 20998 12398 12415 12434 24819 23450 12375 12383 27231 33021 12391 12377 12364 12289 24179 38754 30340 12395 24418 29366 12364 30064 12394 12427 32218 24418 12418 23550 35937 12395 12391 12365 12414 12377
+                                   "\n" 24179 38754 30340 12395 24418 29366 12364 30064 12394 12427 32218 24418 12434 23550 35937 12395 12375 12383 12392 12365 12289 39640 12373 22793 21270 12364 22823 12365 12377 12366 12427 12392 12365 
+                                   "\n" 20870 24359 24418 29366 12364 30772 32187 12377 12427 21487 33021 24615 12364 12354 12427 12398 12391 24517 35201 12395 24540 12376 12390 20462 27491 12375 12390 12367 12384 12373 12356  ))))
+                    
+                    
+                    )
+               
+               (list(list 69);;E直線部の起終点と深さ寸法の位置を合わせる
+                    (cons "ITEM"(mix_strasc(list 30452 32218 37096 12398 36215 32066 28857 12392 28145 12373 23544 27861 12398 20301 32622 12434 21512 12431 12379 12427 )))
+                    (cons "STATUS"
+                          (lambda()
+                            (mix_strasc
+                             (if(and ls_vnam_duct
+                                     (or str_lasground height_ground))
+                                 (list "{\\C" str_gcol_g ";" 23455 34892 21487 33021 "}")
+                               (list "{\\C" str_gcol_p ";" ;;標高設定があり管路編集中に実行可能
+                                     27161 39640 35373 23450 12364 12354 12426 
+                                     31649 36335 32232 38598 20013 12395 23455 34892 21487 33021 "}"))
+                             )
+                            ))
+                    (cons "LOADFUNCTION"
+                          (lambda()(if(and ls_vnam_duct
+                                           (or str_lasground height_ground ))
+                                       ((lambda( / ii jj lst p0 p1 entna pg str bool)
+                                          (setq ii 0 jj 0 bool T)
+                                          (while(setq lst(assoc(list "ARC" ii jj)ls_vnam_duct))
+                                            (setq entna(cadr(assoc "OBJ" lst)))
+                                            (if(= jj 0)
+                                                (setq jj 1 p0(cdr(assoc 13(entget entna))))
+                                              (setq ii(1+ ii)jj 0 p0(cdr(assoc 14(entget entna))))
+                                              )
+                                            (entmake(list(cons 0 "CIRCLE")(cons 10 p0)(cons 40 0.1)))
+                                            
+                                            (setq lst(assoc(list "DEPTH" ii jj)ls_vnam_duct)
+                                                  entna(cadr(assoc "OBJ" lst))
+                                                  lst(entget entna) )
+                                            (if(setq pg(car(project_to_ground
+                                                            (list p0)(list 0 0 1)
+                                                            (list str_lasground height_ground))))
+                                                (make_2pdimension
+                                                 entna(list pg p0(cdr(assoc 210 lst))nil
+                                                            nil(* 0.5 pi) 0.
+                                                            (depth_level_str pg p0)
+                                                            str_dimstyle_ductlevel))
+                                              )
+                                            )
+                                          
+                                          
+                                          ))
+                                     ;;管路編集中に使用できる機能です
+                                     (x-alert(list 31649 36335 32232 38598 20013 12395 20351 29992 12391 12365 12427 27231 33021 12391 12377 ))
+                                     ))
+                          )
+                    
+                    (cons "HELP"
+                          (lambda()
+                            ;;深さ寸法が直線部の両端になるように調整します\n経路を使用している場合、経路からはみ出す可能性もあります
+                            (mix_strasc
+                             (list 28145 12373 23544 27861 12364 30452 32218 37096 12398 20001 31471 12395 12394 12427 12424 12358 12395 35519 25972 12375 12414 12377 "\n" 32076 36335 12434 20351 29992 12375 12390 12356 12427 22580 21512 12289 32076 36335 12363 12425 12399 12415 20986 12377 21487 33021 24615 12418 12354 12426 12414 12377  ))))
+                    
+                    )
                
                
                (list(list nil)
@@ -4982,9 +5083,16 @@
                                    )
                                   (list
                                    " - " 20316 25104 28168 12415 12398 31649 36335 12434 36984 25246
-                                   32232 38598 38283 22987 "}"
+                                   32232 38598 38283 22987
                                    ;;作成済みの管路を選択して編集開始
                                    )
+
+                                  (list " - " 12300 "R=" 8734 12301 12399 20870 24359 12364 12394 12356 12371 12392 12434 34920 12377 )
+                                  ;;「R=∞」は円弧がないことを表す
+                                  (list " - " 32232 38598 38283 22987 26178 12289 27425 12398 25805 20316 12434 12377 12427 12414 12391 12399 12477 12522 12483 12489 12364 38750 34920 31034 12395 12394 12426 12414 12377  "}")
+                                  ;;編集開始時、次の操作をするまではソリッドが非表示になります
+                                  
+                                  
                                   )
                                  )
                                )
@@ -5310,6 +5418,8 @@
                  (int_adddepth nil)
                  (bool_noeditdepth nil)
                  (p_roadclick_temp nil)
+                 ((or ls_exchangelevel ls_exchangedepth) nil)
+                 
                  (p_click
 
                   (setq vnam_insertduct nil ls_xdata nil)
@@ -5601,6 +5711,15 @@
               ls_vnam_duct)
              )
 
+       ;; (if ls_exchangedepth
+       ;;     (setq lst(car ls_exchangedepth)ls_exchangedepth(cdr ls_exchangedepth)
+       ;;           entna_depth(car lst) p_road(cadr lst)
+       ;;           depth_duct(caddr lst) int_duct(cadddr lst)
+       ;;           bool_replacegrread(if ls_exchangedepth T)
+       ;;           )
+       ;;   )
+       
+       
        (cond
         (bool )
         ((if int_adddepth
@@ -5639,6 +5758,119 @@
          ;;選択対象ではありません/n管路の直線部を選択してください
          (x-alert(list 36984 25246 23550 35937 12391 12399 12354 12426 12414 12379 12435 "/n" 31649 36335 12398 30452 32218 37096 12434 36984 25246 12375 12390 12367 12384 12373 12356 ))
          )
+
+        ((if ls_exchangelevel
+             (if(setq set_ent(ssget elem_grread(list(cons 0 "DIMENSION")(list -3(list "terraduct3d")))))
+                 ((lambda(lst / bool a b c)
+                    (setq entna(ssname set_ent 0))
+                    (while lst
+                      (setq a(car lst)lst(cdr lst))
+                      (if(if(setq c(assoc "DEPTH" a))(equal(cadr(setq b(assoc "OBJ" a)))entna))
+                          (setq vnam(caddr b)int_duct(cadr c)int_side(caddr c)
+                                lst nil bool T ))
+                      )
+                    bool
+                    )
+                  ls_vnam_duct)
+               ))
+         ((lambda(bool / f i)
+            (if bool(setq f vl-remove i int_colductdimedit)(setq f cons i 2))
+            (setq ls_exchangelevel(f(list entna vnam int_duct int_side)ls_exchangelevel))
+            (vla-put-color vnam i)
+            )
+          (vl-position(list entna vnam int_duct int_side)ls_exchangelevel))
+         
+         )
+        ((if ls_exchangelevel
+             (if(setq set_ent(ssget elem_grread(list(cons 0 "INSERT")(list -3(list "terraduct3d")))))
+                 ((lambda( / bool a)
+                    (setq vnam(vlax-ename->vla-object(ssname set_ent 0)))
+                    (vla-getXData vnam "terraduct3d" 'array_Type 'array_Data )
+                    (if array_data
+                        (setq ls_xdata
+                              (split_list 0(mapcar 'vlax-variant-value
+                                                   (vlax-safearray->list array_data)))
+                              str_type(cdr(assoc "terraduct3d" ls_xdata)))
+                      (setq str_type nil) )
+                    (= str_type "PROJECT")
+                    ) )
+               ))
+
+         (setq vnam_xroad nil)
+         (vlax-for
+          obj
+          (vla-Item vnam_blocktable(vla-get-name vnam))
+          (if vnam_xroad T
+            (if(=(vla-get-ObjectName obj)"AcDb3dPolyline")
+                (progn
+                  (setq ls_p(vla-get-coordinates obj)
+                        vnam_xroad
+                        (vla-Add3dPoly
+                         (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
+                         ls_p)
+                        )
+                  (addkillobj vnam_xroad)
+                  (setq ls_p(split_list 3(vlax-safearray->list(vlax-variant-value ls_p)))
+                        ls_p(apply 'append(mapcar '(lambda(p)(carxyz p 0))ls_p))
+                        array_p(vlax-make-safearray vlax-vbDouble(cons 0(1-(length ls_p)))))
+                  (vlax-safearray-fill array_p ls_p)
+                  (setq vnam_xroad_0(vla-Add3dPoly
+                             (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
+                             array_p))
+                  (addkillobj vnam_xroad_0)
+                  
+                  )
+              ))
+          )
+         (setq vnam_line_temp
+               (vla-addline
+                (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                (vlax-3d-point 0 0 0)(vlax-3d-point 0 0 0)))
+         (addkillobj vnam_line_temp)
+         
+         ;; (setq ls_exchangedepth
+         (mapcar
+          '(lambda(lst / p13 p14 vec d entna i p_road j p_depth)
+             (vla-put-color(cadr lst)int_colductdimedit)
+             (setq entna(car lst)i(caddr lst)j(cadddr lst)
+                   ls_gcode(entget entna)
+                   p13(cdr(assoc 13 ls_gcode))p14(cdr(assoc 14 ls_gcode))
+                   d(-(caddr p13)(caddr p14))
+                   vec(cdr(assoc 210 ls_gcode))
+                   )
+             (vla-put-startpoint vnam_line_temp(vlax-3d-point(carxyz p13 0)))
+             (vla-put-endpoint
+              vnam_line_temp (vlax-3d-point(mapcar '+ p13(list(-(cadr vec))(car vec)(-(caddr p13))))))
+             (setq p_road(car(get_inters_point_vna vnam_xroad_0 vnam_line_temp 01)))
+             (vla-put-startpoint vnam_line_temp(vlax-3d-point p_road))
+             (vla-put-endpoint vnam_line_temp(vlax-3d-point(carxyz p_road 1)))
+             (setq p_road(car(get_inters_point_vna vnam_xroad vnam_line_temp 01)))
+
+             (setq str_level(strcat "GL"(if(> d 0)"-" "+")"<>\\P"
+                                    "EL = "(rtos(caddr p14)2 int_unitelevation))
+                   p_depth(mapcar '- p_road(list 0 0 d))
+                   )
+             
+             (setq ls_gcode(subst(cons 13 p_road)(cons 13 p13)ls_gcode)
+                   ls_gcode(subst(cons 14 p_depth)(cons 14 p14)ls_gcode)
+                   ls_gcode(subst(cons 1 str_level)(assoc 1 ls_gcode)ls_gcode)
+                   )
+             (entmod ls_gcode)
+             (setq lst(assoc(list "LINE" i)ls_vnam_duct)
+                   vnam(cadr(assoc "OBJ" lst)))
+             ((if(= j 0)vla-put-startpoint vla-put-endpoint)vnam(vlax-3d-point p_depth))
+             
+             (list entna p_road d i)
+             )
+          (vl-remove nil ls_exchangelevel))
+         
+         (setq ls_exchangelevel nil bool_replacegrread T bool_noeditdepth T)
+         
+         (mapcar '(lambda(v) (vla-delete v) (exckillobj v))
+                 (list vnam_line_temp vnam_xroad vnam_xroad_0))
+         
+         )
+        (ls_exchangelevel)
         
         ((and int_adddepth num_line)
          
@@ -5669,7 +5901,12 @@
                               (setq entna nil)
                             (progn
                               (setq vnam(vlax-ename->vla-object e))
+                              (vla-put-Arrowhead1Type vnam 13)
+                              (vla-put-Arrowhead2Type vnam 6)
+                              (vla-put-ExtLine1Suppress vnam -1)
+                              (vla-put-ExtLine2Suppress vnam -1)
                               (vla-put-color vnam int_colductdimedit)
+                              
                               (addkillobj vnam)
                               (list p0 e vnam)
                               )
@@ -5782,7 +6019,7 @@
                                entna_depth(list p_road p_depth vec_normal dist_normal
                                                 nil(* 0.5 pi) 0. str_level str_dimstyle_ductlevel))
                    )
-             
+
              (if(vl-position entna_depth(mapcar '(lambda(a)(cadr(assoc "OBJ" a)))ls_vnam_duct)) T
                (progn
                  (setq int_ductend(if(= int_connecttype 0)int_min_duct int_max_duct)
@@ -5810,11 +6047,17 @@
                                         ls_vnam_duct)
                        )
                  
+                 (vla-put-Arrowhead1Type vnam_depth 13)
+                 (vla-put-Arrowhead2Type vnam_depth 6)
+                 (vla-put-ExtLine1Suppress vnam_depth -1)
+                 (vla-put-ExtLine2Suppress vnam_depth -1)
+                 (vla-put-color vnam_depth int_colductdimedit)
                  (addkillobj vnam_depth)
                  ))
-             
+
              (setq entna_depth nil)
-             (vla-put-color vnam_depth int_colductdimedit)
+             
+
              (if(and(setq entna0(cadr(assoc "OBJ"(assoc(list "DEPTH" int_duct 0)ls_vnam_duct))))
                     (setq entna1(cadr(assoc "OBJ"(assoc(list "DEPTH" int_duct 1)ls_vnam_duct)))))
                  (progn
@@ -5904,10 +6147,9 @@
            ;;       T
            ;;       )
 
-
            (if(and vnam_line0 vnam_line1 )
                (progn
-                 
+
                  (if(setq ls_currentarc0(assoc(list "ARC" num_duct 0)ls_vnam_duct))T
                    (setq ls_currentarc0(list(list "ARC" num_duct 0)(list "OBJ" )
                                             (cons "RADIUS" radius_bend_temp)
@@ -5944,9 +6186,7 @@
                                        ;;     nil
                                        ;;     )
                                        ;;)
-                                       lst
-                                       
-                                       ))
+                                       lst ))
                                     (strcat(itoa num_duct)"-"(itoa(1+ num_duct))":")))
                        )
 
@@ -6090,6 +6330,7 @@
            
            );;ARC
          (if(= str_edit "insertarc")T(setq int_editarcposition_temp nil))
+
          
          (if(if ls_arc(=(car ls_arc)"BREAK"))nil
            (progn
@@ -6420,23 +6661,22 @@
                            entna(vlax-vla-object->ename vnam)
                            )
 
-                     (if(or str_lasground height_ground)
-                         ((lambda( / p13 p14 lst v pp13 pp14 str)
-                            (setq lst(entget entna)
-                                  p13(cdr(assoc 13 lst))p14(cdr(assoc 14 lst))
-                                  pp13(car(project_to_ground
-                                           (list p13)(list 0 0 1)(list str_lasground height_ground)))
-                                  pp14(mapcar '+ pp13(mapcar '- p14 p13))
-                                  str(strcat "GL"(if(<(-(caddr pp14)(caddr pp13))0)"-" "+")"<>\\P"
-                                             "EL = "(rtos(caddr pp14)2 int_unitelevation))
-                                  lst(subst(cons 13 pp13)(cons 13 p13)lst)
-                                  lst(subst(cons 14 pp14)(cons 14 p14)lst)
-                                  lst(subst(cons 1 str)(assoc 1 lst)lst)
-                                  )
-                            
-                            (entmod lst)
-                            ))
-                       )
+                     ;; (if(or str_lasground height_ground)
+                     ;;     ((lambda( / p13 p14 lst v pp13 pp14 str)
+                     ;;        (setq lst(entget entna)
+                     ;;              p13(cdr(assoc 13 lst))p14(cdr(assoc 14 lst))
+                     ;;              pp13(car(project_to_ground
+                     ;;                       (list p13)(list 0 0 1)(list str_lasground height_ground)))
+                     ;;              pp14(mapcar '+ pp13(mapcar '- p14 p13))
+                     ;;              str(strcat "GL"(if(<(-(caddr pp14)(caddr pp13))0)"-" "+")"<>\\P"
+                     ;;                         "EL = "(rtos(caddr pp14)2 int_unitelevation))
+                     ;;              lst(subst(cons 13 pp13)(cons 13 p13)lst)
+                     ;;              lst(subst(cons 14 pp14)(cons 14 p14)lst)
+                     ;;              lst(subst(cons 1 str)(assoc 1 lst)lst)
+                     ;;              )
+                     ;;        (entmod lst)
+                     ;;        ))
+                     ;;   )
                      
                      (setq ls_vnam_duct(cons(list(list "DEPTH" num_temp int_side)
                                                  (list "OBJ" entna vnam)
@@ -8095,6 +8335,9 @@
                      vnam(vlax-ename->vla-object entna)
                      ls_vnam(cons vnam ls_vnam)
                      )
+               (vla-put-Arrowhead1Type vnam 13)
+               (vla-put-Arrowhead2Type vnam 6)
+               
                (set_xda vnam(list(cons 1000 str_xdata) )
                         "terraduct3d")
                )
@@ -10021,6 +10264,12 @@
                                  vnam(vlax-ename->vla-object entna)
                                  ls_vnam_copy(cons vnam ls_vnam_copy)
                                  )
+                           (vla-put-Arrowhead1Type vnam 13)
+                           (vla-put-Arrowhead2Type vnam 6)
+                           (vla-put-ExtLine1Suppress vnam -1)
+                           (vla-put-ExtLine2Suppress vnam -1)
+
+                           
                            (vla-put-color vnam int_colductdim)
                            (set_xda vnam(list(cons 1000 "DEPTH")
                                              (cons 1000 "NUM")(cons 1071 int_duct)
@@ -10400,6 +10649,10 @@
                              vnam(vlax-ename->vla-object entna)
                              ls_vnam_copy(cons vnam ls_vnam_copy)
                              )
+                       (vla-put-Arrowhead1Type vnam 13)
+                       (vla-put-Arrowhead2Type vnam 6)
+
+                       
                        (set_xda vnam(list(cons 1000 str_xdata) )
                                 "terraduct3d")
                        )
