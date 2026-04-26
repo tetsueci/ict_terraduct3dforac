@@ -3218,9 +3218,9 @@
                  bool_selectent T bool_select T int_selectmode 0
                  ls_ssget(list(cons -4 "<OR")
                               (cons 0 "LINE,LWPOLYLINE,POLYLINE")
-                              (cons -4 "<AND")
-                              (cons 0 "INSERT")(list -3(list "terraduct3d"))
-                              (cons -4 "AND>")
+                              ;; (cons -4 "<AND")
+                              ;; (cons 0 "INSERT")(list -3(list "terraduct3d"))
+                              ;; (cons -4 "AND>")
                               (cons -4 "OR>")
                               )
                  ls_ssgetinsert(list(cons 0 "INSERT")
@@ -3277,51 +3277,6 @@
                        )
 
                   
-                  ;; (list(list 78);;名称
-                  ;;      (cons "ITEM"(mix_strasc(list 21517 31216)))
-                  ;;      (cons "INPUTSTR"
-                  ;;            (lambda( / str i bool func str_bname str_hand)
-                  ;;              (if(=(length ls_vnam_select)1)
-                  ;;                  (if str_projectname 'str_projectname
-                  ;;                    (progn
-                  ;;                      (setq str_hand(vla-get-handle(car ls_vnam_select))i 0)
-                  ;;                      (while
-                  ;;                          (progn
-                  ;;                            (setq str_bname(strcat str_hand "$"(itoa(setq i(1+ i)))))
-                  ;;                            (null
-                  ;;                             (vl-catch-all-error-p
-                  ;;                              (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
-                  ;;                            )
-                  ;;                        )
-                  ;;                      (setq str_projectname str_bname)
-                  ;;                      'str_projectname ))
-                  ;;                (progn;;
-                  ;;                  (setq str_projectname nil)
-                  ;;                  nil
-                  ;;                  )
-                  ;;                )
-                  ;;              )
-                  ;;            )
-                  ;;      (cons "LOADFUNCTION"
-                  ;;            (lambda(str / bool)
-                  ;;              (setq bool
-                  ;;                    (vl-catch-all-error-p
-                  ;;                     (vl-catch-all-apply 'vla-Item(list vnam_blocktable str)))
-                  ;;                    )
-                  ;;              (if bool T
-                  ;;                (if(= int_allow_overwrite 0)nil
-                  ;;                  (progn
-                  ;;                    (alert
-                  ;;                     (mix_strasc(list 26082 12395 23384 22312 12377 12427 12502 12525 12483 12463 21517 31216 12391 12377 12364 19978 26360 12365 12373 12428 12414 12377 ))
-                  ;;                     )
-                  ;;                    T)))
-                  ;;              )
-                  ;;            )
-                  ;;      (cons "STRINPUTALERT"
-                  ;;            (mix_strasc(list 12502 12525 12483 12463 21517 31216 12364 26082 12395 23384 22312 12375 12390 12356 12414 12377 )))
-                  ;;      ;;選択が単一のときのみ設定できます
-                  ;;      (cons "HELP"(lambda()(mix_strasc(list 36984 25246 12364 21336 19968 12398 12392 12365 12398 12415 35373 23450 12391 12365 12414 12377))))
-                  ;;      )
                   
                   (list(list 65);; 投影ピッチ
                        (cons "ITEM"(list 25237 24433 12500 12483 12481))
@@ -3355,20 +3310,20 @@
                        (cons "HELP"(lambda()str_guide_selectmode))
                        )
 
-                  (list(list 81);;投影済みの線をクリックしたとき
-                       (cons "ITEM"(list 25237 24433 28168 12415 12398 32218 12434 12463 12522 12483 12463 12375 12383 12392 12365 ))
-                       (cons "INPUTSWITCH"
-                             (lambda()
-                               (list 'int_selectproject
-                                     (mapcar 'mix_strasc;;名称を設定する,標高変更選択に加える
-                                             (list(list "{\\C" str_gcol_c ";"
-                                                        21517 31216 12434 35373 23450 12377 12427 "}")
-                                                  (list "{\\C" str_gcol_g ";"
-                                                        27161 39640 22793 26356 36984 25246 12395 21152 12360 12427 "}")))
-                                     )))
-                       ;;名称設定時にはこの設定が必要です\n標高変更選択はこの設定を変えなくても範囲選択をすれば対象とすることができます\nクリックで対象としたいときはこの設定が必要です
-                       (cons "HELP"(lambda()(mix_strasc(list 21517 31216 35373 23450 26178 12395 12399 12371 12398 35373 23450 12364 24517 35201 12391 12377 "\n" 27161 39640 22793 26356 36984 25246 12399 12371 12398 35373 23450 12434 22793 12360 12394 12367 12390 12418 31684 22258 36984 25246 12434 12377 12428 12400 23550 35937 12392 12377 12427 12371 12392 12364 12391 12365 12414 12377 "\n" 12463 12522 12483 12463 12391 23550 35937 12392 12375 12383 12356 12392 12365 12399 12371 12398 35373 23450 12364 24517 35201 12391 12377 )))) 
-                       )
+                  ;; (list(list 81);;投影済みの線をクリックしたとき
+                  ;;      (cons "ITEM"(list 25237 24433 28168 12415 12398 32218 12434 12463 12522 12483 12463 12375 12383 12392 12365 ))
+                  ;;      (cons "INPUTSWITCH"
+                  ;;            (lambda()
+                  ;;              (list 'int_selectproject
+                  ;;                    (mapcar 'mix_strasc;;名称を設定する,標高変更選択に加える
+                  ;;                            (list(list "{\\C" str_gcol_c ";"
+                  ;;                                       21517 31216 12434 35373 23450 12377 12427 "}")
+                  ;;                                 (list "{\\C" str_gcol_g ";"
+                  ;;                                       27161 39640 22793 26356 36984 25246 12395 21152 12360 12427 "}")))
+                  ;;                    )))
+                  ;;      ;;名称設定時にはこの設定が必要です\n標高変更選択はこの設定を変えなくても範囲選択をすれば対象とすることができます\nクリックで対象としたいときはこの設定が必要です
+                  ;;      (cons "HELP"(lambda()(mix_strasc(list 21517 31216 35373 23450 26178 12395 12399 12371 12398 35373 23450 12364 24517 35201 12391 12377 "\n" 27161 39640 22793 26356 36984 25246 12399 12371 12398 35373 23450 12434 22793 12360 12394 12367 12390 12418 31684 22258 36984 25246 12434 12377 12428 12400 23550 35937 12392 12377 12427 12371 12392 12364 12391 12365 12414 12377 "\n" 12463 12522 12483 12463 12391 23550 35937 12392 12375 12383 12356 12392 12365 12399 12371 12398 35373 23450 12364 24517 35201 12391 12377 )))) 
+                  ;;      )
                   
                   (list(list nil)
                        (cons "ITEM"(list ))
@@ -4500,7 +4455,7 @@
                     )
                
                (list(list 78);;管の名称
-                    (cons "ITEM"(mix_strasc(list 31649 12398 21517 31216)))
+                    (cons "ITEM"(list 31649 12398 21517 31216))
                     (cons "INPUTSTR"
                           (lambda( / str i bool func)
                             (if(= str_ductname "")(setq str_ductname nil))
@@ -5846,8 +5801,7 @@
              (vla-put-endpoint vnam_line_temp(vlax-3d-point(carxyz p_road 1)))
              (setq p_road(car(get_inters_point_vna vnam_xroad vnam_line_temp 01)))
 
-             (setq str_level(strcat "GL"(if(> d 0)"-" "+")"<>\\P"
-                                    "EL = "(rtos(caddr p14)2 int_unitelevation))
+             (setq str_level(depth_level_str p13 p14)
                    p_depth(mapcar '- p_road(list 0 0 d))
                    )
              
@@ -5891,8 +5845,7 @@
                ls_entna
                (mapcar '(lambda(p0 p1 / d str e vnam)
                           (setq d(apply '+(mapcar '* vec_normal p0))
-                                str(strcat "GL"(if(<(-(caddr p0)(caddr p1))0)"-" "+")"<>\\P"
-                                           "EL = "(rtos(caddr p0)2 int_unitelevation))
+                                str(depth_level_str p1 p0)
                                 )
                           (setq e(make_2pdimension
                                   entna(list p1 p0 vec_normal d
@@ -5906,6 +5859,7 @@
                               (vla-put-ExtLine1Suppress vnam -1)
                               (vla-put-ExtLine2Suppress vnam -1)
                               (vla-put-color vnam int_colductdimedit)
+                              (vla-put-HorizontalTextPosition vnam 3)
                               
                               (addkillobj vnam)
                               (list p0 e vnam)
@@ -6011,11 +5965,8 @@
                                 )))
                    )
              
-             (setq str_level(strcat "GL"(if(<(-(caddr p_depth)(caddr p_road))0)"-" "+")"<>\\P"
-                                    "EL = "(rtos(caddr p_depth)2 int_unitelevation))
-                   
-                   )
-             (setq entna_depth(make_2pdimension
+             (setq str_level(depth_level_str p_road p_depth)
+                   entna_depth(make_2pdimension
                                entna_depth(list p_road p_depth vec_normal dist_normal
                                                 nil(* 0.5 pi) 0. str_level str_dimstyle_ductlevel))
                    )
@@ -6051,6 +6002,7 @@
                  (vla-put-Arrowhead2Type vnam_depth 6)
                  (vla-put-ExtLine1Suppress vnam_depth -1)
                  (vla-put-ExtLine2Suppress vnam_depth -1)
+                 (vla-put-HorizontalTextPosition vnam_depth 3)
                  (vla-put-color vnam_depth int_colductdimedit)
                  (addkillobj vnam_depth)
                  ))
@@ -10250,8 +10202,7 @@
                        (mapcar
                         '(lambda(lst ii / p0 p1 h)
                            (setq p0(car lst)p1(cadr lst)h(caddr lst)
-                                 str_level(strcat "GL"(if(<(-(caddr p1)(caddr p0))0)"-" "+")"<>\\P"
-                                                  "EL = "(rtos(caddr p1)2 int_unitelevation))
+                                 str_level(depth_level_str p0 p1)
                                  entna(make_2pdimension
                                        nil(list p0 p1 vec_line
                                                 (apply '+(mapcar '* vec_line p0))
@@ -10268,7 +10219,7 @@
                            (vla-put-Arrowhead2Type vnam 6)
                            (vla-put-ExtLine1Suppress vnam -1)
                            (vla-put-ExtLine2Suppress vnam -1)
-
+                           (vla-put-HorizontalTextPosition vnam 3)
                            
                            (vla-put-color vnam int_colductdim)
                            (set_xda vnam(list(cons 1000 "DEPTH")
