@@ -371,7 +371,25 @@
              (cons "SYMBOL" 'y_guidebase)(cons "TEMP" 'y_guidebase_temp)
              (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)-2.))
              )
+
         
+        (list(cons "TEXT"(mix_strasc(list 25968 20516 20837 21147 12434 12510 12454 12473 12391  21046 24481  )) )
+             (cons "ITEM" "POPUP_LIST");;数値入力をマウスで制御,しない,左右,上下
+             (cons "EXPLANE"(mix_strasc(list 8251 30906 23450 12399 21491 12463 12522 12483 12463 )))
+             ;;※確定は右クリック
+             (cons "VALLIST"
+                   (mapcar 'mix_strasc(list(list 12375 12394 12356)(list 24038 21491)(list 19978 19979))))
+             (cons "SYMBOL" 'int_controleinputval)(cons "TYPE" "INT")
+             (cons "INITIALFUNC" (lambda(a)0))
+             )
+
+        (list(cons "TEXT"(mix_strasc(list 12510 12454 12473 21046 24481 12398 12392 12365 20024 12417 26689  )) )
+             (cons "ITEM" "EDIT_BOX");;マウス制御のとき丸め桁
+             (cons "SYMBOL" 'int_roundcontroleval)
+             (cons "TYPE" "INT")(cons "INITIALFUNC"(lambda(a)0))
+             )
+        
+   
         ;; (list(cons "TEXT"(mix_strasc(list 12463 12522 12483 12463 25805 20316)) );;背景マスク
         ;;      (cons "ITEM" "POPUP_LIST")
         ;;      (cons "VALLIST"(mapcar 'mix_strasc(list(list 12394 12375)(list 12354 12426 ))))
@@ -1030,6 +1048,7 @@
                  " , {\\C" str_gcol_p ";" "Enter} : "
                  "{\\C" str_gcol_c ";" 27770 23450 "}"
                  ))
+          
           str_guidepointcancel
           (mix_strasc
            (list "\n {\\C" str_gcol_p ";" "Enter , " 21491 12463 12522 12483 12463 "} : "
@@ -1050,7 +1069,7 @@
                  "  {\\C" str_gcol_c ";v} : " 19979 12408
                  "  {\\C" str_gcol_c ";~} : " 12513 12483 12475 12540 12472
                  
-                 ;;メニューをカーソル付近に置く、放す ;;<:文字を小さく、>:文字を大きく ^:上へv:下へ
+                 ;;メニューをカーソル付近に置く、放す ;;<:小さく、>:大きく ^:上へv:下へ
                  ))
           
           ;; str_guidemeasureorinput
@@ -2040,7 +2059,7 @@
     
     (setq str_guide_prev "" bool_guideclick T num_gudeentesc 2
           str_editreturn nil int_row_guideprev nil
-          ls_str_guide_prev(list)
+          ls_str_guide_prev(list)p_controleinputval nil
           )
     (while bool_loop
       (progn
@@ -2100,8 +2119,11 @@
                             (list 19968 26178 30340 12394 28204 36317))
                           )
                      )
-                   str_guideinitial1_2
-
+                   (if p_controleinputval
+                       (vl-string-subst
+                        "8;>"(strcat str_gcol_c ";>")
+                        (vl-string-subst "8;<"(strcat str_gcol_c ";<")str_guideinitial1_2))
+                     str_guideinitial1_2)
                    
                    (if func_grdisp nil
                      (list str_guideinitial2_c
@@ -2214,7 +2236,20 @@
                                           (list 9 ": " str_item))
                                         (if str_val(list "  " 12304 32 str_val 32 12305))
                                         (if int_col(list "  {\\C"(itoa int_col)";" 9608 9608 9608"}"))
-                                        (if(and bool_selectmenu bool_input)str_guidebackspace)
+                                        (if(and bool_selectmenu bool_input)
+                                            (list str_guidebackspace
+                                                  (if p_controleinputval
+                                                      ;;マウス上下,左右で数値を制御できます
+                                                      (list "{\\C" str_gcol_y ";  "
+                                                            12510 12454 12473
+                                                            (if(= int_controleinputval 1)
+                                                                (list 24038 21491)(list 19978 19979))
+                                                            12391 25968 20516 12434 21046 24481 "}"
+                                                            " < , > : " 20024 12417 26689 35519 25972 
+                                                            ;;丸め桁調整
+                                                            )
+                                                    ) )
+                                          )
                                         (if(and bool_selectmenu bool_getpoint)str_guidepointcancel)
                                         )
                                   )
@@ -2542,7 +2577,12 @@
                 
                 )
             )
-
+          (if(if p_controleinputval(>(distance p_controleinputval elem_grread)1e-8))
+              (setq str_input(rtos(apply '+(mapcar '*(mapcar '- elem_grread p_controleinputval)
+                                                   (if(= int_controleinputval 1)
+                                                       vec_x_onview vec_y_onview)))
+                                  2 int_roundcontroleval )))
+          
           (cond
            ((= int_grread 5))
            (bool_selectsnap (setq bool_snap(null bool_snap)) )
@@ -2574,7 +2614,8 @@
             )
            
            ((and bool_input(/= ny int_selectmenu))
-            (setq bool_replacegrread T int_grread 2 elem_grread 13)
+            (setq int_selectmenu nil bool_input nil p_controleinputval nil)
+            ;;(setq bool_replacegrread T int_grread 2 elem_grread 13)
             )
            (bool_getpoint (func_input T) )
            (T
@@ -2796,7 +2837,8 @@
                            (strcat str_out str))
                          str_guide_prev)
                         )))
-                  
+
+            
             ;; (setq int_guidemask(rem(1+ int_guidemask)2))
             ;; (setq ls_vnam_killobj(vl-remove vnam_guide ls_vnam_killobj))
             ;; (vla-delete vnam_guide)
@@ -2831,9 +2873,9 @@
             (setq str_input "") )
            ((and bool_input(vl-position elem_grread(list 47 65295 -241)))
             (setq str_input(as-numstr(eval sym_input))) )
-           ((and(or bool_input
-                    (if(and bool_inputmeasure str_inputmeasure)
-                        (setq bool_inputmeasure nil str_input str_inputmeasure)))
+           ((and(or(and bool_input(/= int_grread 3))
+                   (if(and bool_inputmeasure str_inputmeasure)
+                       (setq bool_inputmeasure nil str_input str_inputmeasure)))
                 (or(= elem_grread 13)(= int_grread 25)))
             (if(or(if(vl-string-search "-"(substr str_input 2))
                       (progn;;先頭以外に「-」があります
@@ -2850,16 +2892,22 @@
                                    (T str_input)))
                 (if func_input(func_input))
                 (setq bool_input nil int_selectmenu nil str_input "")
+                (if(= int_controleinputval 0)T(setq p_controleinputval nil))
                 ))
             
             )
            
-           
            ((setq ii(vl-position elem_grread(list 60 62 65308 65310 -228 -226)))
-            ((lambda( / a)
-               (setq a(+(nth(rem ii 2)(list -0.001 0.001))textsize_guide_bo_temp))
-               (if(< a 0.)T(setq textsize_guide_bo_temp a))
-               ))
+            (if p_controleinputval
+                ((lambda( / a)
+                   (setq a(+(nth(rem ii 2)(list -1 1))int_roundcontroleval))
+                   (if(< a 0)T(setq int_roundcontroleval a))
+                   ))
+              ((lambda( / a)
+                 (setq a(+(nth(rem ii 2)(list -0.001 0.001))textsize_guide_bo_temp))
+                 (if(< a 0.)T(setq textsize_guide_bo_temp a))
+                 ))
+              )
             )
            ;; ((setq ii(vl-position elem_grread(list 60 62)))
            ;;  (setq x_guidebase(+(nth ii(list 0.05 -0.05))x_guidebase)))
@@ -2915,7 +2963,7 @@
                                 bool_input T
                                 ;;str_edit str_edit_loop
                                 )
-                          
+                          (if(= int_controleinputval 0)T(setq p_controleinputval(cadr(grread t 15 0))))
                           T)
                          
                          ((setq func_input(cdr(assoc "INPUTSTR" a)))
@@ -4904,7 +4952,6 @@
                                      (or str_lasground height_ground))
                                  (list "{\\C" str_gcol_g ";" 23455 34892 21487 33021 "}")
                                (list "{\\C" str_gcol_p ";" ;;標高設定があり管路編集中に実行可能
-                                     27161 39640 35373 23450 12364 12354 12426 
                                      31649 36335 32232 38598 20013 12395 23455 34892 21487 33021 "}"))
                              )
                             ))
@@ -4937,8 +4984,9 @@
                                           
                                           
                                           ))
-                                     ;;管路編集中に使用できる機能です
-                                     (x-alert(list 31649 36335 32232 38598 20013 12395 20351 29992 12391 12365 12427 27231 33021 12391 12377 ))
+                                     ;;標高設定があり管路編集中に使用できる機能です
+                                     (x-alert(list 27161 39640 35373 23450 12364 12354 12426 12289
+                                                   31649 36335 32232 38598 20013 12395 20351 29992 12391 12365 12427 27231 33021 12391 12377 ))
                                      ))
                           )
                     
