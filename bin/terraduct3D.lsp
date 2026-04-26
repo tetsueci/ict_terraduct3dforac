@@ -5202,7 +5202,8 @@
        
        (if(cadr bool) (list ) )
        ))
-    
+
+
     (cons
      "MOVE"
      (lambda( / p);;(d- gr5_home()(progn))
@@ -5225,40 +5226,58 @@
          
          (setq p_ground elem_grread)
          (setq p_click p_ground)
+
+
          
          (if(vl-position int_ductdepth(list 0 1))
-             (if(or str_lasground height_ground)
-                 (if(setq p(car(project_to_ground
-                                (list p_ground)vec_view
-                                (list str_lasground height_ground))))
-                     (setq p_ground p)
-                   (progn;;
-                     
-                     (setq ls_p
-                           (project_to_ground
-                            (mapcar '(lambda(a)(mapcar '+ p_ground a))
-                                    (list(list size_grid 0. 0.) (list (- size_grid)0. 0.)
-                                         (list 0. size_grid 0.) (list 0.(- size_grid)0.)))
-                            vec_view(list str_lasground height_ground))
+             
+             (if(if(or str_lasground height_ground)
+                    ((lambda( / bool)
+                       (if(setq p(car(project_to_ground
+                                      (list p_ground)vec_view
+                                      (list str_lasground height_ground))))
+                           (setq p_ground p bool T)
+                         (progn;;
+                           
+                           (setq ls_p
+                                 (project_to_ground
+                                  (mapcar '(lambda(a)(mapcar '+ p_ground a))
+                                          (list(list size_grid 0. 0.) (list (- size_grid)0. 0.)
+                                               (list 0. size_grid 0.) (list 0.(- size_grid)0.)))
+                                  vec_view(list str_lasground height_ground))
+                                 )
+                           (if(setq ls_p(vl-remove nil ls_p))
+                               (setq nn(length ls_p)
+                                     p_ground(mapcar '(lambda(func)(/(apply '+(mapcar 'func ls_p))nn))
+                                                     (list car cadr caddr))
+                                     bool T
+                                     )
+                             )
                            )
-                     (if(setq ls_p(vl-remove nil ls_p))
-                         (setq nn(length ls_p)
-                               p_ground(mapcar '(lambda(func)(/(apply '+(mapcar 'func ls_p))nn))
-                                               (list car cadr caddr))
-                               )
-                       )
-                     )
-                   )
+                         )
+                       bool)))
+                 T
                (if ls_p_road
                    (setq p_ground
-                         ((lambda(p v z / cosdist d n bool )
-                            (setq cosdist(caddr v))
-                            (if(<(abs cosdist)1e-8) (setq p(carxyz elem_grread z))
-                              (setq d(/(- z(caddr p))cosdist)
-                                    p(mapcar '(lambda(a b)(+ a(* d b)))p v)) )
-                            p )
+                         ((lambda(p v / z cosdist d n bool zc )
+
+                            (setq z(/(apply
+                                      '+(mapcar
+                                         '(lambda(p)(apply '+(mapcar '* v p)))
+                                         ls_p_road))
+                                     (length ls_p_road))
+                                  zc(apply '+(mapcar '* v p))
+                                  zc(- z zc)
+                                  )
+                            (mapcar '(lambda(a b)(+ a(* zc b)))p v)
+                            
+                            ;; (setq cosdist(caddr v))
+                            ;; (if(<(abs cosdist)1e-8) (setq p(carxyz p z))
+                            ;;   (setq d(/(- z(caddr p))cosdist)
+                            ;;         p(mapcar '(lambda(a b)(+ a(* d b)))p v)) )
+                            )
                           p_ground vec_view
-                          (/(apply '+(mapcar 'caddr ls_p_road))(length ls_p_road))
+                          ;;(/(apply '+(mapcar 'caddr ls_p_road))(length ls_p_road))
                           )
                          )
                  )
@@ -11250,14 +11269,11 @@
    ((if vec_verti(<(abs cosdist)1e-8))
     )
    
-   ((<(abs cosdist)1e-8)
-    (x-alert(list 25237 24433 26041 21521 12364 "XY" 24179 38754 12395 23550 12375 24179 34892 12391 12354 12427 12383 12417 25237 24433 12391 12365 12414 12379 12435
-                  "\n" 12499 12517 12540 12398 26041 21521 12434 20462 27491 12375
-                  12390 12289 "Enter" 12434 25276 12375 12390 12367 12384 12373 12356 
-                  ))
+   ((<(abs cosdist)1e-8);;地表面への投影方向がビュー方向に対し直角であるため地表面に投影することはできません
+    (princ(mix_strasc(list "\n" 22320 34920 38754 12408 12398 25237 24433 26041 21521 12364 12499 12517 12540 26041 21521 12395 23550 12375 30452 35282 12391 12354 12427 12383 12417 22320 34920 38754 12395 25237 24433 12377 12427 12371 12392 12399 12391 12365 12414 12379 12435 )))
     ;;ビューの方向を修正してEnter
-    (getint(mix_strasc(list "\n" 12499 12517 12540 12398 26041 21521 12434 20462 27491 12375 12390 "Enter" )))
-    (cal_viewtopleft textsize_guide_bo_temp x_guidebase y_guidebase_temp 10. T )
+    ;; (getint(mix_strasc(list "\n" 12499 12517 12540 12398 26041 21521 12434 20462 27491 12375 12390 "Enter" )))
+    ;; (cal_viewtopleft textsize_guide_bo_temp x_guidebase y_guidebase_temp 10. T )
     
     nil)
    (height_ground
