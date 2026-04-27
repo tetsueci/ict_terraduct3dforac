@@ -116,7 +116,8 @@
              (cons "INITIALFUNC" (lambda(a / i)
                                    (if(if str_textstyle_gbo
                                           (setq i(vl-position str_textstyle_gbo ls_textstyle)))T
-                                     (setq i(vl-position(getvar "TEXTSTYLE")ls_textstyle)))
+                                     (if(setq i(vl-position "Standard" ls_textstyle))T
+                                       (setq i(vl-position(getvar "TEXTSTYLE")ls_textstyle))))
                                    i))
              (cons "ACTIONLIST"((lambda( / )
                                   (setq action_guidetext
@@ -1146,15 +1147,16 @@
                  bool_selectent T bool_select T int_selectmode 0
                  ls_ssget(list(cons -4 "<OR")
                               (cons 0 "LINE,LWPOLYLINE,POLYLINE,ARC")
-                              ;; (cons -4 "<AND")
-                              ;; (cons 0 "INSERT")(list -3(list "terraduct3d"))
-                              ;; (cons -4 "AND>")
+                              (cons -4 "<AND")
+                              (cons 0 "INSERT")(list -3(list "terraduct3d"))
+                              (cons -4 "AND>")
                               (cons -4 "OR>")
                               )
                  ls_ssgetinsert(list(cons 0 "INSERT")
                                     (cons -4 "<NOT")(list -3(list "terraduct3d"))(cons -4 "NOT>") )
                  xtype_ssget nil xdata_ssget nil
                  int_selectproject 0
+                 int_reproject 0
 
                  str_projectname nil
                  func_guidemenu
@@ -1221,7 +1223,19 @@
                        ;;ピッチ設定しているとき投影時に節点数が増え、元々節点だった箇所がわかりづらくなるので、円形のマーキングを作ります
                        (cons "HELP"(lambda()(mix_strasc(list  12500 12483 12481 35373 23450 12375 12390 12356 12427 12392 12365 25237 24433 26178 12395 31680 28857 25968 12364 22679 12360 12289 20803 12293 31680 28857 12384 12387 12383 31623 25152 12364 12431 12363 12426 12389 12425 12367 12394 12427 12398 12391 12289 20870 24418 12398 12510 12540 12461 12531 12464 12434 20316 12426 12414 12377   ))))
                        )
-                  
+
+                  (list(list 88);;X投影した線を選択したときの動作
+                       (cons "ITEM"(list 25237 24433 12375 12383 32218 12434 36984 25246 12375 12383 12392 12365 12398 21205 20316 ))
+                       (cons "INPUTSWITCH"
+                             (lambda()
+                               (list 'int_reproject
+                                     (mapcar 'mix_strasc 
+                                             (list(list "{\\C" str_gcol_c ";" 20877 25237 24433 "}")
+                                                  (list "{\\C" str_gcol_y ";" 32080 21512 "}")))
+                                     )))
+                       ;;再投影:初回投影したときと異なる標高を使っていればその標高に投影しなおします\n標高が異なっていないときは同じ位置に複製されるだけです\n結合:選択した線の端点が一致しているとき線を結合します\n標高選択は関係ありません
+                       (cons "HELP"(lambda()(mix_strasc(list 20877 25237 24433 " : " 21021 22238 25237 24433 12375 12383 12392 12365 12392 30064 12394 12427 27161 39640 12434 20351 12387 12390 12356 12428 12400 12381 12398 27161 39640 12395 25237 24433 12375 12394 12362 12375 12414 12377 "\n    " 27161 39640 12364 30064 12394 12387 12390 12356 12394 12356 12392 12365 12399 21516 12376 20301 32622 12395 35079 35069 12373 12428 12427 12384 12369 12391 12377  "\n" 32080 21512 " : " 36984 25246 12375 12383 32218 12398 31471 28857 12364 19968 33268 12375 12390 12356 12427 12392 12365 32218 12434 32080 21512 12375 12414 12377 "\n    " 27161 39640 36984 25246 12399 38306 20418 12354 12426 12414 12379 12435 ))))
+                       )
                   
                   ;; (list(list 50);;投影前に節点だった箇所に円
                   ;;      (cons "ITEM"(list  25237 24433 21069 12395 31680 28857 12384 12387 12383 31623 25152 12395 20870 ))
@@ -1304,6 +1318,11 @@
               (progn
                 
                 (setq vnam(vlax-ename->vla-object(ssname set_ent 0)))
+                (exckillobj vnam)
+                (vla-Highlight vnam :vlax-false)
+                (setq ls_vnam_highlight(vl-remove vnam ls_vnam_highlight))
+ 
+                
                 (vla-getXData vnam "terraduct3d" 'array_Type 'array_Data )
                 (if array_data
                     (setq ls_xdata
@@ -1371,6 +1390,7 @@
                     )
                  ls_vnam_select)
 
+         (setq ls_reunion_project(list))
          (setq ls_vnam_point
                (mapcar
                 '(lambda(vnam)
@@ -1385,10 +1405,31 @@
                               (setq str_type nil) )
                             (= str_type "PROJECT")
                             )
-                           (progn
+
+                           (cond
+                            ((= int_reproject 0)
                              (setq ls_p_center(list))
+                             (setq str(vla-get-name vnam))
+                             
+                             (if(setq num(vl-string-search "$" str))
+                                 (setq str(substr str 1 num)))
+                             (setq i 0)
+                             (while
+                                 (progn
+                                   (setq str_bname(strcat str "ROAD$"(itoa(setq i(1+ i)))))
+                                   (null
+                                    (vl-catch-all-error-p
+                                     (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
+                                   )
+                               )
+                             (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname)
+                                   ls_vla-release(cons block ls_vla-release))
+                             ;; ;; 含まれるすべてのオブジェクトを削除
+                             ;; (vlax-for obj block(vla-delete obj))
+                             
                              (vlax-for
                               obj
+
                               (vla-Item vnam_blocktable(vla-get-name vnam))
                               (cond
                                ((=(vla-get-ObjectName obj)"AcDb3dPolyline")
@@ -1399,10 +1440,13 @@
                                ((=(vla-get-ObjectName obj)"AcDbCircle")
                                 (setq p(vlax-safearray->list(vlax-variant-value(vla-get-center obj)))
                                       ls_p_center (cons p ls_p_center)
-                                      p(car(project_to_ground
+                                      )
+                                
+                                (setq p(car(project_to_ground
                                             (list p)(list 0. 0. 1.)(list str_lasground height_ground)))
                                       )
-                                (vla-put-center obj(vlax-3d-point p))
+                                (vla-addcircle block(vlax-3d-point p)(vla-get-radius obj))
+                                
                                 )
                                )
                               )
@@ -1418,7 +1462,6 @@
                                          )
                                        bool)
                                     ls_p))
-                             
                              (setq bool_first T ls_int_node(list 0) int_node 0
                                    ls_p(apply 'append
                                               (mapcar
@@ -1447,9 +1490,58 @@
                              
                              (setq array_p(vlax-make-safearray vlax-vbDouble(cons 0 (1-(length ls_p)))))
                              (vlax-safearray-fill array_p ls_p)
-                             (vla-put-coordinates vnam_update array_p)
+
+                             (setq vnam(vla-Add3dPoly block array_p) )
+                             
+                             (vla-put-color vnam(vla-get-color vnam_update))
+
+                             (setq vnam(vla-InsertBlock
+                                        (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
+                                        (vlax-3d-point 0 0 0)str_bname 1 1 1 0)
+                                   )
+                             
+                             (set_xda vnam(list(cons 1000 "PROJECT")
+                                               (cons 1000 "PROJECT")(cons 1000 ""))
+                                      "terraduct3d")
+                             
+                             
+                             (mapcar '(lambda(a)(vla-delete a))ls_vnam)
+                             
+                             ((lambda(v)
+                                (vlax-release-object v)
+                                (setq ls_vla-release(vl-remove v ls_vlarelease)))
+                              block)
+                             
                              nil
                              )
+                            
+                            ((= int_reproject 1)
+                             (setq ls_p_center(list))
+
+                             (vlax-for
+                              obj
+                              (vla-Item vnam_blocktable(vla-get-name vnam))
+                              (cond
+                               ((=(vla-get-ObjectName obj)"AcDb3dPolyline")
+                                (setq ls_p(split_list 3(vlax-safearray->list(vlax-variant-value(vla-get-coordinates obj))))
+                                      int_col(vla-get-color obj)
+                                      )
+                                )
+                               ((=(vla-get-ObjectName obj)"AcDbCircle")
+                                (setq p(vlax-safearray->list(vlax-variant-value(vla-get-center obj)))
+                                      ls_p_center (cons p ls_p_center)
+                                      )
+                                
+                                )
+                               )
+                              )
+                             
+                             (setq ls_reunion_project(cons(list vnam ls_p ls_p_center int_col)
+                                                          ls_reunion_project))
+                             nil
+                             )
+                            )
+                         
                          )
                      (progn
                        
@@ -1482,11 +1574,121 @@
                 ls_vnam_select)
                ls_vnam_point(vl-remove nil ls_vnam_point)
                )
+
+         (setq ls_vnam_reunion(list))
+         (while ls_reunion_project
+           (setq lst(car ls_reunion_project)
+                 vnam0(car lst)ls_p0(cadr lst)ls_pc0(caddr lst)int_col(cadddr lst)
+                 
+                 p00(car ls_p0)p01(last ls_p0)
+                 ls_reunion_project(cdr ls_reunion_project)
+                 ls_dummy ls_reunion_project)
+           (setq bool_reunion nil)
+           
+           (while
+               ((lambda(ls_dummy2 / bool)
+                  (while ls_dummy2
+                    (setq lst(car ls_dummy2)ls_dummy2(cdr ls_dummy2)
+                          vnam1(car lst)ls_p1(cadr lst)ls_pc1(caddr lst)
+                          p10(car ls_p1)p11(last ls_p1)
+                          )
+
+                    (if(cond
+                        ((<(distance p00 p10)(* 0.01 pitch_project))
+                         (setq ls_p0(append(reverse ls_p1)(cdr ls_p0)) p00 p11
+                               bool_reunion T bool T )
+                         )
+                        ((<(distance p00 p11)(* 0.01 pitch_project))
+                         (setq ls_p0(append ls_p1(cdr ls_p0)) p00 p10
+                               bool_reunion T bool T )
+                         )
+                        ((<(distance p01 p10)(* 0.01 pitch_project))
+                         (setq ls_p0(append ls_p0(cdr ls_p1)) p01 p11
+                               bool_reunion T bool T )
+                         )
+                        ((<(distance p01 p11)(* 0.01 pitch_project))
+                         (setq ls_p0(append ls_p0(cdr(reverse ls_p1))) p01 p10
+                               bool_reunion T bool T )
+                         )
+                        )
+                        (progn
+                          (setq ls_reunion_project(vl-remove lst ls_reunion_project)
+                                ls_dummy(vl-remove lst ls_dummy)
+                                ls_pc0(append ls_pc0
+                                              (vl-remove-if
+                                               '(lambda(p / bool )
+                                                  (setq ls_dummy ls_pc0)
+                                                  (while ls_dummy
+                                                    (if(<(distance p(car ls_dummy))(* 0.01 pitch_project))
+                                                        (setq bool T ls_dummy nil)
+                                                      (setq ls_dummy(cdr ls_dummy)))
+                                                    )
+                                                  bool)
+                                               ls_pc1)
+                                              )
+                                )
+                          (vla-delete vnam1)
+                          ))
+                    )
+                  bool)
+                ls_dummy))
+           
+           (if bool_reunion
+               (setq ls_vnam_reunion(cons(list vnam0 ls_p0 ls_pc0 int_col)ls_vnam_reunion)))
+           
+           )
+
+         (while ls_vnam_reunion
+           (setq lst(car ls_vnam_reunion)ls_vnam_reunion(cdr ls_vnam_reunion)
+                 vnam(car lst)ls_p(cadr lst)ls_pc(caddr lst)int_col(cadddr lst)
+                 str(vla-get-name vnam)i 0)
+           (vla-delete vnam)
+           
+           (if(setq num(vl-string-search "$" str))
+               (setq str(substr str 1 num)))
+           
+           
+           (while
+               (progn
+                 (setq str_bname(strcat str "$"(itoa(setq i(1+ i)))))
+                 (null
+                  (vl-catch-all-error-p
+                   (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
+                 )
+             )
+
+           (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname)
+                 ls_vla-release(cons block ls_vla-release))
+           ;; ;; 含まれるすべてのオブジェクトを削除
+           ;; (vlax-for obj block(vla-delete obj))
+           (mapcar '(lambda(p)(vla-addcircle block(vlax-3d-point p)radius_node_temp))
+                   ls_pc)
+
+           (setq ls_p(apply 'append ls_p) )
+           (setq array_p(vlax-make-safearray vlax-vbDouble(cons 0 (1-(length ls_p)))))
+           (vlax-safearray-fill array_p ls_p)
+
+           (setq vnam(vla-Add3dPoly block array_p))
+           (vla-put-color vnam int_col)
+           (setq vnam(vla-InsertBlock
+                      (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
+                      (vlax-3d-point 0 0 0)str_bname 1 1 1 0)
+                 )
+           (set_xda vnam(list(cons 1000 "PROJECT")
+                             (cons 1000 "PROJECT")(cons 1000 ""))
+                    "terraduct3d")
+
+           ((lambda(v)
+              (vlax-release-object v)
+              (setq ls_vla-release(vl-remove v ls_vlarelease)))
+            block)
+           
+           )
+
          
-         
-         (vla-Regen
-          (vla-get-ActiveDocument (vlax-get-acad-object))
-          acAllViewports )
+         ;; (vla-Regen
+         ;;  (vla-get-ActiveDocument (vlax-get-acad-object))
+         ;;  acAllViewports )
          
          (setq ls_dummy ls_vnam_point ls_vnam_select(list))
 
@@ -1503,28 +1705,28 @@
                           p10(car ls_p1)p11(last ls_p1)
                           )
                     
-                    (cond
-                     ((<(distance p00 p10)(* 0.01 pitch_project))
-                      (setq ls_p0(append(reverse ls_p1)(cdr ls_p0)) p00 p11
-                            ls_vnam_point(vl-remove lst ls_vnam_point)
-                            ls_dummy(vl-remove lst ls_dummy)bool T )
-                      )
-                     ((<(distance p00 p11)(* 0.01 pitch_project))
-                      (setq ls_p0(append ls_p1(cdr ls_p0)) p00 p10
-                            ls_vnam_point(vl-remove lst ls_vnam_point)
-                            ls_dummy(vl-remove lst ls_dummy)bool T )
-                      )
-                     ((<(distance p01 p10)(* 0.01 pitch_project))
-                      (setq ls_p0(append ls_p0(cdr ls_p1)) p01 p11
-                            ls_vnam_point(vl-remove lst ls_vnam_point)
-                            ls_dummy(vl-remove lst ls_dummy)bool T )
-                      )
-                     ((<(distance p01 p11)(* 0.01 pitch_project))
-                      (setq ls_p0(append ls_p0(cdr(reverse ls_p1))) p01 p10
-                            ls_vnam_point(vl-remove lst ls_vnam_point)
-                            ls_dummy(vl-remove lst ls_dummy)bool T )
-                      )
-                     )
+                    (if(cond
+                        ((<(distance p00 p10)(* 0.01 pitch_project))
+                         (setq ls_p0(append(reverse ls_p1)(cdr ls_p0)) p00 p11
+                               bool T )
+                         )
+                        ((<(distance p00 p11)(* 0.01 pitch_project))
+                         (setq ls_p0(append ls_p1(cdr ls_p0)) p00 p10
+                               bool T )
+                         )
+                        ((<(distance p01 p10)(* 0.01 pitch_project))
+                         (setq ls_p0(append ls_p0(cdr ls_p1)) p01 p11
+                               bool T )
+                         )
+                        ((<(distance p01 p11)(* 0.01 pitch_project))
+                         (setq ls_p0(append ls_p0(cdr(reverse ls_p1))) p01 p10
+                               bool T )
+                         )
+                        )
+                        (progn
+                          (setq ls_vnam_point(vl-remove lst ls_vnam_point)
+                                ls_dummy(vl-remove lst ls_dummy))
+                          ))
                     )
                   bool)
                 ls_dummy))
@@ -1545,6 +1747,12 @@
                    (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
                  )
              )
+           
+           (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname)
+                 ls_vla-release(cons block ls_vla-release))
+           ;; ;; 含まれるすべてのオブジェクトを削除
+           ;; (vlax-for obj block(vla-delete obj))
+
            
            (setq bool_first T ls_int_node(list 0) int_node 0
                  ls_p(apply 'append
@@ -1571,46 +1779,20 @@
                  ;; ls_p(vl-remove nil ls_p)
 
                  ;;radius_node(if(= radius_node 0.)0.05(* 0.2 pitch_project))
-                 
-                 ls_vnam
-                 (if(= int_projectnode 1)nil
-                   (mapcar
-                    '(lambda(n / p v)
-                       (if(setq p(nth n ls_p))
-                           (progn
-                             (setq v(vla-addcircle
-                                     (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
-                                     (vlax-3d-point p)radius_node_temp))
-                             
-                             ))
-                       )
-                    ls_int_node))
-                 ls_vnam(vl-remove nil ls_vnam)
-                 
-                 ls_p(apply 'append ls_p)
                  )
-
-           (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname)
-                 ls_vla-release(cons block ls_vla-release))
-           ;; ;; 含まれるすべてのオブジェクトを削除
-           ;; (vlax-for obj block(vla-delete obj))
+           
+           (if(= int_projectnode 1)nil
+             (mapcar
+              '(lambda(n / p v)
+                 (if(setq p(nth n ls_p))(setq v(vla-addcircle block (vlax-3d-point p)radius_node_temp)) ))
+              ls_int_node))
+           
+           (setq ls_p(apply 'append ls_p) )  
            (setq array_p(vlax-make-safearray vlax-vbDouble(cons 0 (1-(length ls_p)))))
            (vlax-safearray-fill array_p ls_p)
 
-           (setq vnam(vla-Add3dPoly
-                      (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))array_p)
-                 ls_vnam(cons vnam ls_vnam)
-                 )
+           (setq vnam(vla-Add3dPoly block array_p) )
            (vla-put-color vnam int_col)
-
-           (vla-copyobjects(vla-get-ActiveDocument(vlax-get-acad-object))
-                           (vlax-make-variant
-                            (vlax-safearray-fill
-                             (vlax-make-safearray
-                              vlax-vbObject(cons 0(1-(length ls_vnam))) )
-                             ls_vnam)
-                            )
-                           block)
            
            (setq vnam(vla-InsertBlock
                       (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
