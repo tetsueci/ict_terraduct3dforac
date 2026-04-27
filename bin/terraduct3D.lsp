@@ -233,6 +233,13 @@
              (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.5))
              )
 
+        
+        (list(cons "TEXT"(mix_strasc(list 25237 24433 32218 31680 28857 12398 20870 21322 24452  )))
+             (cons "ITEM" "EDIT_BOX");;投影線節点の円半径
+             (cons "SYMBOL" 'radius_node)(cons "TEMP" 'radius_node_temp)
+             (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.1))
+             )
+
         (list(cons "TEXT"(mix_strasc(list 28145 24230 20837 21147 26041 27861 )))
              (cons "ITEM" "POPUP_LIST");;高度入力方法;;地表面標高差分,正負逆で差分入力,標高入力
              (cons "VALLIST"(setq ls_type_inputdepth
@@ -1203,6 +1210,16 @@
                        ;;選択した線形は、ここで設定したピッチで分割され、その点における標高を取得します\n元々の線形の節点に当たる部分は必ず投影されます\nピッチが0のとき節点のみが投影されます
                        (cons "HELP"(lambda()(mix_strasc(list 36984 25246 12375 12383 32218 24418 12399 12289 12371 12371 12391 35373 23450 12375 12383 12500 12483 12481 12391 20998 21106 12373 12428 12289 12381 12398 28857 12395 12362 12369 12427 27161 39640 12434 21462 24471 12375 12414 12377 "\n" 20803 12293 12398 32218 24418 12398 31680 28857 12395 24403 12383 12427 37096 20998 12399 24517 12378 25237 24433 12373 12428 12414 12377 "\n" 12500 12483 12481 12364 "0" 12398 12392 12365 31680 28857 12398 12415 12364 25237 24433 12373 12428 12414 12377(if int_selectmenu str_guide_inputval str_guide_selectval)  ))))
                        )
+
+                  (list(list 82);;R節点円の半径
+                       (cons "ITEM"(list 31680 28857 20870 12398 21322 24452 ) )
+                       (cons "INPUT"(lambda()
+                                      (if radius_node_temp T(setq radius_node_temp radius_node))
+                                      'radius_node_temp))
+                       ;;ピッチ設定しているとき投影時に節点数が増え、元々節点だった箇所がわかりづらくなるので、円形のマーキングを作ります
+                       (cons "HELP"(lambda()(mix_strasc(list  12500 12483 12481 35373 23450 12375 12390 12356 12427 12392 12365 25237 24433 26178 12395 31680 28857 25968 12364 22679 12360 12289 20803 12293 31680 28857 12384 12387 12383 31623 25152 12364 12431 12363 12426 12389 12425 12367 12394 12427 12398 12391 12289 20870 24418 12398 12510 12540 12461 12531 12464 12434 20316 12426 12414 12377   ))))
+                       )
+                  
                   
                   ;; (list(list 50);;投影前に節点だった箇所に円
                   ;;      (cons "ITEM"(list  25237 24433 21069 12395 31680 28857 12384 12387 12383 31623 25152 12395 20870 ))
@@ -1338,7 +1355,7 @@
     
     (cons
      "KEYBOAD"
-     (lambda( / ls_p bool_first radius_node ls_vnam block );;(d- gr2_home()
+     (lambda( / ls_p bool_first ls_vnam block );;(d- gr2_home()
 
        (cond
         ((or(= elem_grread 13)(= int_grread 25))
@@ -1551,7 +1568,7 @@
                  ls_p(project_to_ground ls_p(list 0. 0. 1.)(list str_lasground height_ground))
                  ;; ls_p(vl-remove nil ls_p)
 
-                 radius_node(if(= pitch_project 0.)0.05(* 0.2 pitch_project))
+                 ;;radius_node(if(= radius_node 0.)0.05(* 0.2 pitch_project))
                  
                  ls_vnam
                  (if(= int_projectnode 1)nil
@@ -1561,7 +1578,7 @@
                            (progn
                              (setq v(vla-addcircle
                                      (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
-                                     (vlax-3d-point p)radius_node))
+                                     (vlax-3d-point p)radius_node_temp))
                              
                              ))
                        )
@@ -8087,7 +8104,7 @@
                ls_existblock(list)
                )
          
-         (setq radius_node(if(= pitch_project 0.)0.05 pitch_project))
+         ;;(setq radius_node(if(= pitch_project 0.)0.05 pitch_project))
          (if(if pitch_mesh(>(abs pitch_mesh)1e-8))T(setq pitch_mesh 0.5))
          (while ls_str_in
            (setq lst(car ls_str_in)ls_str_in(cdr ls_str_in)
