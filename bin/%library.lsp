@@ -1521,15 +1521,17 @@
         
         str_guidebackspace_mouse
         (mix_strasc
-         (list "\n {\\C" str_gcol_y ";  "
+         (list "\t{\\C" str_gcol_y ";  "
                12510 12454 12473
                (if(= int_controleinputval 1)
                    (list 24038 21491)(list 19978 19979))
                12391 25968 20516 12434 21046 24481 "}"
-               " , {\\C" str_gcol_p ";Slash"  "} : "
+               "\n  {\\C" str_gcol_p ";Slash"  "} : "
                "{\\C" str_gcol_c ";" 20024 12417 26689 19978 12370 "}"
                " , {\\C" str_gcol_p ";BackSlash} : "
                "{\\C" str_gcol_c ";" 20024 12417 26689 19979 12370 "}"
+               " , {\\C" str_gcol_p ";" "Enter," 21491 12463 12522 12483 12463 "} : "
+               "{\\C" str_gcol_c ";" 27770 23450 "}"
                " , {\\C" str_gcol_p ";BackSpace," 25968 20516 20837 21147 "} : "
                "{\\C" str_gcol_c ";" 12510 12454 12473 12514 12540 12489 32066 20102 "}"
                ))
@@ -2467,6 +2469,7 @@
         str_guide_prev "" bool_guideclick T
         str_editreturn nil int_row_guideprev nil
         ls_str_guide_prev(list)p_controleinputval nil
+        bool_tempdistlength nil
         )
 
   (setq ls_pstar
@@ -2714,7 +2717,7 @@
             )
           )
         )
-      
+
       (if func_loopunique(func_loopunique))
       (if bool_replacegrread(setq bool_replacegrread nil)
         (setq ls_grread(grread t 15(if bool_point 0 2))
@@ -2986,7 +2989,7 @@
                    (apply '+(mapcar '*(mapcar '- elem_grread p_controleinputval)
                                     (if(= int_controleinputval 1)vec_x_onview vec_y_onview)))
                    int_roundcontroleval )))
-        
+
         (cond
          ((= int_grread 5))
          (bool_selectsnap (setq bool_snap(null bool_snap)) )
@@ -3185,6 +3188,8 @@
           (setq str_funcmarker "CLICK")
           )
          )
+
+        
         (if(= int_grread 3)(setq bool_getpoint nil))
         )
 
