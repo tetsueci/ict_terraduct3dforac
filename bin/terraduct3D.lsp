@@ -1483,13 +1483,6 @@
                     (setq lst(car ls_dummy2)ls_p1(cdr lst)ls_dummy2(cdr ls_dummy2)
                           p10(car ls_p1)p11(last ls_p1)
                           )
-
-                    (princ(list(<(distance p00 p10)(* 0.01 pitch_project))
-                               (<(distance p00 p11)(* 0.01 pitch_project))
-                               (<(distance p01 p10)(* 0.01 pitch_project))
-                               (<(distance p01 p11)(* 0.01 pitch_project))
-                               )
-                          )
                     
                     (cond
                      ((<(distance p00 p10)(* 0.01 pitch_project))
