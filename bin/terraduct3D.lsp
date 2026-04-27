@@ -346,9 +346,11 @@
              (cons "EXPLANE"(mix_strasc(list 8251 12371 12428 12363 12425 20316 25104 12373 12428 12427 12418 12398 12395 23550 12375 12390 26377 21177)))
              (cons "SYMBOL" 'int_dimstyle_ductlevel)(cons "TYPE" "INT")
              (cons "INITIALFUNC" (lambda(a)
+                                   
                                    (if(if str_dimstyle_ductlevel
                                           (setq i(vl-position str_dimstyle_ductlevel ls_dimstyle)))T
-                                     (setq i(vl-position(getvar "DIMSTYLE")ls_dimstyle)))
+                                     (if(setq i(vl-position "Standard" ls_dimstyle))T
+                                       (setq i(vl-position(getvar "DIMSTYLE")ls_dimstyle)) ))
                                    i))
              
              (cons "ACTIONLIST"((lambda( / )
