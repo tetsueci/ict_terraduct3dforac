@@ -1475,26 +1475,48 @@
            (setq lst(car ls_vnam_point)vnam0(car lst)ls_p0(cdr lst)
                  p00(car ls_p0)p01(last ls_p0)
                  ls_vnam_point(cdr ls_vnam_point)
-                 ls_dymmy ls_vnam_point)
-           (while ls_dummy
-             (setq lst(car ls_dummy)ls_p1(cdr lst)ls_dummy(cdr ls_dummy)
-                   p10(car ls_p1)p11(last ls_p1)
-                   )
-             (cond
-              ((<(distance p00 p10)1e-6)
-               (setq ls_p0(append(reverse ls_p1)(cdr ls_p0))
-                     p00 p11 ls_vnam_point(vl-remove lst ls_vnam_point)))
-              ((<(distance p00 p11)1e-6)
-               (setq ls_p0(append ls_p1(cdr ls_p0))
-                     p00 p10 ls_vnam_point(vl-remove lst ls_vnam_point)))
-              ((<(distance p01 p10)1e-6)
-               (setq ls_p0(append ls_p0(cdr ls_p1))
-                     p01 p11 ls_vnam_point(vl-remove lst ls_vnam_point)))
-              ((<(distance p01 p11)1e-6)
-               (setq ls_p0(append ls_p0(cdr(reverse ls_p1)))
-                     p01 p10 ls_vnam_point(vl-remove lst ls_vnam_point)))
-              )
-             )
+                 ls_dummy ls_vnam_point)
+
+           (while
+               ((lambda(ls_dummy2 / bool)
+                  (while ls_dummy2
+                    (setq lst(car ls_dummy2)ls_p1(cdr lst)ls_dummy2(cdr ls_dummy2)
+                          p10(car ls_p1)p11(last ls_p1)
+                          )
+
+                    (princ(list(<(distance p00 p10)(* 0.01 pitch_project))
+                               (<(distance p00 p11)(* 0.01 pitch_project))
+                               (<(distance p01 p10)(* 0.01 pitch_project))
+                               (<(distance p01 p11)(* 0.01 pitch_project))
+                               )
+                          )
+                    
+                    (cond
+                     ((<(distance p00 p10)(* 0.01 pitch_project))
+                      (setq ls_p0(append(reverse ls_p1)(cdr ls_p0)) p00 p11
+                            ls_vnam_point(vl-remove lst ls_vnam_point)
+                            ls_dummy(vl-remove lst ls_dummy)bool T )
+                      )
+                     ((<(distance p00 p11)(* 0.01 pitch_project))
+                      (setq ls_p0(append ls_p1(cdr ls_p0)) p00 p10
+                            ls_vnam_point(vl-remove lst ls_vnam_point)
+                            ls_dummy(vl-remove lst ls_dummy)bool T )
+                      )
+                     ((<(distance p01 p10)(* 0.01 pitch_project))
+                      (setq ls_p0(append ls_p0(cdr ls_p1)) p01 p11
+                            ls_vnam_point(vl-remove lst ls_vnam_point)
+                            ls_dummy(vl-remove lst ls_dummy)bool T )
+                      )
+                     ((<(distance p01 p11)(* 0.01 pitch_project))
+                      (setq ls_p0(append ls_p0(cdr(reverse ls_p1))) p01 p10
+                            ls_vnam_point(vl-remove lst ls_vnam_point)
+                            ls_dummy(vl-remove lst ls_dummy)bool T )
+                      )
+                     )
+                    )
+                  bool)
+                ls_dummy))
+           
            (setq ls_vnam_select(cons(cons vnam0 ls_p0)ls_vnam_select))
            )
          
@@ -1536,7 +1558,7 @@
                  ls_p(project_to_ground ls_p(list 0. 0. 1.)(list str_lasground height_ground))
                  ;; ls_p(vl-remove nil ls_p)
 
-                 radius_node(if(= pitch_project 0.)0.05 pitch_project)
+                 radius_node(if(= pitch_project 0.)0.05(* 0.2 pitch_project))
                  
                  ls_vnam
                  (if(= int_projectnode 1)nil
