@@ -8,207 +8,6 @@
       prev_select_sessionname ""
       )
 
-(defun load_las_to_grid(str_lasxml)
-  ;; (setq cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app"))
-  
-  (setq str_data(strcat cpath_terraduct3d "\\pyexe\\grid_points.csv")
-        str_path(strcat cpath_terraduct3d "\\pyexe\\main.exe")
-        bool_loop T size_file nil
-        int_time 100 ms_loop nil ms_max 20000 
-        size_grid 0.5
-        )
-
-  (setq str_laspath(getfiled(strcat "Select " str_lasxml " file")(getvar "DWGPREFIX")str_lasxml 0))
-  (if(null str_laspath)
-      (alert(mix_strasc(list 12501 12449 12452 12523 12364 36984 25246 12373 12428 12414 12379 12435 12391 12375 12383)))
-    
-    (progn
-      (setq str_lasfile str_laspath )
-      
-      (while(setq num(vl-string-search "\\" str_lasfile))
-        (setq str_lasfile(substr str_lasfile(+ num 2))))
-      
-      (if(findfile str_data)(vl-file-delete str_data))
-      ;; (startapp str_path "")
-      
-      (setq wsh (vlax-create-object "WScript.Shell"))
-      (setq cmd(strcat "\"" str_path "\" "
-                       "\"" str_lasxml  "\" "
-                       "\"" str_laspath "\""))
-      (vlax-invoke-method wsh 'Run cmd 0 :vlax-true)
-      (vlax-release-object wsh)
-
-      (setq ms_loop(getvar "MILLISECS"))
-      (while bool_loop
-        (setq ms_start(getvar "MILLISECS"))
-        (if(>(- ms_start ms_loop)ms_max)(setq bool_loop nil))
-        (while(<(-(getvar "MILLISECS")ms_start)int_time) )
-        (if(findfile str_data)
-            (if(= size_file(vl-file-size str_data))(setq bool_loop nil)
-              (setq size_file(vl-file-size str_data)) ))
-        )
-
-
-      (if(null(findfile str_data))
-          (progn
-            (setq dict_name nil)
-            (alert(mix_strasc(list 35501 12415 36796 12415 12395 22833 25943 12375 12414 12375 12383)))
-            )
-        (progn
-          ;;(vla-startUndoMark (vla-get-ActiveDocument (vlax-get-Acad-Object)))
-          ;; (setq *error*
-          ;;       (lambda(msg)
-          ;;         (if(= msg "")T
-          ;;           (vla-EndUndoMark (vla-get-ActiveDocument (vlax-get-Acad-Object))) )
-          ;;         (mapcar '(lambda(a / v)
-          ;;                    (if a(if(if(=(type a)'ENAME)
-          ;;                                (if(entget a)(setq v(vlax-ename->vla-object a))(progn nil))
-          ;;                              (if(setq v a a(vlax-vla-object->ename a))(entget a)(progn nil)) )
-          ;;                             (vla-delete v))))
-          ;;                 ls_vnam_killobj)
-          ;;         (setq ls_vnam_killobj nil vnam_guide nil)
-          ;;         (if (= 'FILE (type file_r)) (close file_r))
-          ;;         (gc)
-          ;;         (setq *error*(lambda(msg)(princ msg)))
-          ;;         (princ msg)
-          ;;         )
-          ;;       ls_vnam_killobj nil
-          ;;       )
-          
-          
-          (setq num_limit 100000 num_start 0 num_last nil num_elem 1000 str_grid "1"
-                delta_grid(atof str_grid))
-          
-          (setq spantime0(getvar "MILLISECS")
-                ls_grid(list)
-                file_r (open str_data "r")
-                )
-
-          
-          (if(= int_inputlasinsert 0)T
-            (progn
-              (setq str_bname(strcat "input-lasgrid-" str_lasfile ))
-              (if(vl-catch-all-error-p
-                  (setq block(vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
-                  (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname) )
-                (progn
-                  (if(setq set_ent(ssget "X"(list(cons 2 str_bname))))
-                      (progn
-                        (setq num(sslength set_ent))
-                        (while(>(setq num(1- num))-1)
-                          (setq vnam(vlax-ename->vla-object(ssname set_ent num)))
-                          (vla-delete vnam)
-                          )
-                        ))
-                  (vla-delete block)
-                  (mapcar '(lambda(v)
-                             (vlax-release-object v)
-                             (setq ls_vla-release(vl-remove v ls_vla-release))
-                             )
-                          (list block))
-                  (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname))
-                  )
-                )
-              (setq ls_vla-release(cons block ls_vla-release) )
-              ))
-
-          (setq z_ave 0. z_min nil z_max nil)
-          (while(setq str(read-line file_r))
-            (setq x(atof str)str(substr str(+(vl-string-search "," str)2))
-                  y(atof str)str(substr str(+(vl-string-search "," str)2))
-                  z(atof str)z_ave(+ z_ave z)
-                  )
-            (if z_min(setq z_min(min z z_min)z_max(max z z_max))
-              (setq z_min z z_max z))
-
-            (if(= int_inputlasinsert 0)T(vla-addpoint block(vlax-3d-point x y z)))
-            
-            (setq nx(/ x size_grid) nx(fix(- nx(abs(rem nx 1.))))
-                  ny(/ y size_grid) ny(fix(- ny(abs(rem ny 1.))))
-                  
-                  ls_grid(cons(list(strcat(itoa nx)"$"(itoa ny))z)ls_grid)
-                  )
-            )
-          (close file_r)
-
-          
-          (if(= int_inputlasinsert 0)T
-            (mapcar '(lambda(v)
-                       (vlax-release-object v)
-                       (setq ls_vla-release(vl-remove v ls_vla-release))
-                       )
-                    (list block))
-            )
-          
-          (if(= int_inputlasinsert 1)
-              (vla-InsertBlock
-               (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
-               (vlax-3d-point 0 0 0)str_bname 1 1 1 0)
-            )
-          
-
-          ;; (setq dicts_all(vla-get-Dictionaries(vla-get-ActiveDocument (vlax-get-acad-object)))
-          ;;       vnam(vlax-ename->vla-object entna)
-          ;;       vec_insert(vlax-safearray->list(vlax-variant-value(vla-get-normal vnam)))
-          ;;       p_insert(vlax-safearray->list(vlax-variant-value(vla-get-insertionpoint vnam)))
-          ;;       str_nameblock(vla-get-name vnam)
-          ;;       )
-          
-          ;; (while(vl-string-search "*" str_nameblock)
-          ;;   (setq str_nameblock(vl-string-subst "^^^^" "*" str_nameblock))
-          ;;   )
-          ;; (if spantime0 T(setq spantime0(getvar "MILLISECS")))
-
-          ;; (defun dict_las_input(str_lasfile bool)
-
-          (setq ls_xdata(list))
-          (setq dict_name(strcat "lasgrid" "-" str_lasfile ))
-          ;; (setq dict_grid(vl-catch-all-apply 'vla-Item (list dicts_all(strcat dict_name))))
-          (if(if nil(assoc dict_name ls_lasgrid);;あれば作る必要がない
-               (progn ;;あったら消して作る
-                 (if(setq dict_grid(cdr(assoc dict_name ls_lasgrid)))(vla-delete dict_grid))
-                 nil
-                 ) )
-              (progn  nil ) ;;すでにあるものを使うとき 通ることはない
-            (progn ;;新しく作るとき
-              
-              (setq z_ave(/ z_ave(length ls_grid)))
-              (setq dict_grid(vla-Add dicts_all dict_name))
-              (setq xrec(vla-AddXRecord dict_grid "GRID-SIZE_CENTER"))
-              (setq array_data(vlax-make-safearray vlax-vbVariant(cons 0 3))
-                    array_type(vlax-make-safearray vlax-vbInteger(cons 0 3)))
-              (vlax-safearray-fill array_type(list 1040 1040 1040 1040))
-              (vlax-safearray-fill array_data(list size_grid z_ave z_min z_max))
-              (vla-SetXRecordData xrec array_type array_data )
-
-              (setq array_data(vlax-make-safearray vlax-vbVariant(cons 0 0))
-                    array_type(vlax-make-safearray vlax-vbInteger(cons 0 0)))
-              (vlax-safearray-fill array_type (list 1040))
-              (mapcar
-               '(lambda(lst)
-                  (setq xrec(vla-AddXRecord dict_grid(strcat(car lst))))
-                  (vlax-safearray-fill array_data(cdr lst))
-                  (vla-SetXRecordData xrec array_type array_data )
-                  )
-               ls_grid)
-              
-              (if(setq lst(assoc dict_name ls_lasgrid))(vl-remove lst ls_lasgrid))
-              (setq ls_lasgrid(cons(cons dict_name dict_grid)ls_lasgrid))
-              )
-            )
-          
-          ;;(vla-startUndoMark (vla-get-ActiveDocument (vlax-get-Acad-Object)))
-          ;; (princ "\nFinish")
-
-          (alert(mix_strasc(list 35501 36796 23436 20102)))
-          ))
-      ))
-  
-  ;; (*error* "")
-  dict_name
-  )
-
-
 (defun c:devtd3d( / e v array_Type array_Data)
   (if(setq e(car(entsel)))
       (progn
@@ -218,10 +17,6 @@
                                                (vlax-safearray->list array_data)))))))
   )
 
-
-(defun x-alert(lst / str)
-  (setq str(mix_strasc lst))
-  (if(= int_alert 0)(alert str)(princ(strcat "\n" str))))
 
 ;;メインコマンド
 (defun c:terraduct3d( / func_name dict_dokos bool_guidedisplay array_type array_data)
@@ -366,17 +161,18 @@
              (cons "TYPE" "REAL")(cons "INITIALFUNC"(lambda(a)0.015)) )
         
         (list(cons "TEXT"(mix_strasc(list  32294 26041 21521 20301 32622)))
-             (cons "EXPLANE"(mix_strasc(list 8251 24038 19978 12364 "0" )))
+             ;;画面の左上を0とする,単位は1行当たりのテキスト高さ
+             (cons "EXPLANE"(mix_strasc(list 8251 30011 38754 12398 24038 19978 12364 "0(" 21336 20301 12399 "1" 34892 24403 12383 12426 12398 12486 12461 12473 12488 39640 12373 ")" )))
              (cons "ITEM" "EDIT_BOX")
              (cons "SYMBOL" 'y_guidebase)(cons "TEMP" 'y_guidebase_temp)
              (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)-2.))
              )
-
         
         (list(cons "TEXT"(mix_strasc(list 25968 20516 20837 21147 12434 12510 12454 12473 12391  21046 24481  )) )
              (cons "ITEM" "POPUP_LIST");;数値入力をマウスで制御,しない,左右,上下
-             (cons "EXPLANE"(mix_strasc(list 8251 30906 23450 12399 21491 12463 12522 12483 12463 )))
-             ;;※確定は右クリック
+             (cons "EXPLANE"(mix_strasc(list 8251 30906 23450 12399 21491 12463 12522 12483 12463
+                                             "(" 24038 12463 12522 12483 12463 12391 22793 26356 21069 12398 20516 12395 25147 12377 ")")))
+             ;;※確定は右クリック,左クリックで変更前の値に戻す
              (cons "VALLIST"
                    (mapcar 'mix_strasc(list(list 12375 12394 12356)(list 24038 21491)(list 19978 19979))))
              (cons "SYMBOL" 'int_controleinputval)(cons "TYPE" "INT")
@@ -708,138 +504,13 @@
              (cons "SYMBOL" 'int_colinfluence)(cons "TEMP" 'int_colinfluence_temp)
              (cons "INITIALFUNC"(lambda(a)11))
              )
-
-        
         )
-
+   
    ls_initialparameters ls_ductparameters
    
-   
-   function_read_session
-   (lambda( / );;dclを使わない;;多分外に出す
-     (setq str_terraductsession "onlysession")
-     (setq func_name "home")
-     ((lambda(str)
-        (mapcar '(lambda(a / sym)(if(setq sym(cdr(assoc str a)))(set sym nil)))ls_initialparameters))
-      "TEMP")
-     
-     (cond
-      ;;今回選んだセッションと前回選んだセッションが違っていたら呼び出す
-      ((=(strcat str_initialsession str_terraductsession)prev_select_sessionname)
-       )
-      (T
-       ((lambda(str)
-          (mapcar '(lambda(a / sym)(if(setq sym(cdr(assoc str a)))(set sym nil)))ls_initialparameters))
-        "SYMBOL")
-       
-       (if(vl-catch-all-error-p
-           (setq asis_session
-                 (vl-catch-all-apply
-                  'vla-Item (list dicts_all(strcat str_initialsession str_terraductsession)))))
-           (setq asis_session(vla-Add dicts_all(strcat str_initialsession str_terraductsession))
-                 xrec(vla-AddXRecord asis_session "PARAMETER") )
-         (if(vl-catch-all-error-p
-             (setq xrec(vl-catch-all-apply 'vla-Item (list asis_session "PARAMETER"))))
-             T
-           (progn
-             (vla-GetXRecordData xrec 'array_type 'array_data )
-             (setq lst(if array_data
-                          (mapcar 'vlax-variant-value
-                                  (vlax-safearray->list array_data)))
-                   ;; lst(split_list 0 lst)
-                   )
-             
-
-             ((lambda(ls_dummy)
-                
-                (while lst
-                  (setq str(car lst)lst(cdr lst)val(car lst)lst(cdr lst))
-                  ((lambda(lst / sym a)
-                     (while lst
-                       
-                       (setq a(car lst)sym(cdr(assoc "SYMBOL" a))lst(cdr lst))
-                       
-                       (if(if sym(=(alphabet_low(vl-symbol-name sym))
-                                   (alphabet_low str)))
-                           (progn
-                             (setq ls_dummy(vl-remove a ls_dummy)lst nil)
-                             (set sym val)
-                             ))
-                       )
-                     )
-                   ls_dummy)
-                  )
-
-                
-                ;;いるんだったらつかう
-                ;; (setq path_csvlsp(strcat sp_path "inputcsv.lsp") 
-                ;;       open_file_lsp(open path_csvlsp "w"))
-                ;; (setq open_file_csv(open csvnm "r")ls_params(list))
-                ;; (mapcar
-                ;;  '(lambda(str / ii num str1 str_mark str_val bool_once)
-                ;;     (write-line(strcat "(setq " str_mark str_val ")")open_file_lsp)
-                ;;     )
-                ;;  ls_params)
-                ;; (close open_file_lsp)
-
-                ;; (setq orig-secureload (getvar 'SECURELOAD))
-                ;; (setvar 'SECURELOAD 0)
-                ;; (if(vl-catch-all-error-p(vl-catch-all-apply 'load (list path_csvlsp)))
-                ;;     (progn(alert "inputcsv(fordev)" )
-                ;;           (quit)
-                ;;           ))
-                ;; (setvar 'SECURELOAD orig-secureload)
-                ;; (setq orig-secureload nil)
-
-                
-                
-                )
-              ls_initialparameters)
-
-             )
-           )
-         )
-       
-       (setq str_layname nil)
-       (mapcar
-        '(lambda(lst / sym str func)
-           (setq sym(cdr(assoc "SYMBOL" lst))
-                 str(cdr(assoc "INITIALTYPE" lst))
-                 func(cdr(assoc "INITIALFUNC" lst)))
-           (setq val(eval sym))
-           (cond
-            
-            ((= str "LAYNAME")(setq str_layname val))
-            ((and(= str "LAYCOL")str_layname)
-             (if(vl-position str_layname ls_layername)T
-               (entdel(entmakex(list(cons 0 "POINT")(list 10 0 0 0)(cons 8 str_layname)))))
-             (setq vnam(vla-item
-                        (vla-get-layers(vla-get-activedocument(vlax-get-acad-object)))
-                        str_layname))
-             (vla-put-color vnam val)
-             (setq str_layname nil)
-             )
-
-            ((null val)
-             (if func(set sym(func val)))
-             )
-            
-            
-            )
-
-           )
-        ls_initialparameters)
-
-       (setq prev_select_sessionname(strcat str_initialsession str_terraductsession))
-       
-       )
-      )
-     
-     )
-   
+   str_terraductsession "onlysession"
    )
-
-
+  
   (setq path_dcl(if command_for_alter(vl-filename-mktemp ".dcl")
                   (vl-filename-mktemp "0" "0" ".dcl") )
         nn(strlen path_dcl) )
@@ -847,10 +518,10 @@
   (setq str_path_tempdirectory(substr path_dcl 1 nn) )
 
   (setq bool_loop T)
-  (while bool_loop
+  (while bool_loop;;whileである意味がなくなったが残す
     ((lambda( / point_view_center vec_x_onview vec_y_onview
                 ls_screen_size_yx real_delta_x real_delta_y th point_base)
-       (function_read_session)
+       (axd_function_read_session str_initialsession str_terraductsession)
        (if func_name
            (if(=(type func_name)'STR)
                (terraduct3d-menu func_name)
@@ -866,20 +537,20 @@
   
 
 ;;FEATUREELEVSFROMSURF
+(defun x-alert(lst / str)
+  (setq str(mix_strasc lst))
+  (if(= int_alert 0)(alert str)(princ(strcat "\n" str))))
 (defun addkillobj(x)(setq ls_vnam_killobj(cons x ls_vnam_killobj)) )
 (defun exckillobj(x)(setq ls_vnam_killobj(vl-remove x ls_vnam_killobj)) )
 
 (defun terraduct3d-menu( str  / str ls_grfunc get_vnam_guide ls_guide_drawing)
-
   (setq str_edit str)
-
-  (setq
-   ls_vnam_highlight nil ls_vnam_visible nil ls_vnam_killobj nil
-   *error* ;;error_profile
+  (setq ls_vnam_highlight nil ls_vnam_visible nil ls_vnam_killobj nil)
+  (setq 
+   *error* ;;error_profile unique
    (lambda( msg )
      (done_dialog 0)
      (if(= msg "")T (vla-EndUndoMark (vla-get-ActiveDocument (vlax-get-Acad-Object))) )
-     
      (mapcar '(lambda(a / v e);;オブジェクト
                 (if(vl-catch-all-error-p
                     (setq e(vl-catch-all-apply 'vlax-vla-object->ename(list a))))
@@ -959,9 +630,6 @@
           (list(list "SELECTIONCYCLING" 'temp_selecycling -2)
                ))
   
-
-  
-
   (setq vnam_blockTable(vla-get-blocks(vla-get-ActiveDocument (vlax-get-acad-object)))
         ls_vla-release(list vnam_blockTable ));;errorよりあとにやる
 
@@ -1007,10 +675,8 @@
       (list(list(list 7 36215 28857)(list 7 32066 28857)(list 1 20837 21147 36215 28857)
                 (list 7 32294 26029 36215 28857)(list 7 32294 26029 88 26041 21521) ) 
            ;;起点 終点 入力起点 縦断起点 縦断X方向
-           
            ;;分岐保留
            ;;(mapcar '(lambda(a)"")(inclist 0(setq num_limitbranch 20)))
-           
            )
       )
      
@@ -1018,236 +684,11 @@
      )
    'vnam_guide 'ls_vnam_guide 'ls_vnam_guidebranch)
 
-
-  (progn ;;初期値initial
-    (setq bool_loop T bool_select nil p_selerac nil 
-          bool_snap(<(getvar 'OSMODE)16384)
-          ;;int_snap(if(<(getvar 'OSMODE)16384)0 1)
-          
-          ls_intchr(list 45 46 48 49 50 51 52 53 54 55 56 57)
-          str_input "" ;;(if(= str_edit "solid")(rtos dist_unitsolid 2 3)"")
-          str_edit_loop nil p_selerac nil
-          p_gr5loop nil vec_view_gr5loop nil
-          )
-
-    (mapcar 'set
-            '(str_gcol_w str_gcol_r str_gcol_y str_gcol_c str_gcol_g str_gcol_p)
-            (if(bg-dark-p)
-                (list "255" "10" "54" "134" "90" "220")
-              (list "255" "10" "50" "130" "71" "241"))
-            )
-    
-    (setq str_guidebackspace
-          (mix_strasc
-           (list "\n {\\C" str_gcol_p ";BackSpace} : "
-                 "{\\C" str_gcol_c ";" "1" 25991 23383 28040 12377 "}"
-                 " , {\\C" str_gcol_p ";BackSlash} : "
-                 "{\\C" str_gcol_c ";" 12377 12409 12390 28040 12377"}"
-                 " , {\\C" str_gcol_p ";Slash"  "} : "
-                 "{\\C" str_gcol_c ";" 25147 12377 "}"
-                 " , {\\C" str_gcol_p ";" "Enter} : "
-                 "{\\C" str_gcol_c ";" 27770 23450 "}"
-                 ))
-          
-          str_guidepointcancel
-          (mix_strasc
-           (list "\n {\\C" str_gcol_p ";" "Enter , " 21491 12463 12522 12483 12463 "} : "
-                 "{\\C" str_gcol_c ";"  29694 22312 12398 36984 25246 12398 12414 12414 "}"
-                 ))
-          str_guideinitial1_1
-          (mix_strasc
-           (list "{\\C" str_gcol_c ";#} : "  12459 12540 12477 12523 12395 36861 24467
-                 " {\\C" str_gcol_c ";%} : " 12463 12522 12483 12463 21487 21542
-                 ))
-          str_guideinitial1_2
-          (mix_strasc
-           (list "\n"
-                 "{\\C" str_gcol_c ";$} : " 30067 12416 ;;12383 12383 12416
-                 "  {\\C" str_gcol_c ";<} : " 23567 12373 12367
-                 "  {\\C" str_gcol_c ";>} : " 22823 12365 12367
-                 "  {\\C" str_gcol_c ";^} : " 19978 12408 
-                 "  {\\C" str_gcol_c ";v} : " 19979 12408
-                 "  {\\C" str_gcol_c ";~} : " 12513 12483 12475 12540 12472
-                 
-                 ;;メニューをカーソル付近に置く、放す ;;<:小さく、>:大きく ^:上へv:下へ
-                 ))
-          
-          ;; str_guidemeasureorinput
-          ;; (mix_strasc(list "  {\\C" str_gcol_c ";!} : " 19968 26178 28204 36317))
-          
-          str_guideinitial2_c
-          (mix_strasc
-           (list "\n{\\C" str_gcol_c ";" 12304 20808 38957 12398 12461 12540 20837 21147
-                 "} (" 22823 25991 23383 23567 25991 23383 20840 35282 21322 35282 19981 21839 ") "
-                 "{\\C" str_gcol_c ";" 12305 "}  "  
-                 ;;先頭のキー入力(大文字小文字全角半角不問)   または
-                 ))
-          str_guideinitial2_y
-          (mix_strasc
-           (list 12414 12383 12399
-                 "\n{\\C" str_gcol_y ";" 12304 "}"
-                 "{\\C" str_gcol_y ";" 9733 "}" 32 "{\\C30;" 9734"}" 32 12398 12392 12365
-                 "{\\C" str_gcol_y ";"
-                 " [" 24038 12463 12522 12483 12463 " :"
-                 "{\\C30;" 9734 12434 20778 20808 "}] , "
-                 "[ Enter , " 21491 12463 12522 12483 12463 "] " 12305 "}"
-                 ;;星のとき もう一度クリック,Enter,右クリック実行
-                 ))
-
-          str_guide_inputval
-          (mix_strasc(list "\n\n" 25968 23383 12461 12540 12392 12300 "." 12301 12300 "-" 12301 12398 12415 20837 21147 12434 21463 12369 20184 12369 12414 12377
-                           ((lambda(str / n str_out)
-                              (setq str_out "")
-                              (while(vl-string-search "{" str)
-                                (setq str(vl-string-subst "" "{" str)))
-                              (while(vl-string-search "}" str)
-                                (setq str(vl-string-subst "" "}" str)))
-                              (while(setq n(vl-string-search "\\C" str))
-                                (setq str_out(strcat str_out(substr str 1 n))
-                                      n(vl-string-search ";" str)
-                                      str(substr str(+ 2 n))
-                                      )
-                                )
-                              (strcat str_out str))
-                            str_guidebackspace)
-                           ))
-          ;;\n数字キーと「.」「-」のみ入力を受け付けます
-          
-          str_guide_selectval
-          (mix_strasc(list "\n\n" 38917 30446 12434 36984 25246 12377 12427 12392 20516 12434 22793 26356 12391 12365 12414 12377 ))
-          ;;項目を選択すると値を変更できます
-          str_guide_selectmode
-          (mix_strasc(list 12458 12502 12472 12455 12463 12488 12434 36984 25246 12375 12383 12392 12365 36861 21152 12373 12428 12427 12363 38500 22806 12373 12428 12427 12363 12434 20999 12426 26367 12360 12414 12377 "\n" 36984 25246 20013 12398 12458 12502 12472 12455 12463 12488 12399 12495 12452 12521 12452 12488 12373 12428 12414 12377 "\n" 36984 25246 12399 36890 24120 12398 "CAD" 25805 20316 12392 21516 27096 12395 21491 20596 22258 12415 12364 31684 22258 36984 25246 12289 24038 20596 22258 12415 12364 20132 24046 36984 25246 12392 12394 12387 12390 12356 12414 12377 "\n" 22522 26412 30340 12395 23550 35937 12392 12394 12427 12458 12502 12472 12455 12463 12488 12398 12415 12364 36984 25246 12373 12428 12427 20351 29992 12392 12394 12387 12390 12362 12426 23550 35937 12392 12394 12425 12394 12356 12418 12398 12434 22258 12435 12391 12418 12495 12452 12521 12452 12488 12373 12428 12394 12356 12424 12358 12395 12394 12387 12390 12356 12414 12377 ))
-          ;;オブジェクトを選択したとき追加されるか除外されるかを切り替えます\n選択中のオブジェクトはハイライトされます\n選択は通常のCAD操作と同様に右側囲みが範囲選択、左側囲みが交差選択となっています\n基本的に対象となるオブジェクトのみが選択される使用となっており対象とならないものを囲んでもハイライトされないようになっています
-
-
-          str_guide_point
-          (mix_strasc(list "\n" 23550 35937 12392 12377 12427 20301 32622 12434 12463 12522 12483 12463 12375 12390 12367 12384 12373 12356))
-          ;;対象とする位置をクリックしてください
-          
-          str_noguidedrawing(mix_strasc(list "\n\n" 22259 35299 28310 20633 20013 ));;図解準備中
-          str_startguidedrawing(mix_strasc(list "\n\n" 22259 35299 12364 22987 12414 12426 12414 12377 ));;図解が始まります
-          
-          ;;項目を選択すると値を変更できます
-          
-          num_initialexplane 4
-
-          cal_viewtopleft
-          (lambda(ratio_height
-                  deltax deltay deltaz bool_3d 
-                  /  height_view ls_screen_size_yx width_view bool_plane)
-            (setq p_viewcenter(getvar "VIEWCTR")
-                  height_view(getvar "VIEWSIZE")
-                  height_text(* height_view ratio_height)
-                  vec_view  (if bool_3d(unit_vector(getvar "VIEWDIR"))(list 0 0 1))
-                  bool_plane(and(<=(abs(car vec_view))0.015625)(<=(abs(cadr vec_view))0.015625))
-                  
-                  ang_viewtwist(if bool_plane(-(getvar "VIEWTWIST"))0.)
-                  vec_x_onview(list 1 0 0)vec_y_onview(list 0 1 0)
-                  )
-
-            
-            (if bool_plane
-                (setq vec_x_onview(list(cos ang_viewtwist)(sin ang_viewtwist)0.)
-                      vec_y_onview(list(-(sin ang_viewtwist))(cos ang_viewtwist)0.) )
-              (if bool_3d
-                  (setq vec_x_onview(trans-x vec_x_onview vec_view(list 0 0 1))
-                        vec_y_onview(trans-x vec_y_onview vec_view(list 0 0 1)) )
-                ))
-            
-            (setq ls_screen_size_yx(getvar "SCREENSIZE")
-                  width_view(/(* height_view(car ls_screen_size_yx))
-                              (cadr ls_screen_size_yx))
-                  deltaz((lambda( / p e v)
-                           (if point_guide_center
-                               (apply '+(mapcar '(lambda(p1 p2 v)(* v(- p1 p2)))
-                                                point_guide_center p_viewcenter vec_view))
-                             0.)
-                           ))
-                  
-                  point_base
-                  (mapcar '(lambda(p x y z)
-                             (+ p
-                                (*(+ height_text(* -0.5 deltax width_view))x)
-                                (*(+(* deltay height_text)(* 0.5 height_view)) y)
-                                (* deltaz z)
-                                ))
-                          p_viewcenter vec_x_onview vec_y_onview vec_view)
-                  )
-            
-            ;; (setq limit_val 10000000.0)
-            ;; (princ point_base)
-            ;; (princ "\n")
-            ;; 10000000.0,10000000.0,10000000.0
-            ;; -10000000.0,-10000000.0,-10000000.0
-            
-            )
-          
-          )
-
-    (progn ;;strinput
-      (setq path_strinputdcl(strcat str_path_tempdirectory "strinput.dcl") 
-            open_file (open path_strinputdcl "w")
-            )
-      (write_strlist
-       open_file
-       (list
-        "Sedit :dialog"
-        "{"
-        (mix_strasc;;入力
-         (list " label = \"" 20837 21147 "\";"))
-        (list_to_dcltext
-         (list "text"(cons "width" "40")(cons "fixed_width" "true")(cons "key" "guide")))
-        (list_to_dcltext
-         (list "edit_box"(cons "width" "40")(cons "fixed_width" "true")(cons "key" "strinput")))
-        " ok_cancel;"
-        " }";//end
-        )
-       )
-      (close open_file)
-      (setq settile_strinput
-            (lambda(sym func str str_alert / func_las bool_loop accept_input);;funcエラー条件
-              (setq load_dcl (load_dialog path_strinputdcl))
-              (new_dialog "Sedit" load_dcl)
-              (if str(set_tile "guide" str))
-              (set_tile "strinput"(eval sym))
-              (setq accept_input
-                    (lambda( / str)
-                      (setq str(get_tile "strinput"))
-                      (if(if func(func str)T)
-                          (progn (set sym str)(done_dialog 1))
-                        (alert(if str_alert str_alert
-                                (mix_strasc
-                                 (list 20837 21147 20869 23481 12364 19981 36969 20999 12391 12377))) ))
-                      )
-                    )
-              (action_tile "accept" "(accept_input)")
-              (setq dialog-box (start_dialog))
-              (unload_dialog load_dcl)
-              )
-            )
-      )
-    
-    (setq ls_grfunc(grfunc_duct3d))
-    (mapcar '(lambda(a / func str)
-               
-               (setq str(car a)a(cdr a)
-                     func(cdr(assoc "INITIAL" a)))
-               (mapcar '(lambda(a / sym)
-                          (setq sym(cadr a))
-                          (if a(if(if(car a)(boundp sym))T
-                                 (if sym(set sym(caddr a))
-                                   ((caddr a)))
-                                 )))
-                       (if func(func(list(= str str_edit) T))))
-               )
-            ls_grfunc)
-    )
-
+  (axd_command_initial grfunc_duct3d)
+  
   (progn ;;unique
     (setq ls_booleditunique
           (list "home" "home"))
-    
     (setq ls_lasgrid(list))
     (vlax-for
      vnam dicts_all
@@ -1280,9 +721,7 @@
         (list_to_dcltext
          (list "edit_box"(cons "width" "10")(cons "fixed_width" "true")
                (cons "key" "groundvalue")))
-
         " spacer;"
-
         (list_to_dcltext;;入力済みデータから選択
          (list "text"(cons "width" "30")(cons "fixed_width" "true")
                (cons "value"(mix_strasc(list 20837 21147 28168 12415
@@ -1350,6 +789,7 @@
         " }";//end
         )
        )
+      
       (close open_file)
 
       (setq settile_selectground
@@ -1437,7 +877,6 @@
 
     (setq
      point_guide_center nil
-     
      func_loopunique
      (lambda( / dict xrec )
        (if point_guide_center T
@@ -1463,1590 +902,18 @@
           )
          )
        
-       
        )
      )
-    
-    ;;uniqueじゃない
-    (setq path_addattributedcl(make_dcl_attribute str_path_tempdirectory));;属性
-    
-    ;;パラメータls_initialparametersによりuniqueじゃない
-    ;;(make_dcl_basesetting)
-    ((lambda( / num_dclwrite num_column num_row num_row_max);;basicsetting;;外に出す
-       ;;データを作った回数を記録
-       (setq num_row_max 15 num_column_max 3)
-       ((lambda( / ii num_column)
-          (setq ii -1 num_column 1)
-          (mapcar
-           '(lambda(lst)
-              (if(assoc "ITEM" lst) (setq ii(1+ ii)))
-              (if(assoc "EXPLANE" lst)(setq ii(1+ ii)))
-              (if(if(= ii 0)nil(or(>= ii num_row_max)(assoc "BREAK" lst)))
-                  (setq ii -1 num_column(1+ num_column)))
-              )
-           ls_initialparameters)
-          (setq num_page_max(fix(/ num_column num_column_max)))
-          (if(=(rem num_column num_column_max)0)T(setq num_page_max(1+ num_page_max)))
-          ))
-       
-       
-       (setq num_dclwrite -1 num_row 0)
-
-       (while(nth num_row ls_initialparameters)
-         (setq num_dclwrite(1+ num_dclwrite) num_column num_column_max 
-               path_basicsettingdcl
-               (strcat str_path_tempdirectory "basicsetting"(itoa num_dclwrite)".dcl") 
-               open_file (open path_basicsettingdcl "w")
-               )
-         
-         (write_strlist
-          open_file
-          (list
-           "Sedit :dialog"
-           "{"
-           (mix_strasc;;基本設定
-            (list " label = \""  22522 26412 35373 23450 "\";"))
-
-           (list_to_dcltext
-            (list "text"(cons "width" "100")(cons "fixed_width" "true")
-                  (cons "value"(mix_strasc
-                                (list 8251 " " 12467 12510 12531 12489 20877 38283 26178 12399 12371 12398 30011 38754 12391 35373 23450 12375 12383 20516 12434 20351 29992 12375 12414 12377 12290
-                                      20491 21029 12398 "DWG" 12395 35373 23450 12364 35352 25014 12373 12428 12414 12377 12290 
-                                      )))))
-           (list_to_dcltext
-            (list "text"(cons "width" "100")(cons "fixed_width" "true")
-                  (cons "value"(mix_strasc
-                                (list "    " 12371 12398 30011 38754 20197 22806 12391 20516 12434 35373 23450 12375 12383 12392 12365 12399 12467 12510 12531 12489 32066 20102 12414 12391 26377 21177 12391 12377 12290)))))
-           ;;※コマンド再開時はこの画面で設定した値を使用します。個別のDWGに設定が記憶されます。
-           ;;この画面以外で値を設定したときはコマンド終了まで有効です。
-           " spacer;"
-           " spacer;"
-           
-           " :row"
-           " {"
-           "  alignment = left;"
-           "  fixed_width = true;"
-           
-           ((lambda( / ii ls_out lst
-                       str0 str1 bool ls_out str_item str_explane str_sym sym str_break)
-              (setq ii -1 )
-
-              (while(and(setq lst(nth num_row ls_initialparameters))(> num_column 0))
-                
-                (setq str_item(cdr(assoc "ITEM" lst))
-                      str_explane(cdr(assoc "EXPLANE" lst))
-                      ls_out
-                      (cons
-                       
-                       (if str_item
-                           (progn
-                             
-                             (setq ii(1+ ii))
-                             (if(setq sym(cdr(assoc "SYMBOL" lst)))
-                                 (setq str_sym(vl-symbol-name sym)))
-                             
-                             (list
-                              (if(= ii 0)
-                                  (list " :column"
-                                        " {"
-                                        "  alignment = top;"
-                                        "  fixed_height = true;"))
-                              " :row"
-                              " {"
-                              "  alignment = left;"
-                              "  fixed_width = true;"
-                              
-                              (list_to_dcltext
-                               (list "text"(cons "width" "20")(cons "fixed_width" "true")
-                                     (cons "value"(cdr(assoc "TEXT" lst)))))
-
-                              (cond
-                               ((= str_item "TEXT"))
-                               ((= str_item "BUTTON")
-                                (list
-                                 (list_to_dcltext
-                                  (list "button"(cons "width" "10")(cons "fixed_width" "true")
-                                        (cons "label"(cdr(assoc "BUTTONLABEL" lst)))
-                                        (cons "key" str_sym) ))
-                                 (list_to_dcltext
-                                  (list "toggle"(cons "key"(strcat "toggle" str_sym))))
-                                 )
-                                )
-                               ((= str_item "EDIT_BOX")
-                                (list_to_dcltext
-                                 (list "edit_box"(cons "width" "16")(cons "fixed_width" "true")
-                                       (cons "key" str_sym)))
-                                )
-                               ((= str_item "POPUP_LIST")
-                                (list_to_dcltext
-                                 (list "popup_list"(cons "width" "16")(cons "fixed_width" "true")
-                                       (cons "key" str_sym)))
-                                )
-                               ((= str_item "COLOR")
-                                (list_to_dcltext
-                                 (list "icon_image"(cons "width" "2")(cons "height" "1")
-                                       (cons "key" str_sym)))
-                                )
-                               
-                               )
-                              
-                              "  }"
-                              
-                              (if str_explane
-                                  (progn
-                                    (setq ii(1+ ii))
-                                    (list_to_dcltext
-                                     (list "text"(cons "width" "45")(cons "fixed_width" "true")
-                                           (cons "value" str_explane)))
-                                    ))
-                              " spacer;"
-                              
-                              (if(if(= ii 0)nil(or(>= ii num_row_max)(assoc "BREAK" lst)))
-                                  (progn
-                                    (setq ii -1 num_column(1- num_column))
-                                    
-                                    (list
-                                     " }"
-                                     (if(= num_column 0)nil
-                                       (list
-                                        " :column"
-                                        " {"
-                                        (mapcar
-                                         '(lambda(i)
-                                            (list_to_dcltext
-                                             (list "text"(cons "width" "4");;(cons "fixed_width" "true")
-                                                   (cons "value"(chr 9474))));;9475
-                                            )
-                                         (inclist 0 num_row_max))
-                                        "  }"
-                                        ))
-                                     )
-                                    
-                                    ))
-                              )
-                             )
-                         )
-                       ls_out)
-                      )
-                (setq num_row(1+ num_row))
-                )
-
-              (if(and(> ii -1)(< ii num_row_max))
-                  (setq ls_out(cons
-                               " }"
-                               (cons
-                                (list_to_dcltext
-                                 (list "text"(cons "width" "40")(cons "fixed_width" "true")))
-                                ls_out ))))
-              (reverse ls_out)
-              ))
-           
-           "  }"
-           
-           " :row"
-           " {"
-           
-           " :row"
-           " {"
-           "  alignment = left;"
-           "  fixed_width = true;"
-
-           (list_to_dcltext
-            (list "button"(cons "width" "20")(cons "fixed_width" "true")
-                  (cons "key" "export_basicdata")
-                  (cons "label"(mix_strasc(list 35373 23450 12398 12456 12463 12473 12509 12540 12488)))))
-           
-           (list_to_dcltext
-            (list "button"(cons "width" "20")(cons "fixed_width" "true")
-                  (cons "key" "inport_basicdata")
-                  (cons "label"(mix_strasc(list 35373 23450 12398 12452 12531 12509 12540 12488)))))
-           
-           
-           "  }"
-           
-           " :row"
-           " {"
-           "  alignment = right;"
-           "  fixed_width = true;"
-
-           (list_to_dcltext
-            (list "text"(cons "width" "16")(cons "fixed_width" "true")
-                  (cons "value"(strcat "(  "(itoa(1+ num_dclwrite))"  /  "(itoa num_page_max)"  )"))))
-           
-           (if(/= num_dclwrite 0)
-               (list_to_dcltext
-                (list "button"(cons "width" "20")(cons "fixed_width" "true")
-                      (cons "key" "prev_setting")
-                      (cons "label"(mix_strasc(list 21069 12398 35373 23450 12408)))))
-             )
-           
-           (if(nth num_row ls_initialparameters)
-               (list_to_dcltext
-                (list "button"(cons "width" "20")(cons "fixed_width" "true")
-                      (cons "key" "next_setting")
-                      (cons "label"(mix_strasc(list 27425 12398 35373 23450 12408)))))
-             )
-
-           "  spacer;"
-           "  spacer;"
-           "  ok_cancel;"
-
-           "  }"
-           
-           "  }"
-           
-           " }";//end
-           )
-          )
-         (close open_file)
-         
-         ;;ループここまで
-         )
-       
-       
-       (setq settile_basicsetting
-             (lambda( / bool_loop n_dia func_next num_dclwrite int_next
-                        settile_inport)
-               (setq bool_loop T num_dclwrite 0)
-
-               (setq settile_inport
-                     (lambda()
-                       (mapcar
-                        '(lambda(lst / str_item sym val str_sym sym_int i str_c str_l str_s
-                                     func_action)
-                           (setq str_item(cdr(assoc "ITEM" lst)))
-                           (if(setq sym(cdr(assoc "SYMBOL" lst)))
-                               (setq val(eval sym) str_sym(vl-symbol-name sym)))
-                           
-                           (cond
-                            
-                            ((= str_item "EDIT_BOX")
-                             (set_tile str_sym(as-numstr val))
-                             )
-                            
-                            ((= str_item "COLOR")
-                             (start_image str_sym)
-                             (fill_image 0 0 20 20 val)
-                             (end_image)
-                             
-                             (action_tile
-                              str_sym
-                              (strcat
-                               "((lambda( / i )"
-                               "  (if(setq i(acad_colordlg  " str_sym "))"
-                               "      (progn"
-                               "        (start_image \"" str_sym "\" )"
-                               "        (fill_image 0 0 20 20 i)"
-                               "        (end_image)"
-                               "        (setq " str_sym " i)"
-                               "        ))"
-                               "  ))"
-                               ))
-                             
-                             )
-                            
-                            ((= str_item "BUTTON")
-                             (action_tile str_sym (strcat "(" (cdr(assoc "ACTION" lst))")"
-                                                          "(done_dialog 2)"))
-                             (set_tile(strcat "toggle" str_sym)(if val "1" "0"))
-                             (action_tile(strcat "toggle" str_sym)
-                                         (strcat "(set_tile \""(strcat "toggle" str_sym )"\" "
-                                                 "(if " str_sym " \"1\" \"0\"))"))
-                             )
-                            ((= str_item "POPUP_LIST")
-                             
-                             (start_list str_sym)
-                             (mapcar 'add_list(cdr(assoc "VALLIST" lst)))
-                             (end_list)
-                             (set_tile str_sym(as-numstr val))
-                             (if(setq func_action(cdr(assoc "ACTIONLIST" lst)))
-                                 (action_tile str_sym(strcat "(" func_action " \"" str_sym "\")")))
-                             )
-                            
-                            
-                            )
-                           
-                           )
-                        ls_initialparameters)
-                       )
-
-                     ls_symbolcode(list 53 29 41 61 37 31 23 47 43 59)
-                     export_basicdata
-                     (lambda( / ls_in lst str sym str_type str_key ls_str_out bool_x
-                                str1 str2 ii)
-                       (setq ls_in ls_initialparameters)
-                       
-                       (while ls_in
-                         (setq lst(car ls_in)ls_in(cdr ls_in)
-                               str_type(cdr(assoc "TYPE" lst)))
-                         
-                         (cond
-                          ((assoc "NOEXPORT" lst))
-                          ((setq sym(cdr(assoc "SYMBOL" lst)))
-                           (setq str_key(vl-symbol-name sym)
-                                 str_val(get_tile str_key)
-                                 )
-                           (if(if(or(null str_val)(= str_val ""))
-                                  (setq str_val(eval sym)))
-                               (setq str_val(as-numstr str_val))
-                             )
-
-                           (if(or(null str_val)(= str_val ""))T
-                             (setq str1(cdr(assoc "TEXT" lst))
-                                   str2(cdr(assoc "EXPLANE" lst))
-                                   ii -1
-                                   ls_str_out
-                                   (cons
-                                    (strcat
-                                     "T"
-                                     (apply 'strcat
-                                            (mapcar '(lambda(a / b)
-                                                       (setq ii(1+ ii)
-                                                             b(nth(rem ii(length ls_symbolcode))
-                                                                  ls_symbolcode))
-                                                       (substr(itoa(+ a(- b)100))2))
-                                                    (vl-string->list str_key) ) )
-                                     "," str_val ","
-                                     (mix_strasc
-                                      (if(=(cdr(assoc "ITEM" lst))"POPUP_LIST")
-                                          (list 12522 12473 12488 12398 30058 21495) ;;リストの番号
-                                        (if(= str_type "INT")(list 25972 25968 )
-                                          (if(= str_type "REAL")(list 23455 25968 )
-                                            (if(=(cdr(assoc "ITEM" lst))"COLOR")
-                                                (list 12452 12531 12487 12483 12463 12473 12459 12521 12540 30058 21495 )
-                                              (list 12486 12461 12473 12488 )
-                                              ))))
-                                      )
-                                     ","(if str1 str1 "") ","(if str2 str2 "")
-                                     ((lambda( / ls_str)
-                                        (if(setq ls_str(cdr(assoc "VALLIST" lst)))
-                                            (apply 'strcat(mapcar '(lambda(a)(strcat "," a))ls_str))
-                                          "")))
-                                     )
-                                    ls_str_out)
-                                   )
-                             )
-                           
-                           )
-                          )
-                         )
-
-                       (setq ls_str_out
-                             (cons
-                              (mix_strasc
-                               (list "MARK,VALUE," 20837 21147 26041 27861 "," 35500 26126  ","
-                                     35036 36275 "," 12522 12473 12488 12398 20869 23481
-                                     "(" 12371 12398 21015 12364 "0" 21015 30446 12392 12375 12390
-                                     12289 21491 12395 "1" 12378 12388 22679 21152 "),"
-                                     8251 35501 36796 12399 12300 "MARK" 12301 12289
-                                     12300 "VALUE" 12301 21015 12398 12415 24517 35201 12391 12289
-                                     21015 12398 38918 30058 12362 12424 12403
-                                     12381 12398 20182 12398 21015 12398 20869 23481 12399
-                                     24433 38911 12375 12414 12379 12435
-                                     ))
-                              (reverse ls_str_out))
-                             )
-                       ;;記号,値,入力方法,補足,リストの内容(この列を0列目として、右に1ずつ増加),
-                       ;;※読込は「MARK」、「VALUE」列のみ必要で、列の順番およびその他の列の内容は影響しません
-                       
-                       (if(setq path_bsexport
-                                (getfiled(mix_strasc(list 20445 23384 20808 12398 36984 25246 ))
-                                         (strcat(getvar "DWGPREFIX")"default-setting")"csv" 1))
-                           (progn
-                             (if command_for_alter
-                                 (setq open_file (open path_bsexport "w" ) );;"utf8"
-                               (progn
-                                 (setq open_file (open path_bsexport "w" "utf8") )
-                                 (write-char 65279 open_file) ;; BOM
-                                 ))
-                             (if open_file
-                                 (progn
-                                   (mapcar '(lambda(str)(write-line str open_file))ls_str_out)
-                                   (close open_file)
-                                   (alert(mix_strasc(list 20986 21147 12375 12414 12375 12383)))
-                                   )
-                               (alert(mix_strasc(list 12501 12449 12452 12523 12364 38283 12363 12428 12390 12356 12427 12383 12417 26360 36796 12415 12391 12365 12414 12379 12435 12391 12375 12383 )))
-                               )
-                             )
-
-                         )
-                       
-                       nil
-                       )
-
-                     inport_basicdata
-                     (lambda( / ls_in lst str sym str_type str_key ls_str_out bool_x
-                                ls_row0 func ii)
-                       (setq ls_in ls_initialparameters)
-
-                       (if(setq path_bsinport
-                                (getfiled(mix_strasc(list 12487 12540 12479 12398 36984 25246 ));;
-                                         (getvar "DWGPREFIX")"csv" 0))
-                           (progn
-                             (setq open_file (open path_bsexport "r" ) )
-                       
-                             (setq str(read-line open_file)
-                                   lst(getlist_str_split str ",")
-                                   int_mark(vl-position "MARK" lst)
-                                   int_val(vl-position "VALUE" lst)
-                                   )
-                             
-                             (if(if(if int_mark T (progn(setq str "MARK") nil))
-                                    (if int_val T (progn(setq str "VALUE") nil)))
-                                 (while(setq str(read-line open_file))
-                                   (setq lst(getlist_str_split str ",")
-                                         ls_str_out(cons(list(nth int_mark lst)(nth int_val lst))
-                                                        ls_str_out)
-                                         )
-                                   )
-                               (x-alert(list 12371 12398 12487 12540 12479 12395 12399 str 12364 12394 12356 12383 12417 35501 12415 36796 12417 12414 12379 12435 ))
-                               )
-                             (close open_file)
-                             )
-
-                         )
-                       
-                       (while ls_in
-                         (setq lst(car ls_in)ls_in(cdr ls_in)
-                               str_type(cdr(assoc "TYPE" lst))
-                               str_key(if(setq sym(cdr(assoc "SYMBOL" lst)))
-                                          (vl-symbol-name sym))
-                               )
-                         
-                         (if(if(and ls_str_out str_key)
-                                (setq ii -1
-                                      str_key
-                                      (mapcar '(lambda(a / b)
-                                                 (setq ii(1+ ii)
-                                                       b(nth(rem ii(length ls_symbolcode))
-                                                            ls_symbolcode))
-                                                 (substr(itoa(+ a(- b)100))2))
-                                              (vl-string->list str_key) )
-
-                                      str_key(strcat "T"(apply 'strcat str_key))
-                                      val(assoc str_key ls_str_out)
-                                      ls_str_out(vl-remove val ls_str_out)
-                                      val(cadr val)
-                                      ) )
-                             (if(setq func(cdr(assoc "NOEXPORT" lst)))
-                                 (if(=(func)T)T(set sym(func)))
-                               (cond
-                                ((if(= str_type "INT")T(=(cdr(assoc "ITEM" lst))"COLOR"))
-                                 (set sym(as-atoi val)))
-                                ((= str_type "REAL")(set sym(as-atof val)))
-                                
-                                (T(set sym val))
-                                )
-                               )
-                           )
-                         )
-                       
-                       (settile_inport)
-                       (alert(mix_strasc(list 35501 12415 36796 12415 12414 12375 12383 )))
-                       nil
-                       )
-                     
-                     
-                     
-                     accept_setting
-                     (lambda(bool / bool_lay lst str_val)
-                       
-                       (mapcar
-                        '(lambda(lst / str sym str_type str_key)
-                           (setq str_type(cdr(assoc "TYPE" lst)))
-                           
-                           (if(setq sym(cdr(assoc "SYMBOL" lst)))
-                               (setq str_key(vl-symbol-name sym)
-                                     str_val(get_tile str_key)
-                                     ))
-                           
-                           (cond
-                            ((or(null str_val)(= str_val "")))
-                            ((= str_type "INT") (set sym(as-atoi str_val)) )
-                            ((= str_type "REAL")(set sym(as-atof str_val)) )
-                            ((= str_type "STR") (set sym str_val) )
-                            )
-                           )
-                        ls_initialparameters )
-                       
-                       ;;(setq xrec(vla-AddXRecord asis_session "PARAMETER") )
-                       (if(vl-catch-all-error-p
-                           (setq xrec(vl-catch-all-apply 'vla-Item (list asis_session "PARAMETER"))))
-                           T ;;見つからないことはないはず
-                         (progn
-                           (setq lst(mapcar
-                                     '(lambda(a / sym str int_type str_type)
-                                        (if(setq sym(cdr(assoc "SYMBOL" a)))
-                                            (setq str(vl-symbol-name sym)
-                                                  val(eval sym)str_type(type val)))
-                                        (if val
-                                            (list(cons 1000 str)
-                                                 (cons(if(= str_type 'REAL)1040
-                                                        (if(= str_type 'INT)1071
-                                                          (if(= str_type 'STR)1000
-                                                            )))
-                                                      val)))
-                                        )
-                                     ls_initialparameters)
-                                 lst(apply 'append lst)
-                                 array_data(vlax-make-safearray
-                                            vlax-vbVariant(cons 0(1-(length lst))))
-                                 array_type(vlax-make-safearray
-                                            vlax-vbInteger(cons 0(1-(length lst))))
-                                 )
-                           (vlax-safearray-fill array_type(mapcar 'car lst))
-                           (vlax-safearray-fill array_data(mapcar 'cdr lst))
-                           (vla-SetXRecordData xrec array_type array_data )
-                           ))
-                       
-                       (if bool(progn(setq int_next nil)(done_dialog 1)))
-                       
-                       )
-                     
-                     )
-               
-               (while bool_loop
-                 (setq path_basicsettingdcl
-                       (strcat str_path_tempdirectory
-                               "basicsetting"(itoa num_dclwrite)".dcl")
-                       load_dcl(load_dialog path_basicsettingdcl))
-                 (new_dialog "Sedit" load_dcl)
-                 
-                 (settile_inport)
-
-                 (action_tile "export_basicdata" "(export_basicdata)")
-                 (action_tile "inport_basicdata" "(inport_basicdata)")
-                  
-                 (action_tile
-                  "prev_setting" "(accept_setting nil)(setq int_next -1)(done_dialog 3)")
-                 (action_tile
-                  "next_setting" "(accept_setting nil)(setq int_next  1)(done_dialog 3)")
-                 (action_tile "accept" "(accept_setting T)")
-                 (setq dialog-box (start_dialog))
-                 (unload_dialog load_dcl)
-                 
-                 (cond
-                  (func_next (func_next)(setq func_next nil))
-                  (int_next(setq num_dclwrite(+ int_next num_dclwrite)))
-                  (T (setq bool_loop nil) )
-                  )
-                 )
-               
-               )
-             
-             )
-       ) )
-    
-    
     );;unique
 
-
-
-  (progn;;統一したい
-    (setq textsize_guide_bo_temp textsize_guide_bo
-          y_guidebase_temp y_guidebase
-          bool_textclose nil bool_textfold nil)
-
-    (setq ls_pstar
-          (list(list 0. 1.0)
-               (list 0.224514 0.309017) (list 0.951057 0.309017)
-               (list 0.363271 -0.118034) (list 0.587785 -0.809017)
-               (list 0.0 -0.381966)
-               (list -0.587785 -0.809017) (list -0.363271 -0.118034)
-               (list -0.951057 0.309017) (list -0.224514 0.309017)
-               (list 0. 1.0)))
-    
-    
-    (setq str_guide_prev "" bool_guideclick T num_gudeentesc 2
-          str_editreturn nil int_row_guideprev nil
-          ls_str_guide_prev(list)p_controleinputval nil
-          )
-    (while bool_loop
-      (progn
-        (if bool_snap(setq str_osnaps(_getosmode (getvar 'OSMODE))))
-        ;;(if(= int_snap 0)(setq str_osnaps(_getosmode (getvar 'OSMODE))))
-        (if(= str_edit_loop str_edit) T
-          (progn
-            (if(setq lst(assoc str_edit ls_grfunc))(setq ls_currentgrfunc(cdr lst))
-              (progn
-                (x-alert(list 26410 23455 35013 12391 12377))
-                (setq str_edit str_edit_loop)
-                ))
-            (mapcar '(lambda(sym str)(set sym(cdr(assoc str ls_currentgrfunc))))
-                    '(func_grinitial func_grdisp func_gr5 func_gr3 func_gr2)
-                    (list "INITIAL" "GUIDE" "MOVE" "CLICK" "KEYBOAD"))
-            (setq int_selectmenu nil ls_vnam_select nil initial_selectmenu nil 
-                  bool_input nil str_input "" ls_vnam_select nil bool_getpoint nil
-                  int_exchangeguide_gr5 nil ls_ssgetinsert nil
-                  str_addsnap ""
-                  )
-            (setq str_funcmarker "INITIAL")
-            (func_grinitial(list T))
-            ))
-        (setq str_edit_loop str_edit )
-
-        (if((lambda( / str nn count start)
-              (setq
-               str
-               (mix_strasc
-                (if bool_textfold
-                    (list "{\\C" str_gcol_c ";$} : " 38283 12367
-                          ((lambda(lst / a str)
-                             (while lst
-                               (setq a(car lst)lst(cdr lst))
-                               (if(vl-position(cons "NEXTMODE" str_edit)a)
-                                   (setq lst nil str(cdr(assoc "ITEM" a))))
-                               )
-                             (if str(list "  " 12304 29694 22312 " : " str 12305))
-                             )
-                           ls_home_guide)
-                          )
-                  
-                  (list
-                   str_guideinitial1_1
-                   " {\\C" str_gcol_c ";?} : "
-                   
-                   (if(or int_selectmenu int_starselectmenu)
-                       (list 38917 30446 12460 12452 12489);;項目ガイド
-                     (list 27425 12395 12420 12427 12371 12392) ;;次にやること
-                     )
-                   
-                   (if(if(= str_edit "tempdistlength")(null bool_inputmeasure))nil
-                     (list(if bool_inputmeasure nil(list " {\\C" str_gcol_c ";!} : "))
-                          (if(or bool_input bool_inputmeasure)
-                              (list "  {\\C" str_gcol_y ";"
-                                    "2" 28857 12463 12522 12483 12463 12391 20837 21147 "}")
-                            (list 19968 26178 30340 12394 28204 36317))
-                          )
-                     )
-                   (if p_controleinputval
-                       (vl-string-subst
-                        "8;>"(strcat str_gcol_c ";>")
-                        (vl-string-subst "8;<"(strcat str_gcol_c ";<")str_guideinitial1_2))
-                     str_guideinitial1_2)
-                   
-                   (if func_grdisp nil
-                     (list str_guideinitial2_c
-                           (if(= int_guideclick 1)
-                               (list "\n{\\C" "53" ";"
-                                     12463 12522 12483 12463 25805 20316 28961 21177 "}")
-                             str_guideinitial2_y)
-                           ))
-                   
-                   "{\\C" str_gcol_g ";"
-                   (apply 'strcat (mapcar '(lambda(a)(strcat "\n" a))ls_guideexplane))
-                   ;;(mapcar '(lambda(a)(mix_strasc(cons "\n" a)))ls_guideexplane)
-                   "}"
-                   
-                   ((lambda(func lst / str ii func_input lst)
-                      (setq ii -1)
-
-                      (if ls_guidemenu
-                          
-                          
-                          (list
-                           ;;setq lst
-                           ;;gr5でテキストの行数が一致していれば星を付ける場所を探すだけ
-
-                           ;; (cond
-                           ;;  ((= int_grread int_exchageguidegr5)
-                           ;;   (setq int_exchageguidegr5 5)
-                           ;;   (mapcar '(lambda(str)
-                           ;;              (setq ii(1+ ii)
-                           ;;                    bool_selectmenu(= int_selectmenu ii)
-                           ;;                    bool_starselectmenu(= int_starselectmenu ii))
-                           ;;              ;;vl-string-subst
-                           ;;              str
-                           ;;              )
-                           ;;           ls_str_guide_prev)
-                             
-                           ;;   )
-                           ;;  (T
-                           ;;   (setq int_exchageguidegr5 nil
-                           ;;         lst
-                           
-                           (mapcar
-                            '(lambda(lst / num str str_bool str_key str_item str_val func_con sym_input
-                                         bool_selectmenu bool_starselectmenu
-                                         int_col int_key sym_bool ls_item)
-                               
-                               (setq ii(1+ ii)
-                                     bool_selectmenu(= int_selectmenu ii)
-                                     bool_starselectmenu(= int_starselectmenu ii))
-                               
-                               (if(setq int_key(caar lst))
-                                   (setq str_key(if(= int_key 8)"BackSpace "
-                                                  (if(= int_key 32)"Space "
-                                                    (strcat(chr int_key)" ")))))
-                               
-                               (setq str_item(cdr(assoc "ITEM" lst)))
-                               
-                               (cond
-                                ((setq func_input(cdr(assoc "INPUT" lst)))
-                                 (setq sym_input(func_input)
-                                       str_val(if(and bool_selectmenu bool_input)str_input
-                                                (as-numstr(eval sym_input))))
-                                 )
-                                ((setq func_input(cdr(assoc "INPUTSTR" lst))) 
-                                 (setq sym_input(func_input) str_val(eval sym_input))
-                                 )
-                                ((setq func_input(cdr(assoc "INPUTCOLOR" lst)))
-                                 (setq sym_input(func_input) int_col(eval sym_input))
-                                 )
-                                ((setq func_input(cdr(assoc "INPUTSWITCH" lst)))
-                                 (setq ls_item(func_input)str_val(nth(eval(car ls_item))(cadr ls_item)))
-                                 )
-                                
-                                ((setq func_input(cdr(assoc "GETPOINT" lst)))
-                                 (setq lst(func_input)
-                                       str_val
-                                       (list "{\\C"(if(car lst)
-                                                       (list(cadr lst)";" 36984 25246 28168 12415 )
-                                                     (list str_gcol_r ";" 26410 36984 25246)
-                                                     )
-                                             "}"
-                                             )
-                                       lst nil
-                                       )
-                                 )
-                                ((setq func_con(cdr(assoc "STATUS" lst)))
-                                 (setq str_val(func_con))
-                                 )
-                                
-                                )
-                               
-                               (cond
-                                ((setq func_input(cdr(assoc "BOOL" lst)))
-                                 (setq int_displaybool 0)
-                                 (if(if func_input(func_input))
-                                     (progn
-                                       (setq int_displaybool(length str_val))
-                                       (mapcar '(lambda(lst)
-                                                  (mix_strasc(cons "\n" lst)))
-                                               str_val)))
-                                 )
-                                (T(list "\n{\\C" str_gcol_c ";  " str_key "}"
-                                        (if(or bool_selectmenu bool_starselectmenu)
-                                            (list
-                                             (if(or bool_selectmenu(null int_selectmenu))
-                                                 (list "{\\C" str_gcol_y ";" 9733)
-                                               (list "{\\C30;" 9734))
-                                             9 ": " str_item "}")
-                                          
-                                          (list 9 ": " str_item))
-                                        (if str_val(list "  " 12304 32 str_val 32 12305))
-                                        (if int_col(list "  {\\C"(itoa int_col)";" 9608 9608 9608"}"))
-                                        (if(and bool_selectmenu bool_input)
-                                            (list str_guidebackspace
-                                                  (if p_controleinputval
-                                                      ;;マウス上下,左右で数値を制御できます
-                                                      (list "{\\C" str_gcol_y ";  "
-                                                            12510 12454 12473
-                                                            (if(= int_controleinputval 1)
-                                                                (list 24038 21491)(list 19978 19979))
-                                                            12391 25968 20516 12434 21046 24481 "}"
-                                                            " < , > : " 20024 12417 26689 35519 25972 
-                                                            ;;丸め桁調整
-                                                            )
-                                                    ) )
-                                          )
-                                        (if(and bool_selectmenu bool_getpoint)str_guidepointcancel)
-                                        )
-                                  )
-                                )
-                               )
-                            lst)
-                           
-                           (if bool_point
-                               (list "\n{\\C" str_gcol_c ";  S} "
-                                     (if bool_selectsnap(list "{\\C" str_gcol_y ";" 9733 "}"))
-                                     9 ": "
-                                     (if bool_selectsnap
-                                         (list "{\\C" str_gcol_y ";"
-                                               12473 12490 12483 12503 20999 26367 "}")
-                                       (list 12473 12490 12483 12503 20999 26367))
-                                     
-                                     "  " 12304 32 (if bool_snap "ON" "OFF") 32 12305)
-                             )
-                           
-                           
-                           "\n{\\C" str_gcol_y ";" 9733 "}" 32 "{\\C30;" 9734 "} "
-                           "{\\C" str_gcol_g ";" 12364 12394 12356 12392 12365 " Enter , "
-                           21491 12463 12522 12483 12463 " : "
-                           (cdr(assoc "ITEM"(assoc(list "ENTER")ls_guidemenu)))"}"
-                           )
-                        (if func(func)) )
-                      )
-                    func_grdisp
-                    (vl-remove-if '(lambda(a)(assoc "ENTER" a))ls_guidemenu)
-                    )
-                   
-
-                   
-                   "\n{\\C" str_gcol_p ";Esc : " 12467 12510 12531 12489 12434 32066 20102 "}" ;;終了
-                   ))
-                )
-               )
-              (setq str_funcmarker "DISPLAY")
-
-              (setq nn 0 start 1)
-              (while(setq count(vl-string-search "\n" str start))
-                (setq nn(1+ nn)start(+ count 1))
-                )
-              (setq int_row_guide nn)
-              
-              (if(= str str_guide_prev)T
-                (setq str_guide_prev str nn nil))
-              ))
-            T ;;IJのgrdrawのために必要
-          (progn
-            (vla-put-textstring
-             vnam_guide
-             str_guide_prev )
-            
-            (if(= int_row_guide int_row_guideprev)T
-              (setq height_guidewhole
-                    ((lambda(vnam / p0 p1 v r h)
-                       (setq v(vla-get-normal vnam)
-                             r(vla-get-rotation vnam))
-                       (vla-put-normal vnam(vlax-3d-point 0 0 1))
-                       (vla-put-rotation vnam 0)
-                       (vla-getboundingbox vnam 'p0 'p1)
-                       (setq h(-(cadr(vlax-safearray->list p0))
-                                (cadr(vlax-safearray->list p1))))
-                       (vla-put-normal vnam v)
-                       (vla-put-rotation vnam r)
-                       ;; (vla-put-attachmentpoint vnam_guide 7)
-                       ;; (setq point_starbottom
-                       ;;       (vlax-safearray->list(vlax-variant-value(vla-get-insertionpoint vnam_guide))))
-                       ;; (vla-put-attachmentpoint vnam_guide 1)
-                       h)
-                     vnam_guide))
-              )
-            )
-          )
-        
-        (if func_loopunique(func_loopunique))
-        (if bool_replacegrread(setq bool_replacegrread nil)
-          (setq ls_grread(grread t 15(if bool_point 0 2))
-                int_grread(car ls_grread) elem_grread(cadr ls_grread) )
-          )
-
-        (cond
-         (ls_guide_drawing
-          ;;図解中;Esc以外の任意キー,左右クリックで戻る
-          (vla-put-textstring vnam_guide(mix_strasc(list 22259 35299 20013 ";Esc" 20197 22806 12398 20219 24847 12461 12540 "," 24038 21491 12463 12522 12483 12463 12391 25147 12427 )))
-
-          (setq p_gr5 nil)
-          (while(progn
-                  (setq ls_grread(grread t 15(if bool_point 0 2))
-                        int_grread(car ls_grread) elem_grread(cadr ls_grread) )
-                  (if(or(= int_grread 2)(= int_grread 3)(= int_grread 25))
-                      (setq str_guide_prev "" vec_view_gr5loop nil
-                            ls_guide_drawing nil)
-                    T))
-            (if(= int_grread 5)
-                (progn
-                  (cal_viewtopleft textsize_guide_bo_temp x_guidebase y_guidebase_temp 10. T )
-                  (if(equal p_gr5 p_viewcenter)T
-                    (progn
-                      (redraw)
-                      (vla-put-normal vnam_guide(vlax-3d-point vec_view))
-                      (vla-put-InsertionPoint vnam_guide(vlax-3d-point point_base))
-                      (vla-put-Height vnam_guide(* 2. height_text))
-                      (vla-put-rotation vnam_guide ang_viewtwist)
-                      
-                      ((lambda(lst / d pc)
-                         (setq d(* height_text(car lst)))
-                         (mapcar
-                          '(lambda(lst / p1 p2 c p01 p02)
-                             (setq p1(car lst)p2(cadr lst))
-                             (if(setq c(caddr lst))T(setq c 7))
-                             (if(and p1 p2)
-                                 (progn
-                                   (setq p01(mapcar '(lambda(a x y z);;zいらない
-                                                       (+ a(*(apply '+(mapcar '*(list x y)p1))d)))
-                                                    p_viewcenter vec_x_onview vec_y_onview vec_view)
-                                         p02(mapcar '(lambda(a x y z)
-                                                       (+ a(*(apply '+(mapcar '*(list x y)p2))d)))
-                                                    p_viewcenter vec_x_onview vec_y_onview vec_view)
-                                         )
-                                   (grdraw p01 p02 c)
-                                   ))
-                             )
-                          (cdr lst))
-                         )
-                       ls_guide_drawing)
-                      (setq p_gr5 p_viewcenter)
-                      ))
-                      
-                  ))
-            )
-          )
-         
-         ((vl-position int_grread(list 11 12))
-          (vla-put-Height vnam_guide(* 1.6 height_text))
-          (vla-put-textstring ;;画面回転有効：右クリック,Enterで戻る
-           vnam_guide 
-           (mix_strasc(list "{\\C" str_gcol_y ";" 30011 38754 22238 36578 26377 21177
-                            65306 21491 12463 12522 12483 12463 ",Enter" 12391 25147 12427 "}")))
-          
-          (if bool_viewrotationfirsttime
-              (progn
-                (x-alert(list  30011 38754 22238 36578 26377 21177
-                               "\n" 21491 12463 12522 12483 12463 ",Enter" 12391 25147 12427))
-                (setq bool_viewrotationfirsttime nil)))
-          ;; (vla-put-Visible vnam_guide 0)
-          (getint(mix_strasc(list 21491 12463 12522 12483 12463 ",Enter" 12391 25147 12427)))
-          (setq str_guide_prev "" vec_view_gr5loop nil)
-          
-          ;; (vla-put-Visible vnam_guide -1)
-          
-          )
-         ((or(= int_grread 5)(= int_grread 3))
-
-          (cal_viewtopleft textsize_guide_bo_temp x_guidebase y_guidebase_temp 10. T )
-
-          ;;(and(equal point_base p_gr5loop)(equal vec_view vec_view_gr5loop))
-          
-          (if(if(and vec_view vec_view_gr5loop)
-                 (if((lambda(p1 p2 / x y z)
-                       (setq x(-(car p1)(car p2))
-                             y(-(cadr p1)(cadr p2))
-                             z(-(caddr p1)(caddr p2)))
-                       (<(+(* x x)(* y y)(* z z))1e-8))
-                     vec_view vec_view_gr5loop)
-                     ((lambda(p1 p2 / x y z)
-                        (setq x(-(car p1)(car p2))
-                              y(-(cadr p1)(cadr p2))
-                              z(-(caddr p1)(caddr p2)))
-                        (<(+(* x x)(* y y)(* z z))1e-8))
-                      point_base p_gr5loop)
-                   ))
-              (if bool_textclose
-                  (progn
-                    (setq point_starbase elem_grread)
-                    (vla-put-InsertionPoint vnam_guide(vlax-3d-point elem_grread))
-
-                    (setq height_guidewhole
-                          ((lambda(vnam / p0 p1 v r h)
-                             (setq v(vla-get-normal vnam)
-                                   r(vla-get-rotation vnam))
-                             (vla-put-normal vnam(vlax-3d-point 0 0 1))
-                             (vla-put-rotation vnam 0)
-                             (vla-getboundingbox vnam 'p0 'p1)
-                             (setq h(-(cadr(vlax-safearray->list p0))
-                                      (cadr(vlax-safearray->list p1))))
-                             (vla-put-normal vnam v)
-                             (vla-put-rotation vnam r)
-                             ;; (vla-put-attachmentpoint vnam_guide 7)
-                             ;; (setq point_starbottom
-                             ;;       (vlax-safearray->list(vlax-variant-value(vla-get-insertionpoint vnam_guide))))
-                             ;; (vla-put-attachmentpoint vnam_guide 1)
-                             h)
-                           vnam_guide))
-                    
-                    ))
-            (progn
-              (vla-put-normal vnam_guide(vlax-3d-point vec_view))
-              (vla-put-InsertionPoint vnam_guide(vlax-3d-point point_base))
-              (vla-put-Height vnam_guide height_text)
-              (vla-put-rotation vnam_guide ang_viewtwist)
-              (setq point_starbase point_base)
-
-              
-              (setq height_guidewhole
-                    ((lambda(vnam / p0 p1 v r h)
-                       (setq v(vla-get-normal vnam)
-                             r(vla-get-rotation vnam))
-                       (vla-put-normal vnam(vlax-3d-point 0 0 1))
-                       (vla-put-rotation vnam 0)
-                       (vla-getboundingbox vnam 'p0 'p1)
-                       (setq h(-(cadr(vlax-safearray->list p0))
-                                (cadr(vlax-safearray->list p1))))
-                       (vla-put-normal vnam v)
-                       (vla-put-rotation vnam r)
-                       ;; (vla-put-attachmentpoint vnam_guide 7)
-                       ;; (setq point_starbottom
-                       ;;       (vlax-safearray->list(vlax-variant-value(vla-get-insertionpoint vnam_guide))))
-                       ;; (vla-put-attachmentpoint vnam_guide 1)
-                       h)
-                     vnam_guide))
-              
-              ))
-          
-          (setq p_gr5loop point_base vec_view_gr5loop vec_view)
-          (setq p_snap nil)
-          
-          (redraw)
-
-          ((lambda(num_e num_g ls_bool / p1 p2 ny y nx lst)
-             (if(or(= num_g 0)(= int_guideclick 1))T
-               (if((lambda( / d)
-                     (setq p1 point_starbase
-                           d(apply '+(mapcar '(lambda(a b c)(*(- b a)c))
-                                             p1 elem_grread vec_x_onview)))
-                     (if(and(> d 0)(< d(* width_guideclick height_text)))
-                         (progn
-                           (setq p2 point_starbottom
-                                 ny(*(/(apply '+(mapcar '(lambda(a b c)(*(- b a)c))
-                                                        p1 elem_grread vec_y_onview))
-                                       height_guidewhole
-                                       ;; (apply '+(mapcar '(lambda(a b c)(*(- b a)c))
-                                       ;;                  p1 p2 vec_y_onview))
-                                       )
-                                     (+ num_e num_g num_gudeentesc
-                                        (if bool_point 1 0)
-                                        (if bool_input 1 0)
-                                        (if bool_getpoint 1 0)
-                                        (apply '+(mapcar '(lambda(lst / func)
-                                                            (if(assoc "BOOL" lst)int_displaybool) )
-                                                         ls_bool))
-                                        ))
-                                 ny(-(fix ny)num_e)
-                                 )
-                           
-                           (if(if bool_input(> ny int_selectmenu))(setq ny(1- ny)))
-                           (if(if bool_getpoint(> ny int_selectmenu))(setq ny(1- ny)))
-                           
-                           (setq bool_selectsnap(if bool_point(= ny num_g))
-                                 int_starselectmenu
-                                 (if(or(< ny 0)(> ny num_g))nil ny)
-                                 )
-                           int_starselectmenu
-                           )
-                       (setq int_starselectmenu nil)
-                       )
-                     ))
-                   (if bool_textfold T
-                     ((lambda(ls_p)
-
-                        (mapcar '(lambda(p0 p1)(grdraw p0 p1(atoi str_gcol_r)))
-                                ls_p(cdr ls_p)))
-                      (mapcar '(lambda(v / xx yy)
-                                 (setq xx(* height_text(car v))
-                                       yy(* height_text(cadr v)))
-                                 (mapcar '(lambda(a x y)(+ a(* xx x)(* yy y)))
-                                         elem_grread vec_x_onview vec_y_onview))
-                              ls_pstar))
-                     )
-                 ) )
-             )
-           (+ num_initialexplane(length ls_guideexplane))
-           (length(vl-remove-if '(lambda(a)(or(assoc "ENTER" a)(assoc "BOOL" a)))
-                                ls_guidemenu))
-           (vl-remove-if '(lambda(a)(null(assoc "BOOL" a)))ls_guidemenu)
-           )
-          
-          (if(if(and(zerop (logand 16384 (getvar 'OSMODE)))bool_snap bool_point)
-                 (setq p_snap (osnap elem_grread(strcat str_osnaps str_addsnap))))
-              ((lambda(p c / s ls_p)
-                 (setq s(* height_text 0.8)
-                       ls_p(mapcar
-                            '(lambda(xx yy)
-                               (mapcar '(lambda(a x y)(+ a(* xx x)(* yy y)))
-                                       p vec_x_onview vec_y_onview)
-                               )
-                            (list s(- s)(- s)s) (list s(- s)s(- s)))
-                       )
-                 (mapcar '(lambda(p0 p1)(grdraw p0 p1 c))
-                         (list(car ls_p)(caddr ls_p))
-                         (list(cadr ls_p)(cadddr ls_p)))
-                 )
-               (setq elem_grread p_snap)int_colsnappoint)
-            )
-          
-          (if guidegr5_unique(guidegr5_unique))
-          (if func_gr5(func_gr5))
-          (setq str_funcmarker "MOVE")
-          
-          (if(if bool_selectent p_selerac)
-              (progn
-                (setq vec_x(trans-x(list 1 0 0)vec_view(list 0 0 1))
-                      vec_y(trans-x(list 0 1 0)vec_view(list 0 0 1))
-                      vec_delta(mapcar '- elem_grread p_selerac)
-                      x_delta(apply '+(mapcar '* vec_x vec_delta))
-                      y_delta(apply '+(mapcar '* vec_y vec_delta))
-                      ls_prac(list p_selerac(mapcar '(lambda(a b)(+ a(* y_delta b)))p_selerac vec_y)
-                                   elem_grread(mapcar '(lambda(a b)(+ a(* x_delta b)))p_selerac vec_x)
-                                   p_selerac)
-                      int_color(if(< x_delta 0) 141 81)
-                      )
-                (mapcar 'grdraw ls_prac(cdr ls_prac)
-                        (list int_color int_color int_color int_color))
-                
-                )
-            )
-          (if(if p_controleinputval(>(distance p_controleinputval elem_grread)1e-8))
-              (setq str_input(rtos(apply '+(mapcar '*(mapcar '- elem_grread p_controleinputval)
-                                                   (if(= int_controleinputval 1)
-                                                       vec_x_onview vec_y_onview)))
-                                  2 int_roundcontroleval )))
-          
-          (cond
-           ((= int_grread 5))
-           (bool_selectsnap (setq bool_snap(null bool_snap)) )
-           (int_starselectmenu
-            (setq int_selectmenu int_starselectmenu
-                  lst(nth int_selectmenu ls_guidemenu))
-            ;; (if(= ny int_selectmenu)
-            (if(setq str(cdr(assoc "NEXTMODE" lst)))
-                (if(setq func(cdr(assoc "CLICKFUNCTION" lst)))(func)
-                  (setq str_edit str int_selectmenu nil)
-                  )
-              (if(or(cdr(assoc "INPUT" lst))
-                    (cdr(assoc "INPUTSTR" lst))
-                    (cdr(assoc "INPUTCOLOR" lst))
-                    (cdr(assoc "INPUTSWITCH" lst))
-                    (cdr(assoc "LOADFUNCTION" lst))
-                    (cdr(assoc "GETPOINT" lst))
-                    )
-                  (setq bool_replacegrread T bool_input nil
-                        int_grread 2 elem_grread(caar lst))
-                )
-              )
-            
-            ;;(setq str_edit str_edit_loop))
-            ;; (progn
-            ;;   (setq int_selectmenu ny)
-            ;;   )
-            
-            )
-           
-           ((and bool_input(/= ny int_selectmenu))
-            (setq int_selectmenu nil bool_input nil p_controleinputval nil)
-            ;;(setq bool_replacegrread T int_grread 2 elem_grread 13)
-            )
-           (bool_getpoint (func_input T) )
-           (T
-
-            (setq int_selectmenu nil ls_vnam_temp(list))
-            
-            (cond
-             (bool_point)
-             ;;((null bool_selectent))
-             (p_selerac
-              ;; (if ls_vnam_select T
-              ;;   (progn
-              (setq set_ent(ssget(if(< x_delta 0)"C" "W")
-                                 p_selerac elem_grread
-                                 ls_ssget )
-                    
-                    num(if set_ent(sslength set_ent)0))
-              (while(>(setq num(1- num))-1)
-                (setq ls_vnam_temp(cons(vlax-ename->vla-object(ssname set_ent num))
-                                         ls_vnam_temp))
-                )
-              ;; ))
-              
-              (setq bool_select nil p_selerac nil )
-              )
-             
-             ((setq vnam(if(setq set_ent(ssget elem_grread ls_ssget ))
-                            (vlax-ename->vla-object(setq entna(ssname set_ent 0)))))
-              (setq ls_vnam_temp(list vnam) bool_select nil)
-              ;; num 1 bool_replacegrread T int_grread 3 elem_grread nil)
-              
-              )
-             
-             ((if ls_ssgetinsert
-                  (setq vnam(if(setq set_ent(ssget elem_grread ls_ssgetinsert))
-                                (vlax-ename->vla-object(setq entna(ssname set_ent 0))))))
-              
-              (setq p_insert(vlax-safearray->list(vlax-variant-value(vla-get-insertionpoint vnam)))
-                    rotation_insert(vla-get-rotation vnam)
-                    vec_insert(vlax-safearray->list(vlax-variant-value(vla-get-normal vnam)))
-                    x_scale(vla-get-XScaleFactor vnam)
-                    y_scale(vla-get-YScaleFactor vnam)
-                    z_scale(vla-get-ZScaleFactor vnam)
-                    transMat(vlax-tmatrix (list(list 0 -1 0 0)
-                                               (list 1 0 0 0)
-                                               (list 0 0 1 0)
-                                               (list 0 0 0 1)))
-                    )
-              
-              ;;normal非対応
-              ;; (if(and(<(abs(car vec_insert))1e-8)(<(abs(cadr vec_insert))1e-8))
-              ;;     (progn
-              (setq ls_nent(nentselp elem_grread)
-                    entna(car ls_nent)
-                    ls_gcode(entget entna)
-                    )
-              
-              (if(=(cdr(assoc 0 ls_gcode))"VERTEX")
-                  (progn
-                    (while (/= "SEQEND" (cdr(assoc 0(entget entna))))
-                      (setq entna(entnext entna))
-                      )
-                    (setq entna(cdr(assoc -2 (entget entna)))
-                          ls_gcode(entget entna))
-                    ))
-              
-
-              (setq vnam(vlax-ename->vla-object entna)
-                    int_col(get_visual_color vnam)
-
-                    vnam
-                    (vla-CopyObjects
-                     (vla-get-ActiveDocument(vlax-get-acad-object))
-                     (vlax-make-variant
-                      (vlax-safearray-fill
-                       (vlax-make-safearray vlax-vbObject (cons 0 0))
-                       (list vnam)))
-                     (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
-                     )
-                    vnam(car(vlax-safearray->list(vlax-variant-value vnam)))
-                    )
-
-              (if(ssget "L" ls_ssget)
-                  (progn
-              
-                    ;; (if(apply 'and(mapcar
-                    ;;                '(lambda(a / ii dd xx)
-                    ;;                   (setq ii(car a)dd(cdr a)
-                    ;;                         xx(cdr(assoc ii ls_gcode)))
-                    ;;                   (if(=(type dd)'STR)
-                    ;;                       (vl-string-search xx dd)
-                    ;;                     (equal xx dd))
-                    ;;                   )
-                    ;;                ls_ssget))
-                    ;;     (progn
-
-                    
-                    (setq ls_vnam_temp(cons vnam ls_vnam_temp) )
-                    (vla-put-color vnam int_col)
-                    (vla-scaleentity vnam(vlax-3d-point 0 0 0)x_scale)
-                    (vla-Rotate3D
-                     vnam(vlax-3d-point 0 0 0)(vlax-3d-point 0 0 1) rotation_insert)
-                    (vla-Move vnam(vlax-3d-point 0 0 0)(vlax-3d-point p_insert))
-                    ;; (vla-TransformBy vnam transMat)
-                    
-                    (addkillobj vnam)
-                    
-                    )
-                (vla-delete vnam)
-                )
-              
-              
-              )
-             
-             ((= int_selectmode -1) );;単体選択
-             ((and(null ls_vnam_temp)(null p_selerac))
-              (setq p_selerac elem_grread bool_select T)
-              )
-             
-             )
-
-            
-            (if(and xtype_ssget xdata_ssget)
-                (setq ls_vnam_temp
-                      (vl-remove-if
-                       '(lambda(vnam / ls_xdata str_type)
-                          (vla-getXData vnam xdata_ssget 'array_Type 'array_Data )
-                          
-                          (if array_data
-                              (setq ls_xdata
-                                    (split_list 0(mapcar 'vlax-variant-value
-                                                         (vlax-safearray->list array_data)))
-                                    str_type(cdr(assoc xdata_ssget ls_xdata)))
-                            )
-                          (if str_type
-                              (null(vl-string-search str_type xtype_ssget))
-                            T)
-                          
-                          )
-                       ls_vnam_temp)))
-
-            
-            
-            (if(= int_selectmode -1) (setq ls_vnam_select ls_vnam_temp)
-              (progn
-                (if(= int_selectmode 0)
-                    (mapcar '(lambda(v)
-                               (setq ls_vnam_highlight(cons v ls_vnam_highlight)
-                                     ls_vnam_select(cons v ls_vnam_select)))
-                            ls_vnam_temp)
-                  (mapcar '(lambda(v)
-                             (setq ls_vnam_highlight(vl-remove v ls_vnam_highlight)
-                                   ls_vnam_select(vl-remove v ls_vnam_select))
-                             (vla-Highlight v :vlax-false)
-                             )
-                          ls_vnam_temp)
-                  )
-                
-                (mapcar '(lambda(a)(vla-Highlight a :vlax-true))ls_vnam_highlight)
-                ))
-
-            (if func_gr3(func_gr3))
-            (setq str_funcmarker "CLICK")
-            )
-           )
-          (if(= int_grread 3)(setq bool_getpoint nil))
-          )
-
-         ((or(= int_grread 2)(= int_grread 25))
-          (if(and bool_getpoint(or(= elem_grread 13)(= int_grread 25)))(func_input nil) )
-          (setq bool_getpoint nil)
-          (cond
-           ((and(vl-position elem_grread(list 33 65281 -255))(/= str_edit "tempdistlength"))
-            (if bool_input(setq bool_inputmeasure T str_inputmeasure nil))
-            (setq str_editreturn str_edit str_edit "tempdistlength"))
-           ((vl-position elem_grread(list 35 65283 -253))
-            (setq bool_textclose(null bool_textclose)))
-           ((vl-position elem_grread(list 36 65284 -252))
-            (setq bool_textfold(null bool_textfold)))
-           ((vl-position elem_grread(list 37 65285 -251))
-            (setq int_selectmenu nil int_starselectmenu nil
-                  int_guideclick(rem(1+ int_guideclick)2)))
-           
-           ((vl-position elem_grread(list 94 65342 -194))
-            (setq y_guidebase_temp(1+ y_guidebase_temp)) )
-           ((vl-position elem_grread(list 86 118 65334 65366 -202 -170))
-            (setq y_guidebase_temp(1- y_guidebase_temp)) )
-
-           ((vl-position elem_grread(list 63 65311 -225))
-
-            (if(if(setq func
-                        (cond
-                         ((if(and ls_guidemenu int_selectmenu)
-                              (cdr(assoc "HELP"(nth int_selectmenu ls_guidemenu)))))
-                         ((if(and ls_guidemenu int_starselectmenu)
-                              (cdr(assoc "HELP"(nth int_starselectmenu ls_guidemenu)))))
-                         (func_guidemenu func_guidemenu)
-                         )
-                        )
-                   (setq str(func)))
-                (alert str))
-            
-            )
-           
-           ((vl-position elem_grread(list 126 65374 -162))
-            (alert(mix_strasc
-                   (list((lambda(str / n str_out)
-                           (setq str_out "")
-                           (while(vl-string-search "{" str)
-                             (setq str(vl-string-subst "" "{" str)))
-                           (while(vl-string-search "}" str)
-                             (setq str(vl-string-subst "" "}" str)))
-                           (while(setq n(vl-string-search "\\C" str))
-                             (setq str_out(strcat str_out(substr str 1 n))
-                                   n(vl-string-search ";" str)
-                                   str(substr str(+ 2 n))
-                                   )
-                             )
-                           (strcat str_out str))
-                         str_guide_prev)
-                        )))
-
-            
-            ;; (setq int_guidemask(rem(1+ int_guidemask)2))
-            ;; (setq ls_vnam_killobj(vl-remove vnam_guide ls_vnam_killobj))
-            ;; (vla-delete vnam_guide)
-            ;; (setq vnam_guide
-            ;;       ((lambda( / e v)
-            ;;          (setq e(entmakex
-            ;;                  (append
-            ;;                   (list(cons 0 "MTEXT")(cons 100 "AcDbEntity")(cons 100 "AcDbMText")
-            ;;                        (cons 7 str_textstyle_gbo)(cons 62 255)(cons 40 0.01 )(list 10 0 0 0)
-            ;;                        (cons 1 "AAAAAAAAA")(cons 71 1)
-            ;;                        )
-            ;;                   (if(= int_guidemask 1)
-            ;;                       ;;(list(cons 90 1)(cons 63 177)(cons 421 986966)(cons 45 2.))
-            ;;                       (list(cons 90 3)(cons 63 256)(cons 45 2.))
-            ;;                     )
-            ;;                   )))
-            ;;          (vlax-ename->vla-object e)))
-            ;;       )
-            ;; (addkillobj vnam_guide)
-            ;; (setq str_guide_prev "" vec_view_gr5loop nil
-            ;;       bool_replacegrread T int_grread 5 elem_grread(list 0 0 0))
-            
-            )
-           
-           ((and(vl-position elem_grread(list 83 115))bool_point)(setq bool_snap(null bool_snap)))
-
-           ((and bool_input(vl-position elem_grread ls_intchr))
-            (setq str_input(strcat str_input(chr elem_grread))) )
-           ((and bool_input(= elem_grread 8))
-            (setq str_input(substr str_input 1(1-(strlen str_input)))) )
-           ((and bool_input(vl-position elem_grread(list 92 165 65340 65509 -196 -27)))
-            (setq str_input "") )
-           ((and bool_input(vl-position elem_grread(list 47 65295 -241)))
-            (setq str_input(as-numstr(eval sym_input))) )
-           ((and(or(and bool_input(/= int_grread 3))
-                   (if(and bool_inputmeasure str_inputmeasure)
-                       (setq bool_inputmeasure nil str_input str_inputmeasure)))
-                (or(= elem_grread 13)(= int_grread 25)))
-            (if(or(if(vl-string-search "-"(substr str_input 2))
-                      (progn;;先頭以外に「-」があります
-                        (x-alert(list 20808 38957 20197 22806 12395 12300 "-" 12301 12364 12354 12426 12414 12377 )) T))
-                  (if(if(setq num(vl-string-search "." str_input))
-                         (vl-string-search "."(substr str_input(+ 2 num))))
-                      (progn;;「.」が2か所以上あります
-                        (x-alert(list 12300 "." 12301 12364 "2" 12363 25152 20197 19978 12354 12426 12414 12377 )) T))
-                  )
-                T
-              (progn
-                (set sym_input(cond((= type_input 'REAL)(as-atof str_input))
-                                   ((= type_input 'INT) (as-atoi str_input))
-                                   (T str_input)))
-                (if func_input(func_input))
-                (setq bool_input nil int_selectmenu nil str_input "")
-                (if(= int_controleinputval 0)T(setq p_controleinputval nil))
-                ))
-            
-            )
-           
-           ((setq ii(vl-position elem_grread(list 60 62 65308 65310 -228 -226)))
-            (if p_controleinputval
-                ((lambda( / a)
-                   (setq a(+(nth(rem ii 2)(list -1 1))int_roundcontroleval))
-                   (if(< a 0)T(setq int_roundcontroleval a))
-                   ))
-              ((lambda( / a)
-                 (setq a(+(nth(rem ii 2)(list -0.001 0.001))textsize_guide_bo_temp))
-                 (if(< a 0.)T(setq textsize_guide_bo_temp a))
-                 ))
-              )
-            )
-           ;; ((setq ii(vl-position elem_grread(list 60 62)))
-           ;;  (setq x_guidebase(+(nth ii(list 0.05 -0.05))x_guidebase)))
-           
-           (((lambda(lst / a str_next func num)
-               (if int_selectmenu T
-                 (if int_starselectmenu(setq int_selectmenu int_starselectmenu)))
-               (while lst
-                 (setq a(car lst) lst(cdr lst))
-                 (if(if(equal(car a)(list "ENTER"))
-                        (if(or(= elem_grread 13)(= int_grread 25))
-                            (cond
-                             (int_selectmenu;;selectmenuがあるとき一覧にないキーを押すと反応してしまう
-                              (if(< int_selectmenu 0)(setq lst nil)
-                                (setq a(nth int_selectmenu ls_guidemenu))))
-                             (ls_vnam_select (setq lst nil));;func_gr2へ
-                             (T T);;(or(= elem_grread 13)(= int_grread 25)))
-                             ))
-                      (progn
-                        
-                        (cond
-                         ((or(and(< 65295 elem_grread)(< elem_grread 65306));;全角数字
-                             (and(< 65312 elem_grread)(< elem_grread 65371)));;全角アルファベット
-                          (setq elem_grread(- elem_grread 65248)))
-                         ((or(and(< -241 elem_grread)(< elem_grread -230))
-                             (and(< -224 elem_grread)(< elem_grread -165)))
-                          (setq elem_grread(+ elem_grread 288)))
-                         )
-                        (cond
-                         ((and(< 96 elem_grread)(< elem_grread 123))
-                          (setq elem_grread(- elem_grread 32)))
-                         )
-                        (vl-position elem_grread(car a))
-                        )
-                      )
-                     (if(cond
-                         ((if(setq func_input(cdr(assoc "NO-INPUT" a)))
-                              (func_input))
-                          (setq int_selectmenu nil)
-                          (setq str_next T)
-                          )
-                         ((setq str_next(cdr(assoc "NEXTMODE" a)))
-                          (if(setq func(cdr(assoc "LOADFUNCTION" a)))(func))
-                          T)
-                         ((setq func_input(cdr(assoc "INPUT" a)))
-                          
-                          (setq sym_input(func_input)
-                                val_input(eval sym_input)
-                                str_input(as-numstr val_input)
-                                type_input(type val_input)
-                                int_selectmenu(vl-position a ls_guidemenu)
-                                func_input(cdr(assoc "LOADFUNCTION" a))
-                                bool_input T
-                                ;;str_edit str_edit_loop
-                                )
-                          (if(= int_controleinputval 0)T(setq p_controleinputval(cadr(grread t 15 0))))
-                          T)
-                         
-                         ((setq func_input(cdr(assoc "INPUTSTR" a)))
-                          (setq sym_input(func_input)
-                                func_input(cdr(assoc "LOADFUNCTION" a))
-                                int_selectmenu nil)
-                          
-                          (settile_strinput
-                           sym_input func_input
-                           (mix_strasc(cdr(assoc "ITEM" a)))
-                           (cdr(assoc "STRINPUTALERT" a))
-                           )
-                          
-                          (setq str_next T)
-                          )
-
-                         ((setq func_input(cdr(assoc "INPUTCOLOR" a)))
-                          (setq sym_input(func_input)
-                                func_input(cdr(assoc "LOADFUNCTION" a))
-                                int_selectmenu nil)
-                          (if(setq i(acad_colordlg(eval sym_input)))
-                              (set sym_input i))
-                          (if func_input(func_input))
-                          (setq str_next T)
-                          )
-                         ((setq func_input(cdr(assoc "INPUTSWITCH" a)))
-                          (setq lst(func_input)
-                                sym_input(car lst)ls_input(cadr lst)
-                                func_input(cdr(assoc "LOADFUNCTION" a))
-                                int_selectmenu nil
-                                )
-                          (set sym_input(rem(1+(eval sym_input))(length ls_input)))
-                          (if func_input(func_input))
-                          (setq str_next T)
-                          )
-                         ((setq func_input(cdr(assoc "GETPOINT" a)))
-                          ((lambda(str)(if str(setq str_addsnap str)))(cdr(assoc "GETPOINTSNAP" a)))
-                          (setq func_input(cdr(assoc "LOADFUNCTION" a))
-                                int_selectmenu(vl-position a ls_guidemenu)
-                                bool_point T bool_getpoint T
-                                )
-                          (setq str_next T)
-                          )
-                         ((setq func(cdr(assoc "LOADFUNCTION" a)))
-                          (func)
-                          (setq int_selectmenu nil)
-                          (setq str_next T)
-                          )
-                         )
-                         
-                         (setq lst nil))
-                   )
-                 )
-               (if str_next(if(=(type str_next)'STR)
-                               (setq str_editreturn str_edit str_edit str_next )T))
-               )
-             ls_guidemenu))
-           
-           (func_gr2
-            (func_gr2)
-            )
-           )
-
-          )
-         
-         )
-
-
-        )
-      )
-    )
-
   
-
+  ;;uniqueじゃない
+  (setq path_addattributedcl(axd_make_dcl_attribute str_path_tempdirectory));;属性
+  (axd_make_dcl_basesetting asis_session)
+  (axd_command_loop)
   (*error* "")
   )
 
-
-(defun depth_level_str(pg p0 / z)
-  (setq z(caddr p0))
-  (strcat "GL"(if(<(- z(caddr pg))0)"-" "+")"<>\\P"
-          "EL = "(rtos z 2 int_unitelevation))
-  )
 
 (defun grfunc_duct3d( / )
   (list
@@ -7744,8 +5611,6 @@
     )
 
 
-
-
    (list
     "makeccboxmain" ;;edsym
     (cons
@@ -8567,7 +6432,7 @@
     (cons
      "CLICK"
      (lambda()
-       (settile_att
+       (axd_settile_att
         path_addattributedcl elem_grread
         (list(list -3(list "terraduct3d"))) )
        ))
@@ -10848,12 +8713,213 @@
     
     )
 
-   
-   
    )
   )
 
+(defun load_las_to_grid(str_lasxml)
+  ;; (setq cpath_terraduct3d(strcat (getenv "APPDATA")"\\" "terraduct3d-ac" "\\app"))
+  (setq str_data(strcat cpath_terraduct3d "\\pyexe\\grid_points.csv")
+        str_path(strcat cpath_terraduct3d "\\pyexe\\main.exe")
+        bool_loop T size_file nil
+        int_time 100 ms_loop nil ms_max 20000 
+        size_grid 0.5
+        )
 
+  (setq str_laspath(getfiled(strcat "Select " str_lasxml " file")(getvar "DWGPREFIX")str_lasxml 0))
+  (if(null str_laspath)
+      (alert(mix_strasc(list 12501 12449 12452 12523 12364 36984 25246 12373 12428 12414 12379 12435 12391 12375 12383)))
+    
+    (progn
+      (setq str_lasfile str_laspath )
+      
+      (while(setq num(vl-string-search "\\" str_lasfile))
+        (setq str_lasfile(substr str_lasfile(+ num 2))))
+      
+      (if(findfile str_data)(vl-file-delete str_data))
+      ;; (startapp str_path "")
+      
+      (setq wsh (vlax-create-object "WScript.Shell"))
+      (setq cmd(strcat "\"" str_path "\" "
+                       "\"" str_lasxml  "\" "
+                       "\"" str_laspath "\""))
+      (vlax-invoke-method wsh 'Run cmd 0 :vlax-true)
+      (vlax-release-object wsh)
+
+      (setq ms_loop(getvar "MILLISECS"))
+      (while bool_loop
+        (setq ms_start(getvar "MILLISECS"))
+        (if(>(- ms_start ms_loop)ms_max)(setq bool_loop nil))
+        (while(<(-(getvar "MILLISECS")ms_start)int_time) )
+        (if(findfile str_data)
+            (if(= size_file(vl-file-size str_data))(setq bool_loop nil)
+              (setq size_file(vl-file-size str_data)) ))
+        )
+
+
+      (if(null(findfile str_data))
+          (progn
+            (setq dict_name nil)
+            (alert(mix_strasc(list 35501 12415 36796 12415 12395 22833 25943 12375 12414 12375 12383)))
+            )
+        (progn
+          ;;(vla-startUndoMark (vla-get-ActiveDocument (vlax-get-Acad-Object)))
+          ;; (setq *error*
+          ;;       (lambda(msg)
+          ;;         (if(= msg "")T
+          ;;           (vla-EndUndoMark (vla-get-ActiveDocument (vlax-get-Acad-Object))) )
+          ;;         (mapcar '(lambda(a / v)
+          ;;                    (if a(if(if(=(type a)'ENAME)
+          ;;                                (if(entget a)(setq v(vlax-ename->vla-object a))(progn nil))
+          ;;                              (if(setq v a a(vlax-vla-object->ename a))(entget a)(progn nil)) )
+          ;;                             (vla-delete v))))
+          ;;                 ls_vnam_killobj)
+          ;;         (setq ls_vnam_killobj nil vnam_guide nil)
+          ;;         (if (= 'FILE (type file_r)) (close file_r))
+          ;;         (gc)
+          ;;         (setq *error*(lambda(msg)(princ msg)))
+          ;;         (princ msg)
+          ;;         )
+          ;;       ls_vnam_killobj nil
+          ;;       )
+          
+          
+          (setq num_limit 100000 num_start 0 num_last nil num_elem 1000 str_grid "1"
+                delta_grid(atof str_grid))
+          
+          (setq spantime0(getvar "MILLISECS")
+                ls_grid(list)
+                file_r (open str_data "r")
+                )
+
+          
+          (if(= int_inputlasinsert 0)T
+            (progn
+              (setq str_bname(strcat "input-lasgrid-" str_lasfile ))
+              (if(vl-catch-all-error-p
+                  (setq block(vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
+                  (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname) )
+                (progn
+                  (if(setq set_ent(ssget "X"(list(cons 2 str_bname))))
+                      (progn
+                        (setq num(sslength set_ent))
+                        (while(>(setq num(1- num))-1)
+                          (setq vnam(vlax-ename->vla-object(ssname set_ent num)))
+                          (vla-delete vnam)
+                          )
+                        ))
+                  (vla-delete block)
+                  (mapcar '(lambda(v)
+                             (vlax-release-object v)
+                             (setq ls_vla-release(vl-remove v ls_vla-release))
+                             )
+                          (list block))
+                  (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname))
+                  )
+                )
+              (setq ls_vla-release(cons block ls_vla-release) )
+              ))
+
+          (setq z_ave 0. z_min nil z_max nil)
+          (while(setq str(read-line file_r))
+            (setq x(atof str)str(substr str(+(vl-string-search "," str)2))
+                  y(atof str)str(substr str(+(vl-string-search "," str)2))
+                  z(atof str)z_ave(+ z_ave z)
+                  )
+            (if z_min(setq z_min(min z z_min)z_max(max z z_max))
+              (setq z_min z z_max z))
+
+            (if(= int_inputlasinsert 0)T(vla-addpoint block(vlax-3d-point x y z)))
+            
+            (setq nx(/ x size_grid) nx(fix(- nx(abs(rem nx 1.))))
+                  ny(/ y size_grid) ny(fix(- ny(abs(rem ny 1.))))
+                  
+                  ls_grid(cons(list(strcat(itoa nx)"$"(itoa ny))z)ls_grid)
+                  )
+            )
+          (close file_r)
+
+          
+          (if(= int_inputlasinsert 0)T
+            (mapcar '(lambda(v)
+                       (vlax-release-object v)
+                       (setq ls_vla-release(vl-remove v ls_vla-release))
+                       )
+                    (list block))
+            )
+          
+          (if(= int_inputlasinsert 1)
+              (vla-InsertBlock
+               (vla-get-ModelSpace(vla-get-ActiveDocument(vlax-get-acad-object)))
+               (vlax-3d-point 0 0 0)str_bname 1 1 1 0)
+            )
+          
+
+          ;; (setq dicts_all(vla-get-Dictionaries(vla-get-ActiveDocument (vlax-get-acad-object)))
+          ;;       vnam(vlax-ename->vla-object entna)
+          ;;       vec_insert(vlax-safearray->list(vlax-variant-value(vla-get-normal vnam)))
+          ;;       p_insert(vlax-safearray->list(vlax-variant-value(vla-get-insertionpoint vnam)))
+          ;;       str_nameblock(vla-get-name vnam)
+          ;;       )
+          
+          ;; (while(vl-string-search "*" str_nameblock)
+          ;;   (setq str_nameblock(vl-string-subst "^^^^" "*" str_nameblock))
+          ;;   )
+          ;; (if spantime0 T(setq spantime0(getvar "MILLISECS")))
+
+          ;; (defun dict_las_input(str_lasfile bool)
+
+          (setq ls_xdata(list))
+          (setq dict_name(strcat "lasgrid" "-" str_lasfile ))
+          ;; (setq dict_grid(vl-catch-all-apply 'vla-Item (list dicts_all(strcat dict_name))))
+          (if(if nil(assoc dict_name ls_lasgrid);;あれば作る必要がない
+               (progn ;;あったら消して作る
+                 (if(setq dict_grid(cdr(assoc dict_name ls_lasgrid)))(vla-delete dict_grid))
+                 nil
+                 ) )
+              (progn  nil ) ;;すでにあるものを使うとき 通ることはない
+            (progn ;;新しく作るとき
+              
+              (setq z_ave(/ z_ave(length ls_grid)))
+              (setq dict_grid(vla-Add dicts_all dict_name))
+              (setq xrec(vla-AddXRecord dict_grid "GRID-SIZE_CENTER"))
+              (setq array_data(vlax-make-safearray vlax-vbVariant(cons 0 3))
+                    array_type(vlax-make-safearray vlax-vbInteger(cons 0 3)))
+              (vlax-safearray-fill array_type(list 1040 1040 1040 1040))
+              (vlax-safearray-fill array_data(list size_grid z_ave z_min z_max))
+              (vla-SetXRecordData xrec array_type array_data )
+
+              (setq array_data(vlax-make-safearray vlax-vbVariant(cons 0 0))
+                    array_type(vlax-make-safearray vlax-vbInteger(cons 0 0)))
+              (vlax-safearray-fill array_type (list 1040))
+              (mapcar
+               '(lambda(lst)
+                  (setq xrec(vla-AddXRecord dict_grid(strcat(car lst))))
+                  (vlax-safearray-fill array_data(cdr lst))
+                  (vla-SetXRecordData xrec array_type array_data )
+                  )
+               ls_grid)
+              
+              (if(setq lst(assoc dict_name ls_lasgrid))(vl-remove lst ls_lasgrid))
+              (setq ls_lasgrid(cons(cons dict_name dict_grid)ls_lasgrid))
+              )
+            )
+          
+          ;;(vla-startUndoMark (vla-get-ActiveDocument (vlax-get-Acad-Object)))
+          ;; (princ "\nFinish")
+
+          (alert(mix_strasc(list 35501 36796 23436 20102)))
+          ))
+      ))
+  
+  ;; (*error* "")
+  dict_name
+  )
+
+(defun depth_level_str(pg p0 / z)
+  (setq z(caddr p0))
+  (strcat "GL"(if(<(- z(caddr pg))0)"-" "+")"<>\\P"
+          "EL = "(rtos z 2 int_unitelevation))
+  )
 
 (defun cal_arcposition
     (rr ph pc px vec0 vecn0 vec1 vecn1 / dd dx pco pho pcc vecc)
@@ -11417,33 +9483,7 @@
   )
 
 
-
-
 (princ)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
