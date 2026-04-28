@@ -1157,6 +1157,7 @@
                  xtype_ssget nil xdata_ssget nil
                  int_selectproject 0
                  int_reproject 0
+                 allow_joint nil
 
                  str_projectname nil
                  func_guidemenu
@@ -1223,6 +1224,16 @@
                        ;;ピッチ設定しているとき投影時に節点数が増え、元々節点だった箇所がわかりづらくなるので、円形のマーキングを作ります
                        (cons "HELP"(lambda()(mix_strasc(list  12500 12483 12481 35373 23450 12375 12390 12356 12427 12392 12365 25237 24433 26178 12395 31680 28857 25968 12364 22679 12360 12289 20803 12293 31680 28857 12384 12387 12383 31623 25152 12364 12431 12363 12426 12389 12425 12367 12394 12427 12398 12391 12289 20870 24418 12398 12510 12540 12461 12531 12464 12434 20316 12426 12414 12377   ))))
                        )
+
+                  (list(list 69);;E結合の許容値
+                       (cons "ITEM"(list 32080 21512 12398 35377 23481 20516  ))
+                       (cons "INPUT"(lambda()
+                                      (if allow_joint T(setq allow_joint(* 0.01 pitch_project)))
+                                      'allow_joint))
+                       ;;選択した線が分離しているとき、端点間の距離がこの値よりも小さい場合結合します
+                       (cons "HELP"(lambda()(mix_strasc(list 36984 25246 12375 12383 32218 12364 20998 38626 12375 12390 12356 12427 12392 12365 12289 31471 28857 38291 12398 36317 38626 12364 12371 12398 20516 12424 12426 12418 23567 12373 12356 22580 21512 32080 21512 12375 12414 12377 (if int_selectmenu str_guide_inputval str_guide_selectval)  ))))
+                       )
+                  
 
                   (list(list 88);;X投影した線を選択したときの動作
                        (cons "ITEM"(list 25237 24433 12375 12383 32218 12434 36984 25246 12375 12383 12392 12365 12398 21205 20316 ))
@@ -1594,19 +1605,19 @@
                           )
 
                     (if(cond
-                        ((<(distance p00 p10)(* 0.01 pitch_project))
+                        ((<(distance p00 p10)allow_joint)
                          (setq ls_p0(append(reverse ls_p1)(cdr ls_p0)) p00 p11
                                bool_reunion T bool T )
                          )
-                        ((<(distance p00 p11)(* 0.01 pitch_project))
+                        ((<(distance p00 p11)allow_joint)
                          (setq ls_p0(append ls_p1(cdr ls_p0)) p00 p10
                                bool_reunion T bool T )
                          )
-                        ((<(distance p01 p10)(* 0.01 pitch_project))
+                        ((<(distance p01 p10)allow_joint)
                          (setq ls_p0(append ls_p0(cdr ls_p1)) p01 p11
                                bool_reunion T bool T )
                          )
-                        ((<(distance p01 p11)(* 0.01 pitch_project))
+                        ((<(distance p01 p11)allow_joint)
                          (setq ls_p0(append ls_p0(cdr(reverse ls_p1))) p01 p10
                                bool_reunion T bool T )
                          )
@@ -1619,7 +1630,7 @@
                                                '(lambda(p / bool )
                                                   (setq ls_dummy ls_pc0)
                                                   (while ls_dummy
-                                                    (if(<(distance p(car ls_dummy))(* 0.01 pitch_project))
+                                                    (if(<(distance p(car ls_dummy))allow_joint)
                                                         (setq bool T ls_dummy nil)
                                                       (setq ls_dummy(cdr ls_dummy)))
                                                     )
@@ -1706,19 +1717,19 @@
                           )
                     
                     (if(cond
-                        ((<(distance p00 p10)(* 0.01 pitch_project))
+                        ((<(distance p00 p10)allow_joint)
                          (setq ls_p0(append(reverse ls_p1)(cdr ls_p0)) p00 p11
                                bool T )
                          )
-                        ((<(distance p00 p11)(* 0.01 pitch_project))
+                        ((<(distance p00 p11)allow_joint)
                          (setq ls_p0(append ls_p1(cdr ls_p0)) p00 p10
                                bool T )
                          )
-                        ((<(distance p01 p10)(* 0.01 pitch_project))
+                        ((<(distance p01 p10)allow_joint)
                          (setq ls_p0(append ls_p0(cdr ls_p1)) p01 p11
                                bool T )
                          )
-                        ((<(distance p01 p11)(* 0.01 pitch_project))
+                        ((<(distance p01 p11)allow_joint)
                          (setq ls_p0(append ls_p0(cdr(reverse ls_p1))) p01 p10
                                bool T )
                          )
@@ -1845,6 +1856,7 @@
                      vnam_currentinsert nil
                      int_selectmenu_ductedit nil int_adddepth nil
                      p_roadclick_temp nil
+                     ls_p_dimtext nil
                      )
                )
              (setq func_guidemenu
@@ -3092,7 +3104,6 @@
                                                 (setq jj 1 p0(cdr(assoc 13(entget entna))))
                                               (setq ii(1+ ii)jj 0 p0(cdr(assoc 14(entget entna))))
                                               )
-                                            (entmake(list(cons 0 "CIRCLE")(cons 10 p0)(cons 40 0.1)))
                                             
                                             (setq lst(assoc(list "DEPTH" ii jj)ls_vnam_duct)
                                                   entna(cadr(assoc "OBJ" lst))
@@ -3141,7 +3152,33 @@
                                (if(or ls_vnam_duct bool_ductedit)
                                    (list
                                     (list
-                                     "{\\C" str_gcol_y ";" 31649 36335 32232 38598 20013 " " 9733 "}")
+                                     "{\\C" str_gcol_y ";" 31649 36335 32232 38598 20013 " " 9733 "}"
+                                     (if(=(type elem_grread)'LIST)
+                                         ((lambda(ls_dummy / str lst vnam p vec) 
+                                            (while ls_dummy
+                                              (setq lst(car ls_dummy)ls_dummy(cdr ls_dummy)
+                                                    vnam(car lst)p(cdr lst))
+                                              (if(vlax-erased-p vnam)
+                                                  (setq ls_p_dimtext(vl-remove lst ls_p_dimtext))
+                                                (progn
+                                                  (setq vec(mapcar '- p elem_grread))
+                                                  (if(<(+(abs(apply '+(mapcar '* vec vec_x_onview)))
+                                                         (abs(apply '+(mapcar '* vec vec_y_onview))))
+                                                       (* 2 height_text))
+                                                      (setq str(vla-get-TextOverride vnam)
+                                                            str(vl-string-subst
+                                                                (rtos(vla-get-Measurement vnam)2 3)
+                                                                "<>" str)
+                                                            str(vl-string-subst " , " "\\P" str)
+                                                            
+                                                            ls_dummy nil)
+                                                    )
+                                                  ))
+                                              )
+                                            (if str(list 12304 str 12305))
+                                            )
+                                          ls_p_dimtext))
+                                     )
                                     (list
                                      "{\\C" str_gcol_g ";" 30452 32218 37096 "{\\C"
                                      ((lambda( / ii)
@@ -4043,13 +4080,16 @@
                           (setq d(apply '+(mapcar '* vec_normal p0))
                                 str(depth_level_str p1 p0)
                                 )
+                          
                           (setq e(make_2pdimension
                                   entna(list p1 p0 vec_normal d
                                              nil(* 0.5 pi) 0. str str_dimstyle_ductlevel)))
+                          
                           (if entna
                               (setq entna nil)
                             (progn
                               (setq vnam(vlax-ename->vla-object e))
+                              (setq ls_p_dimtext(cons(cons vnam p0) ls_p_dimtext))
                               (vla-put-Arrowhead1Type vnam 13)
                               (vla-put-Arrowhead2Type vnam 6)
                               (vla-put-ExtLine1Suppress vnam -1)
@@ -4195,6 +4235,7 @@
                                              (list "ROAD" vnam_road hand_road))
                                         ls_vnam_duct)
                        )
+                 (setq ls_p_dimtext (cons(cons vnam_depth p_deoth) ls_p_dimtext))
                  
                  (vla-put-Arrowhead1Type vnam_depth 13)
                  (vla-put-Arrowhead2Type vnam_depth 6)
@@ -4372,7 +4413,6 @@
                              )
                        
                        
-                       
                        (if e
                            (setq ls_vnam_duct
                                  (subst(list(assoc "ARC" ls_current)
@@ -4394,6 +4434,9 @@
                                             )
                                        ls_current ls_vnam_duct)
                                  )
+                           
+                           (setq ls_p_dimtext (cons(cons vnam p2) ls_p_dimtext))
+                           
                            (vla-put-Arrowhead1Type vnam 19)
                            (vla-put-Arrowhead2Type vnam 19)
                            (vla-put-ExtLine1Suppress vnam -1)
@@ -4408,7 +4451,7 @@
                        e_out)
                     (list ls_currentarc0 ls_currentarc1)ls_arc)
                    )
-                 
+
                  ))
            
            
@@ -4810,8 +4853,10 @@
                             )
                            vnam(car(vlax-safearray->list(vlax-variant-value vnam)))
                            entna(vlax-vla-object->ename vnam)
+                           lst(cdr(assoc 14(entget entna)))
+                           ls_p_dimtext(cons(cons vnam lst)ls_p_dimtext)
                            )
-
+                     
                      ;; (if(or str_lasground height_ground)
                      ;;     ((lambda( / p13 p14 lst v pp13 pp14 str)
                      ;;        (setq lst(entget entna)
@@ -4903,6 +4948,9 @@
                          )
                         vnam(car(vlax-safearray->list(vlax-variant-value vnam)))
                         entna0(vlax-vla-object->ename vnam)
+
+                        lst(cdr(assoc 10(entget entna0)))
+                        ls_p_dimtext(cons(cons vnam lst)ls_p_dimtext)
                         
                         ls_gcode(entget entna0)
                         ls_p0
@@ -4931,6 +4979,9 @@
                          )
                         vnam(car(vlax-safearray->list(vlax-variant-value vnam)))
                         entna1(vlax-vla-object->ename vnam)
+
+                        lst(cdr(assoc 10(entget entna1)))
+                        ls_p_dimtext(cons(cons vnam lst)ls_p_dimtext)
                         
                         ls_gcode(entget entna1)
                         ls_p1
@@ -5170,6 +5221,9 @@
                      (setq vnam(caddr(assoc "OBJ" lst))
                            ls_vnam_copy(cons vnam ls_vnam_copy)
                            )
+
+                     (setq ls_p_dimtext (cons(cons vnam p14) ls_p_dimtext))
+
                      (vla-put-color vnam int_colductdim)
                      (set_xda vnam(list(cons 1000 "DEPTH")
                                        (cons 1000 "NUM")(cons 1071 num_x)
@@ -5519,6 +5573,8 @@
                                               0 " " str_dimstyle_ductlevel))
                                     vnam(vlax-ename->vla-object e)
                                     )
+                              
+
                               (vla-put-Arrowhead1Type vnam 19)
                               (vla-put-Arrowhead2Type vnam 19)
                               (vla-put-ExtLine1Suppress vnam -1)
