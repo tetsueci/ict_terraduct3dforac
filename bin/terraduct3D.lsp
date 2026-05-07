@@ -1597,7 +1597,7 @@
            (setq bool_reunion nil)
            
            (while
-               ((lambda(ls_dummy2 / bool)
+               ((lambda(ls_dummy2 / bool pe0 pe1 px)
                   (while ls_dummy2
                     (setq lst(car ls_dummy2)ls_dummy2(cdr ls_dummy2)
                           vnam1(car lst)ls_p1(cadr lst)ls_pc1(caddr lst)
@@ -1606,37 +1606,32 @@
 
                     (if(cond
                         ((<(distance p00 p10)allow_joint)
-                         (setq ls_p0(append(reverse ls_p1)(cdr ls_p0)) p00 p11
-                               bool_reunion T bool T )
+                         (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p00 p10)
+                               ls_p0(append(reverse(cdr ls_p1))(list px)(cdr ls_p0))
+                               pe0 p00 pe1 p10 p00 p11 bool_reunion T bool T )
                          )
                         ((<(distance p00 p11)allow_joint)
-                         (setq ls_p0(append ls_p1(cdr ls_p0)) p00 p10
-                               bool_reunion T bool T )
+                         (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p00 p11)
+                               ls_p0(append(subst px p11 ls_p1)(cdr ls_p0))
+                               pe0 p00 pe1 p11 p00 p10 bool_reunion T bool T )
                          )
                         ((<(distance p01 p10)allow_joint)
-                         (setq ls_p0(append ls_p0(cdr ls_p1)) p01 p11
-                               bool_reunion T bool T )
+                         (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p01 p10)
+                               ls_p0(append(subst px p01 ls_p0)(cdr ls_p1))
+                               pe0 p01 pe1 p10 p01 p11 bool_reunion T bool T )
                          )
                         ((<(distance p01 p11)allow_joint)
-                         (setq ls_p0(append ls_p0(cdr(reverse ls_p1))) p01 p10
-                               bool_reunion T bool T )
+                         (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p01 p11)
+                               ls_p0(append(subst px p01 ls_p0)(cdr(reverse ls_p1)))
+                               pe0 p01 pe1 p11 p01 p10 bool_reunion T bool T )
                          )
                         )
                         (progn
                           (setq ls_reunion_project(vl-remove lst ls_reunion_project)
                                 ls_dummy(vl-remove lst ls_dummy)
-                                ls_pc0(append ls_pc0
-                                              (vl-remove-if
-                                               '(lambda(p / bool )
-                                                  (setq ls_dummy ls_pc0)
-                                                  (while ls_dummy
-                                                    (if(<(distance p(car ls_dummy))allow_joint)
-                                                        (setq bool T ls_dummy nil)
-                                                      (setq ls_dummy(cdr ls_dummy)))
-                                                    )
-                                                  bool)
-                                               ls_pc1)
-                                              )
+                                ls_pc0(append(vl-remove-if '(lambda(p)(<(distance p pe0)1e-8))ls_pc0)
+                                             (list px)
+                                             (vl-remove-if '(lambda(p)(<(distance p pe1)1e-8))ls_pc1))
                                 )
                           (vla-delete vnam1)
                           ))
@@ -1715,23 +1710,27 @@
                     (setq lst(car ls_dummy2)ls_p1(cdr lst)ls_dummy2(cdr ls_dummy2)
                           p10(car ls_p1)p11(last ls_p1)
                           )
-                    
+
                     (if(cond
                         ((<(distance p00 p10)allow_joint)
-                         (setq ls_p0(append(reverse ls_p1)(cdr ls_p0)) p00 p11
-                               bool T )
+                         (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p00 p10)
+                               ls_p0(append(reverse(cdr ls_p1))(list px)(cdr ls_p0))
+                               p00 p11 bool_reunion T bool T )
                          )
                         ((<(distance p00 p11)allow_joint)
-                         (setq ls_p0(append ls_p1(cdr ls_p0)) p00 p10
-                               bool T )
+                         (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p00 p11)
+                               ls_p0(append(subst px p11 ls_p1)(cdr ls_p0))
+                               p00 p10 bool_reunion T bool T )
                          )
                         ((<(distance p01 p10)allow_joint)
-                         (setq ls_p0(append ls_p0(cdr ls_p1)) p01 p11
-                               bool T )
+                         (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p01 p10)
+                               ls_p0(append(subst px p01 ls_p0)(cdr ls_p1))
+                               p01 p11 bool_reunion T bool T )
                          )
                         ((<(distance p01 p11)allow_joint)
-                         (setq ls_p0(append ls_p0(cdr(reverse ls_p1))) p01 p10
-                               bool T )
+                         (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p01 p11)
+                               ls_p0(append(subst px p01 ls_p0)(cdr(reverse ls_p1)))
+                               p01 p10 bool_reunion T bool T )
                          )
                         )
                         (progn
