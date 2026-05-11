@@ -18,6 +18,8 @@
   )
 
 
+;;todo;;lineが同一点のときの警告
+
 ;;メインコマンド
 (defun c:terraduct3d( / func_name dict_dokos bool_guidedisplay array_type array_data)
   (setq x_guidebase 1.)
@@ -4472,7 +4474,9 @@
                              (make_arcdimension
                               e(list pc p0 p1 p2 rr vec_normal dist_normal
                                      (strcat
-                                      "R="(if(<(distance p1 p2)1e-8)(chr 8734)(as-numstr rr)))
+                                      "R="(if(<(distance p1 p2)1e-8)(chr 8734)
+                                            (rtos rr 2 8))
+                                      )
                                      str_dimstyle_ductlevel))
                              )
                        
@@ -5531,7 +5535,6 @@
                
                )
               ((= bool_linetype 1)
-
                
                (mapcar
                 'set '(vec_nline0 vec_nline1 p_centerx p_arcstartx p_arcendx p_arcwayx p_crossx)
@@ -5624,17 +5627,20 @@
                    (while(= int_editarcposition_temp 3)
                      
                      (setq delta_arc(* -0.1 radius_arcmove) bool_loop T d 0 ls_limit0(list))
+
+                     (setq num_limit2 100)
                      (while bool_loop
                        (setq d(+ d delta_arc)
                              p_temp(mapcar '(lambda(a b)(+ a(* d b)))p_line01 vec_line0)
                              lst(cal_twisttangent
                                  radius_arcmove p_temp
                                  p_line00 p_line01 p_line10 p_line11 vec_line0 vec_line1 length_s)
+                             num_limit2(1- num_limit2)
                              )
 
                        (if(setq p(cadar lst))
                            (cond
-                            ((<(distance p p_line01)1e-8)
+                            ((<(distance p p_line01)1e-6)
                              (setq ls_limit0 lst p_limit0 p_temp bool_loop nil))
                             (T
                              (setq ls_limit0 lst p_limit0 p_temp)
@@ -5642,10 +5648,12 @@
                                  (setq delta_arc(* -0.1 delta_arc)) )
                              )
                             )
-                         (if(null ls_limit0)(setq delta_arc(* -2. delta_arc))
-                           (setq bool_loop nil))
+                         (if(< num_limit2 0)(setq bool_loop nil)
+                           (if(null ls_limit0)(setq delta_arc(* -1.1 delta_arc))
+                             (setq bool_loop nil)))
                          )
                        )
+                     
                      
                      (setq dist_line_tan
                            (if bool_distline
@@ -5699,7 +5707,6 @@
                      )
                    ))
 
-               
                
                (setq delta_arc(* -0.1 radius_arcmove) bool_loop T d 0)
                (while bool_loop
@@ -9167,7 +9174,8 @@
                                  entna(make_arcdimension
                                        nil(list p15 p13 p14 p16 rr
                                                 vec_normal dist_normal
-                                                (strcat "R="(if(< rr 1e-8)(chr 8734)(as-numstr rr)))
+                                                (strcat "R="(if(< rr 1e-8)(chr 8734)
+                                                              (rtos rr 2 8)))
                                                 (if(vl-position str_dim_temp ls_dimstyle)
                                                     str_dim_temp str_dimstyle_ductlevel)
                                                 ))
