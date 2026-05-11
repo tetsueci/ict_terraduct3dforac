@@ -392,6 +392,10 @@
              (cons "SYMBOL" 'int_unitelevation);;
              (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)1)))
 
+        (list(cons "TEXT"(mix_strasc(list  20870 24359 33258 21205 35336 31639 26178 20024 12417 26689 25968 ))) 
+             (cons "ITEM" "EDIT_BOX");;円弧自動計算時丸め桁数
+             (cons "SYMBOL" 'int_unitarcautoma);;
+             (cons "TYPE" "INT") (cons "INITIALFUNC"(lambda(a)2)))
         
         (list(cons "TEXT"(mix_strasc(list 21517 31216 12398 19978 26360 12365 )));;
              (cons "ITEM" "POPUP_LIST")
@@ -3510,12 +3514,18 @@
 
          (if vnam_road
              (if(setq p_close(vlax-curve-getclosestpointto vnam_road p_ground nil))
-                 ((lambda(ls_p / p vec vec1 vec2 x y ang ang1 ang2)
+                 ((lambda(ls_p / p vec vec1 vec2 x y ang ang1 ang2 d pn dn)
 
                     (while ls_p
-                      (setq p(car ls_p)ls_p(cdr ls_p))
-                      (if(<(distance p p_close)0.2)
-                          (setq ls_p nil p_close p ))
+                      (setq p(car ls_p)ls_p(cdr ls_p)
+                            d(distance p p_close))
+                      (if(< d 0.2)
+                          (setq pn(if(car ls_p)(car ls_p))
+                                dn(if pn(distance pn p_close))
+                                p_close(if(if dn(< dn d))pn p)
+                                ls_p nil
+                                )
+                        )
                       )
                     
                     (if(setq vec_road(xvla-normal vnam_road p_close))
@@ -4339,12 +4349,13 @@
          
          (setq num_duct(- int_min_duct 2)
                ls_pmesh(list) ls_pbar(list) ls_center(list)ls_vec(list)
-               pitch_mesh pitch_project
                p00 nil p01 nil p10 nil p11 nil vec0 nil vec1 nil
                ls_arc nil
+               pitch_mesh(min pitch_project diam_duct_temp)
                )
+
          
-         (if(<(abs pitch_mesh)1e-8)(setq pitch_mesh 0.5))
+         (if(<(abs pitch_mesh)1e-8)(setq pitch_mesh diam_duct_temp))
 
          (while(<=(setq num_duct(1+ num_duct))int_max_duct)
            (setq vnam_line0(cadr(assoc "OBJ"(assoc(list "LINE" num_duct)ls_vnam_duct)))
@@ -4415,8 +4426,8 @@
                                             (cons "POSITION" nil))
                          ls_vnam_duct(cons ls_currentarc1(cons ls_currentarc0 ls_vnam_duct))
                          ))
-
-                
+                 
+                 
                  (setq rr(cdr(assoc "RADIUS" ls_currentarc0)))
                  
                  (setq ls_arc(connect_twist_curve ;;(list vec_normal pc p0 p1 p2 length_straight)
@@ -4475,7 +4486,7 @@
                               e(list pc p0 p1 p2 rr vec_normal dist_normal
                                      (strcat
                                       "R="(if(<(distance p1 p2)1e-8)(chr 8734)
-                                            (rtos rr 2 8))
+                                            (as-numstr rr))
                                       )
                                      str_dimstyle_ductlevel))
                              )
@@ -5583,6 +5594,9 @@
                           (setq radius_arcmove(+ radius_arcmove delta_arcmove)))
                          )
                         )
+                      (setq radius_arcmove
+                            (atof(rtos radius_arcmove 2 int_unitarcautoma)))
+                      
                       ) ))
                
                (setq p_center_limit00
@@ -5622,91 +5636,145 @@
                (setq vec_normal(unit_vector(cross_product(mapcar '- p_line10 p_line01)vec_line0))
                      dist_normal(apply '+(mapcar '* vec_normal p_line01)))
 
-               (setq bool_distline T radius_limit radius_bend_temp num_limit 100)
+               (setq bool_distline T radius_limit radius_bend_temp num_limit 100
+                     )
+
+
+               
                (if(= int_editarcposition_temp 3)
-                   (while(= int_editarcposition_temp 3)
+                   (progn
+                     (setq length_arc_min 0
+                           vec_ends(mapcar '- p_line10 p_line01)
+                           length_arc_max(distance p_line01 p_line10)
+                           variable_a(expt length_arc_max 2)
+                           variable_b(* 2.(apply '+(mapcar '* vec_ends vec_line0)))
+                           variable_c(* 2.(apply '+(mapcar '* vec_ends vec_line1)))
+                           variable_d(* 2.(1+(apply '+(mapcar '* vec_line0 vec_line1))))
+                           )
                      
-                     (setq delta_arc(* -0.1 radius_arcmove) bool_loop T d 0 ls_limit0(list))
-
-                     (setq num_limit2 100)
-                     (while bool_loop
-                       (setq d(+ d delta_arc)
-                             p_temp(mapcar '(lambda(a b)(+ a(* d b)))p_line01 vec_line0)
-                             lst(cal_twisttangent
-                                 radius_arcmove p_temp
-                                 p_line00 p_line01 p_line10 p_line11 vec_line0 vec_line1 length_s)
-                             num_limit2(1- num_limit2)
+                     (while(= int_editarcposition_temp 3)
+                       
+                       (setq length_arc_x
+                             (/(+ variable_a(* length_arc_min variable_b))
+                               (+ variable_c(* length_arc_min variable_d)))
+                             vec_common
+                             (mapcar '(lambda(a b c)
+                                        (+ a(* length_arc_min b)(* -1. length_arc_x c)))
+                                     vec_ends vec_line0 vec_line1)
+                             vec_common(unit_vector vec_common)
+                             radius1(apply '+(mapcar '* vec_line0 vec_common))
+                             radius1(* length_arc_min(sqrt(/(- 1 radius1)(+ 1 radius1))))
+                             radius2(apply '+(mapcar '* vec_line1 vec_common))
+                             radius2(* length_arc_x(sqrt(/(+ 1 radius2)(- 1 radius2))))
+                             dist_line_tan(- radius1 radius2)
                              )
 
-                       (if(setq p(cadar lst))
-                           (cond
-                            ((<(distance p p_line01)1e-6)
-                             (setq ls_limit0 lst p_limit0 p_temp bool_loop nil))
-                            (T
-                             (setq ls_limit0 lst p_limit0 p_temp)
-                             (if(>(*(apply '+(mapcar '*(mapcar '- p p_line01)vec_line0))delta_arc)0)
-                                 (setq delta_arc(* -0.1 delta_arc)) )
-                             )
-                            )
-                         (if(< num_limit2 0)(setq bool_loop nil)
-                           (if(null ls_limit0)(setq delta_arc(* -1.1 delta_arc))
-                             (setq bool_loop nil)))
+                       (setq num_limit(1- num_limit))
+                       (cond
+                        ((< num_limit 0)(setq int_editarcposition_temp 1))
+                        ((<(abs dist_line_tan)1e-8)
+                         (setq radius_arcmove(max radius_arcmove radius1))
+                         (setq int_editarcposition_temp 1))
+                        ((< dist_line_tan 0.)
+                         (if(< delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
+                         (setq length_arc_min(+ length_arc_min delta_arcmove))
                          )
+                        (T
+                         (if(> delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
+                         (setq length_arc_min(+ length_arc_min delta_arcmove)))
+                        )
                        )
-                     
-                     
-                     (setq dist_line_tan
-                           (if bool_distline
-                               (apply '+(mapcar '*(mapcar '-(nth 1(car ls_limit0)) p_line01) vec_line0))
-                             (apply '+(mapcar '*(mapcar '-(nth 1(cadr ls_limit0)) p_line10) vec_line1)))
-                           )
-                     
-                     (setq num_limit(1- num_limit))
-                     (cond
-                      ((< num_limit 0)(setq int_editarcposition_temp 1))
-                      ((<(abs dist_line_tan)1e-8)
-                       (if bool_distline(setq bool_distline nil radius_limit radius_arcmove
-                                              delta_arcmove(* 0.1 radius_arcmove) )
-                         (setq int_editarcposition_temp 1)))
-                      ((< dist_line_tan 0.)
-                       (if(< delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
-                       (setq radius_arcmove(+ radius_arcmove delta_arcmove))
-                       )
-                      
-                      ((<(- radius_arcmove radius_limit)1e-8)
-                       (setq radius_arcmove radius_limit int_editarcposition_temp 1))
-                      (T
-                       (if(> delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
-                       (setq radius_arcmove(+ radius_arcmove delta_arcmove)))
-                      )
-                     )
-                 (progn
-                 
-                   (setq delta_arc(* -0.1 radius_arcmove) bool_loop T d 0)
-                   (while bool_loop
-                     (setq d(+ d delta_arc)
-                           p_temp(mapcar '(lambda(a b)(+ a(* d b)))p_line01 vec_line0)
-                           lst(cal_twisttangent
-                               radius_arcmove p_temp
-                               p_line00 p_line01 p_line10 p_line11 vec_line0 vec_line1 length_s)
-                           )
-                     
-                     (if(setq p(cadar lst))
-                         (cond
-                          ((<(distance p p_line01)1e-8)
-                           (setq ls_limit0 lst p_limit0 p_temp bool_loop nil))
-                          (T
-                           (setq ls_limit0 lst p_limit0 p_temp)
-                           (if(>(*(apply '+(mapcar '*(mapcar '- p p_line01)vec_line0))delta_arc)0)
-                               (setq delta_arc(* -0.1 delta_arc)) )
-                           )
-                          )
-                       (if(null ls_limit0)(setq delta_arc(* -2. delta_arc))
-                         (setq bool_loop nil))
-                       )
-                     )
-                   ))
 
+                     (setq radius_arcmove
+                           (atof(rtos radius_arcmove 2 int_unitarcautoma)))
+                     
+                     
+                     ;; (while(= int_editarcposition_temp 3)
+                     ;;   (setq delta_arc(* -0.1 radius_arcmove) bool_loop T d 0 ls_limit0(list))
+                     ;;   (setq num_limit2 100)
+                     ;;   (while bool_loop
+                     ;;     (setq d(+ d delta_arc)
+                     ;;           p_temp(mapcar '(lambda(a b)(+ a(* d b)))p_line01 vec_line0)
+                     ;;           lst(cal_twisttangent
+                     ;;               radius_arcmove p_temp
+                     ;;               p_line00 p_line01 p_line10 p_line11 vec_line0 vec_line1 length_s)
+                     ;;           num_limit2(1- num_limit2)
+                     ;;           )
+                     ;;     (if(setq p(cadar lst))
+                     ;;         (cond
+                     ;;          ((<(distance p p_line01)1e-6)
+                     ;;           (setq ls_limit0 lst p_limit0 p_temp bool_loop nil))
+                     ;;          (T
+                     ;;           (setq ls_limit0 lst p_limit0 p_temp)
+                     ;;           (if(>(*(apply '+(mapcar '*(mapcar '- p p_line01)vec_line0))delta_arc)0)
+                     ;;               (setq delta_arc(* -0.1 delta_arc)) )
+                     ;;           )
+                     ;;          )
+                     ;;       (if(< num_limit2 0)(setq bool_loop nil)
+                     ;;         (if(null ls_limit0)(setq delta_arc(* -1. delta_arc))
+                     ;;           (setq bool_loop nil)))
+                     ;;       )
+                     ;;     )
+                     
+                     ;;   (setq dist_line_tan
+                     ;;         (if bool_distline
+                     ;;             (apply '+(mapcar '*(mapcar '-(nth 1(car ls_limit0)) p_line01) vec_line0))
+                     ;;           (apply '+(mapcar '*(mapcar '-(nth 1(cadr ls_limit0)) p_line10) vec_line1)))
+                     ;;         )
+
+                     
+                     
+                     ;;   (setq num_limit(1- num_limit))
+                     ;;   (cond
+                     ;;    ((< num_limit 0)(setq int_editarcposition_temp 1))
+                     ;;    ((<(abs dist_line_tan)1e-8)
+                     ;;     (if bool_distline(setq bool_distline nil radius_limit radius_arcmove
+                     ;;                            delta_arcmove(* 0.1 radius_arcmove) )
+                     ;;       (setq int_editarcposition_temp 1)))
+                     ;;    ((< dist_line_tan 0.)
+                     ;;     (if(< delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
+                     ;;     (setq radius_arcmove(+ radius_arcmove delta_arcmove))
+                     ;;     )
+                     
+                     ;;    ((<(- radius_arcmove radius_limit)1e-8)
+                     ;;     (setq radius_arcmove radius_limit int_editarcposition_temp 1))
+                     ;;    (T
+                     ;;     (if(> delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
+                     ;;     (setq radius_arcmove(+ radius_arcmove delta_arcmove)))
+                     ;;    )
+                     ;;   )
+                     
+                     ))
+
+               (progn
+                 
+                 (setq delta_arc(* -0.1 radius_arcmove) bool_loop T d 0)
+                 (while bool_loop
+                   (setq d(+ d delta_arc)
+                         p_temp(mapcar '(lambda(a b)(+ a(* d b)))p_line01 vec_line0)
+                         lst(cal_twisttangent
+                             radius_arcmove p_temp
+                             p_line00 p_line01 p_line10 p_line11 vec_line0 vec_line1 length_s)
+                         )
+                   (if(setq p(cadar lst))
+                       (cond
+                        
+                        ((<(distance p p_line01)1e-8)
+                         (setq ls_limit0 lst p_limit0 p_temp bool_loop nil))
+                        (T
+                         
+                         (setq ls_limit0 lst p_limit0 p_temp)
+                         (if(>(*(apply '+(mapcar '*(mapcar '- p p_line01)vec_line0))delta_arc)0)
+                             (setq delta_arc(* -0.1 delta_arc)) )
+                         )
+                        )
+                     
+                     (if(null ls_limit0)(setq delta_arc(* -1.1 delta_arc))
+                       (setq bool_loop nil))
+                     
+                     )
+                   )
+                 )
                
                (setq delta_arc(* -0.1 radius_arcmove) bool_loop T d 0)
                (while bool_loop
@@ -5726,7 +5794,7 @@
                            (setq delta_arc(* -0.1 delta_arc)) )
                        )
                       )
-                   (if(null ls_limit1)(setq delta_arc(* -2. delta_arc))
+                   (if(null ls_limit1)(setq delta_arc(* -1.1 delta_arc))
                      (setq bool_loop nil))
                    )
                  )
@@ -9069,6 +9137,11 @@
                                 )
                            (cdr lst))
 
+                   (setq pitch_mesh(min pitch_project diam_duct_temp))
+                   (if(<(abs pitch_mesh)1e-8)
+                       (setq pitch_mesh diam_duct_temp))
+                   
+                   
                    (if(=(caar ls_str_in)"ATTRIBUTE")
                        (setq ls_xdata_att(cdar ls_str_in)
                              ls_str_in(cdr ls_str_in)))
@@ -9175,7 +9248,7 @@
                                        nil(list p15 p13 p14 p16 rr
                                                 vec_normal dist_normal
                                                 (strcat "R="(if(< rr 1e-8)(chr 8734)
-                                                              (rtos rr 2 8)))
+                                                              (as-numstr rr )))
                                                 (if(vl-position str_dim_temp ls_dimstyle)
                                                     str_dim_temp str_dimstyle_ductlevel)
                                                 ))
@@ -9958,6 +10031,93 @@
     )
    )
   )
+
+
+(defun cal_radiustwist
+    (rr p_tan p00 p01 p10 p11 vec0 vec1 length_straight
+        / length_arc_min length_arc_max length_arc_x vec_p
+        variable_a variable_b variable_c variable_d vec_tan
+        dist_diff num_limit bool_loop ls_out radius1 radius2 delta
+        bool_loop_r  p_tan1 delta_r)
+
+  (setq bool_loop_r T p_tan1 p10 delta_r(* rr 0.1))
+  (while bool_loop_r
+    
+    (setq length_arc_min 0 
+          vec_p(mapcar '- p_tan1 p01)
+          length_arc_max(distance p01 p_tan1)
+          variable_a(expt length_arc_max 2)
+          variable_b(* 2.(apply '+(mapcar '* vec_p vec0)))
+          variable_c(* 2.(apply '+(mapcar '* vec_p vec1)))
+          variable_d(* 2.(1+(apply '+(mapcar '* vec0 vec1))))
+          num_limit 100 bool_loop T
+          delta(* rr 0.1)
+          )
+    
+    (while bool_loop
+      (setq length_arc_x
+            (/(+ variable_a(* length_arc_min variable_b))
+              (+ variable_c(* length_arc_min variable_d)))
+            vec_tan
+            (mapcar '(lambda(a b c)
+                       (+ a(* length_arc_min b)(* -1. length_arc_x c)))
+                    vec_p vec0 vec1)
+            vec_tan(unit_vector vec_tan)
+            radius1(apply '+(mapcar '* vec0 vec_tan))
+            radius1(* length_arc_min(sqrt(/(- 1 radius1)(+ 1 radius1))))
+            radius2(apply '+(mapcar '* vec1 vec_tan))
+            radius2(* length_arc_x(sqrt(/(+ 1 radius2)(- 1 radius2))))
+            
+            dist_diff(- radius2 radius1)
+            )
+      
+      (setq num_limit(1- num_limit))
+      (cond
+       ((< num_limit 0)(setq bool_loop nil))
+       ((<(abs dist_diff)1e-8)
+        (cond
+         ((<(abs(- rr radius1))1e-6)
+          (setq vech0(unit_vector(cross_product vec_tan vec0))
+                vech1(unit_vector(cross_product vec_tan vec1))
+                
+                pt00 p01
+                pc0 (mapcar '(lambda(a b)(+ a(* rr b)))pt00(cross_product vech0 vec0))
+                pt01(mapcar '(lambda(a b)(+ a(* rr b)))pc0(cross_product vec_tan vech0))
+                pt02(mapcar '(lambda(a b)(+ a(* rr b)))
+                            pc0(unit_vector(mapcar '(lambda(a b c)(+ a b(* -2 c)))pt00 pt01 pc0)))
+
+                pt10 p_tan1
+                pc1 (mapcar '(lambda(a b)(+ a(* rr b)))pt10(cross_product vech1 vec1))
+                pt11(mapcar '(lambda(a b)(+ a(* rr b)))pc1(cross_product vec_tan vech1))
+                pt12(mapcar '(lambda(a b)(+ a(* rr b)))
+                            pc1(unit_vector(mapcar '(lambda(a b c)(+ a b(* -2 c)))pt10 pt11 pc1)))
+                ls_out(list(list pc0 pt00 pt01 pt02 vech0 length_straight)
+                           (list pc1 pt10 pt11 pt12 vech1 length_straight))
+                bool_loop nil)
+          )
+         ;; (< rr radius1
+         
+         )
+        )
+       l
+       ((< dist_diff 0.)
+        (if(< delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
+        (setq length_arc_min(+ length_arc_min delta_arcmove))
+        )
+       ((< radius1 rr)
+        (setq bool_loop nil))
+       (T
+        (if(> delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
+        (setq length_arc_min(+ length_arc_min delta_arcmove)))
+       )
+      )
+    
+    )
+  ls_out
+  )
+
+
+
 
 (defun cal_twisttangent
     (rr p_tan p00 p01 p10 p11 vec0 vec1 length_straight /
