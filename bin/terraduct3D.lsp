@@ -1480,7 +1480,7 @@
 
                            (cond
                             ((= int_reproject 0)
-                             (setq ls_p_center(list))
+                             (setq ls_p_center(list)ls_p_text(list))
                              (setq str(vla-get-name vnam))
                              
                              (if(setq num(vl-string-search "$" str))
@@ -1518,6 +1518,20 @@
                                             (list p)(list 0. 0. 1.)(list str_lasground height_ground)))
                                       )
                                 (vla-addcircle block(vlax-3d-point p)(vla-get-radius obj))
+                                
+                                )
+                               ((=(vla-get-ObjectName obj)"AcDbText")
+                                (setq p(vlax-safearray->list(vlax-variant-value(vla-get-TextAlignmentPoint  obj)))
+                                      )
+                                
+                                (setq p(car(project_to_ground
+                                            (list p)(list 0. 0. 1.)(list str_lasground height_ground)))
+                                      )
+                                
+                                (setq vnam(vla-addtext block "arc" p(vla-get-height obj)))
+                                (vla-put-Alignment vnam 13)
+                                (vla-put-rotation vnam(vla-get-rotation obj))
+                                
                                 
                                 )
                                )
@@ -1587,9 +1601,7 @@
                              nil
                              )
                             
-                            ((= int_reproject 1)
-                             (setq ls_p_center(list))
-
+                            ((= int_reproject 1);;                             (setq ls_p_center(list)ls_p_text(list))
                              (vlax-for
                               obj
                               (vla-Item vnam_blocktable(vla-get-name vnam))
@@ -1603,12 +1615,19 @@
                                 (setq p(vlax-safearray->list(vlax-variant-value(vla-get-center obj)))
                                       ls_p_center (cons p ls_p_center)
                                       )
+                                )
+                               
+                               ((=(vla-get-ObjectName obj)"AcDbText")
+
+                                (setq p(vlax-safearray->list(vlax-variant-value(vla-get-TextAlignmentPoint  obj)))
+                                      ls_p_text(cons(list p(vla-get-rotation obj)) ls_p_text)
+                                      )
                                 
                                 )
                                )
                               )
                              
-                             (setq ls_reunion_project(cons(list vnam ls_p ls_p_center int_col)
+                             (setq ls_reunion_project(cons(list vnam ls_p ls_p_center int_col ls_p_text)
                                                           ls_reunion_project))
                              nil
                              )
@@ -1638,7 +1657,40 @@
                                          (split_list 3 ls_p))
                                    )
                              )
-                           (cons vnam ls_p)
+                           (setq ls_pa(mapcar
+                                       '(lambda(p1 p2 / p p_c ag)
+                                          (setq p(mapcar '(lambda(a b)(* 0.5(+ a b)))p1 p2)
+                                                p_c(vlax-curve-getclosestpointto vnam p nil)
+                                                
+                                                
+                                                )
+                                          (if(<(distance p p_c)1e-8)nil
+                                            
+                                            ((lambda( / vec d)
+                                               (setq vec(mapcar '- p2 p1)
+                                                     vec(unit_vector
+                                                         (list(-(cadr vec))(car vec)0))
+                                                     d(apply '+(mapcar '*(mapcar '- p_c p)vec))
+                                                     )
+                                               (if(> d 0)
+                                                   (setq ag(angle p1 p2)
+                                                         p_c(mapcar '(lambda(a b)(+ a(* radius_node_temp b)))
+                                                                    p vec)
+                                                         )
+                                                 (setq ag(angle p2 p1)
+                                                       p_c(mapcar '(lambda(a b)(+ a(* radius_node_temp -1 b)))
+                                                                  p vec)
+                                                       )
+                                                 )
+                                               (list p_c ag)
+                                               ))
+                                            )
+                                          )
+                                       ls_p(cdr ls_p))
+                                 ls_pa(vl-remove nil ls_pa)
+                                 )
+                           
+                           (list vnam ls_p ls_pa)
                            ))
                        )
                      )
@@ -1651,17 +1703,17 @@
          (while ls_reunion_project
            (setq lst(car ls_reunion_project)
                  vnam0(car lst)ls_p0(cadr lst)ls_pc0(caddr lst)int_col(cadddr lst)
-                 
+                 ls_pa0(nth 4 lst)
                  p00(car ls_p0)p01(last ls_p0)
                  ls_reunion_project(cdr ls_reunion_project)
                  ls_dummy ls_reunion_project)
            (setq bool_reunion nil)
-           
            (while
                ((lambda(ls_dummy2 / bool pe0 pe1 px)
                   (while ls_dummy2
                     (setq lst(car ls_dummy2)ls_dummy2(cdr ls_dummy2)
                           vnam1(car lst)ls_p1(cadr lst)ls_pc1(caddr lst)
+                          ls_pa1(nth 4 lst)
                           p10(car ls_p1)p11(last ls_p1)
                           )
 
@@ -1669,21 +1721,25 @@
                         ((<(distance p00 p10)allow_joint)
                          (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p00 p10)
                                ls_p0(append(reverse(cdr ls_p1))(list px)(cdr ls_p0))
+                               ls_pa0(append ls_pa0 ls_pa1)
                                pe0 p00 pe1 p10 p00 p11 bool_reunion T bool T )
                          )
                         ((<(distance p00 p11)allow_joint)
                          (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p00 p11)
                                ls_p0(append(subst px p11 ls_p1)(cdr ls_p0))
+                               ls_pa0(append ls_pa0 ls_pa1)
                                pe0 p00 pe1 p11 p00 p10 bool_reunion T bool T )
                          )
                         ((<(distance p01 p10)allow_joint)
                          (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p01 p10)
                                ls_p0(append(subst px p01 ls_p0)(cdr ls_p1))
+                               ls_pa0(append ls_pa0 ls_pa1)
                                pe0 p01 pe1 p10 p01 p11 bool_reunion T bool T )
                          )
                         ((<(distance p01 p11)allow_joint)
                          (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p01 p11)
                                ls_p0(append(subst px p01 ls_p0)(cdr(reverse ls_p1)))
+                               ls_pa0(append ls_pa0 ls_pa1)
                                pe0 p01 pe1 p11 p01 p10 bool_reunion T bool T )
                          )
                         )
@@ -1701,13 +1757,14 @@
                 ls_dummy))
            
            (if bool_reunion
-               (setq ls_vnam_reunion(cons(list vnam0 ls_p0 ls_pc0 int_col)ls_vnam_reunion)))
+               (setq ls_vnam_reunion(cons(list vnam0 ls_p0 ls_pc0 int_col ls_pa0)ls_vnam_reunion)))
            
            )
 
          (while ls_vnam_reunion
            (setq lst(car ls_vnam_reunion)ls_vnam_reunion(cdr ls_vnam_reunion)
                  vnam(car lst)ls_p(cadr lst)ls_pc(caddr lst)int_col(cadddr lst)
+                 ls_pa(nth 4 lst)
                  str(vla-get-name vnam)i 0)
            (vla-delete vnam)
            
@@ -1730,7 +1787,16 @@
            ;; (vlax-for obj block(vla-delete obj))
            (mapcar '(lambda(p)(vla-addcircle block(vlax-3d-point p)radius_node_temp))
                    ls_pc)
-
+           
+           (mapcar
+            '(lambda(lst / p v vnam )
+               (setq p(vlax-3d-point(car lst))
+                     vnam(vla-addtext block "arc" p radius_node_temp))
+               (vla-put-Alignment vnam 13)
+               (vla-put-rotation vnam(cadr lst))
+               )
+            ls_pa)
+           
            (setq ls_p(apply 'append ls_p) )
            (setq array_p(vlax-make-safearray vlax-vbDouble(cons 0 (1-(length ls_p)))))
            (vlax-safearray-fill array_p ls_p)
@@ -1760,7 +1826,8 @@
          (setq ls_dummy ls_vnam_point ls_vnam_select(list))
 
          (while ls_vnam_point
-           (setq lst(car ls_vnam_point)vnam0(car lst)ls_p0(cdr lst)
+           (setq lst(car ls_vnam_point)
+                 vnam0(car lst)ls_p0(cadr lst)ls_pa0(caddr lst)
                  p00(car ls_p0)p01(last ls_p0)
                  ls_vnam_point(cdr ls_vnam_point)
                  ls_dummy ls_vnam_point)
@@ -1768,29 +1835,34 @@
            (while
                ((lambda(ls_dummy2 / bool)
                   (while ls_dummy2
-                    (setq lst(car ls_dummy2)ls_p1(cdr lst)ls_dummy2(cdr ls_dummy2)
+                    (setq lst(car ls_dummy2)ls_p1(cadr lst)ls_pa1(caddr lst)
+                          ls_dummy2(cdr ls_dummy2)
                           p10(car ls_p1)p11(last ls_p1)
                           )
-
+                    
                     (if(cond
                         ((<(distance p00 p10)allow_joint)
                          (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p00 p10)
                                ls_p0(append(reverse(cdr ls_p1))(list px)(cdr ls_p0))
+                               ls_pa0(append ls_pa0 ls_pa1)
                                p00 p11 bool_reunion T bool T )
                          )
                         ((<(distance p00 p11)allow_joint)
                          (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p00 p11)
                                ls_p0(append(subst px p11 ls_p1)(cdr ls_p0))
+                               ls_pa0(append ls_pa0 ls_pa1)
                                p00 p10 bool_reunion T bool T )
                          )
                         ((<(distance p01 p10)allow_joint)
                          (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p01 p10)
                                ls_p0(append(subst px p01 ls_p0)(cdr ls_p1))
+                               ls_pa0(append ls_pa0 ls_pa1)
                                p01 p11 bool_reunion T bool T )
                          )
                         ((<(distance p01 p11)allow_joint)
                          (setq px(mapcar '(lambda(a b)(* 0.5(+ a b)))p01 p11)
                                ls_p0(append(subst px p01 ls_p0)(cdr(reverse ls_p1)))
+                               ls_pa0(append ls_pa0 ls_pa1)
                                p01 p10 bool_reunion T bool T )
                          )
                         )
@@ -1802,12 +1874,12 @@
                   bool)
                 ls_dummy))
            
-           (setq ls_vnam_select(cons(cons vnam0 ls_p0)ls_vnam_select))
+           (setq ls_vnam_select(cons(list vnam0 ls_p0 ls_pa0)ls_vnam_select))
            )
          
          (while ls_vnam_select
            (setq lst(car ls_vnam_select)ls_vnam_select(cdr ls_vnam_select)
-                 vnam(car lst)ls_p(cdr lst)
+                 vnam(car lst)ls_p(cadr lst)ls_pa(caddr lst)
                  str_hand(vla-get-handle vnam)i 0)
            
            (while
@@ -1821,7 +1893,7 @@
            
            (setq block(vla-Add vnam_blockTable(vlax-3d-point 0 0 0)str_bname)
                  ls_vla-release(cons block ls_vla-release))
-           ;; ;; 含まれるすべてのオブジェクトを削除
+           ;; 含まれるすべてのオブジェクトを削除
            ;; (vlax-for obj block(vla-delete obj))
 
            
@@ -1857,11 +1929,25 @@
               '(lambda(n / p v)
                  (if(setq p(nth n ls_p))(setq v(vla-addcircle block (vlax-3d-point p)radius_node_temp)) ))
               ls_int_node))
+
            
-           (setq ls_p(apply 'append ls_p) )  
+           (setq ls_p(apply 'append ls_p) )
            (setq array_p(vlax-make-safearray vlax-vbDouble(cons 0 (1-(length ls_p)))))
            (vlax-safearray-fill array_p ls_p)
 
+           (mapcar
+            '(lambda(lst / p v vnam )
+               (setq p(vlax-3d-point
+                       (car(project_to_ground
+                            (list(car lst))(list 0. 0. 1.)(list str_lasground height_ground)))
+                       )
+                     vnam(vla-addtext block "arc" p radius_node_temp))
+               (vla-put-Alignment vnam 13)
+               (vla-put-rotation vnam(cadr lst))
+               )
+            ls_pa)
+           
+           
            (setq vnam(vla-Add3dPoly block array_p) )
            (vla-put-color vnam int_col)
            
