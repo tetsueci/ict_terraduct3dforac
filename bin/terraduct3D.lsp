@@ -5941,7 +5941,7 @@
     
     (cons
      "MOVE"
-     (lambda();;gr5
+     (lambda( / ls_grdraw);;gr5
        (if(if vec_normal(<(abs(apply '+(mapcar '* vec_normal vec_view)))1e-8))
            (progn;;円弧の法線とビュー方向が直交しているとき描画できません;;ビューを回転させてください
              (x-alert(list 20870 24359 12398 27861 32218 12392 12499 12517 12540 26041 21521 12364
@@ -5969,7 +5969,8 @@
                                (if(= int_baseline 0)vec_line0 vec_line1))
                  
                  )
-           
+
+           (setq ls_grdraw(cons(list p_proj p_temp 2)ls_grdraw))
            (grdraw p_proj p_temp 2)
            ;; (grdraw p_center_limit00  p_center_limit01 3)
            ;; (grdraw p_center_limit11  p_center_limit01 1)
@@ -6069,11 +6070,13 @@
                ((= bool_linetype 2)
                 (setq bool(= int_temp 0)
                       d(apply '+(mapcar '* p(if bool vec_line0 vec_line1))))
+               
+                
                 (if bool
                     (set sym(mapcar
                              '(lambda(lst ls_i)
                                 (mapcar '(lambda(i)(nth i lst))ls_i))
-                             (cal_twisttangent
+                             (cal_twisttangent;;cal_radiustwist;;
                               radius_arcmove p
                               p_line00 p_line01 p_line10 p_line11 vec_line0 vec_line1 length_s)
                              (list(list 0 1 2 3 4 5)(list 0 2 1 3 4 5))
@@ -6083,9 +6086,17 @@
                            '(lambda(lst ls_i)
                               (mapcar '(lambda(i)(nth i lst))ls_i))
                            (reverse
+                            
+                            ;; (cal_radiustwist
+                            ;;  radius_arcmove p
+                            ;;  p_line11 p_line10 p_line01 p_line00
+                            ;;  (mapcar '- vec_line1)(mapcar '- vec_line0)
+                            ;;  length_s)
+                            
                             (cal_twisttangent
                              radius_arcmove p
-                             p_line10 p_line11 p_line00 p_line01 vec_line1 vec_line0 length_s))
+                             p_line10 p_line11 p_line00 p_line01 vec_line1 vec_line0 length_s)
+                            )
                            (list(list 0 1 2 3 4 5)(list 0 2 1 3 4 5))
                            )
                        )
@@ -6106,18 +6117,27 @@
                  
                  (mapcar '(lambda(e lst bool / pc p0 p1 p2 v r d)
                             (mapcar 'set '(pc p0 p1 p2 v)lst)
-                            (if bool(grdraw p0 p_line01 4)(grdraw p1 p_line10 4))
+                            (setq ls_grdraw(cons
+                                            (if bool(list p0 p_line01 4)
+                                              (list p1 p_line10 4))
+                                            ls_grdraw))
                             (setq d(apply '+(mapcar '* v pc)))
                             (make_arcdimension e(list pc p0 p1 p2
                                                       radius_arcmove v d
                                                       " " str_dimstyle_ductlevel))
-                            (grdraw pc p0 8)
-                            (grdraw pc p1 8)
+                            (setq ls_grdraw(cons(list pc p0 8)ls_grdraw))
+                            (setq ls_grdraw(cons(list pc p1 8)ls_grdraw))
                             (if(and(= bool_linetype 2)(equal(= int_baseline 0)bool))
-                                (mapcar '(lambda(p)(grdraw p_temp p 8))(list p0 p1)))
+                                (mapcar '(lambda(p)
+                                           (setq ls_grdraw(cons(list p_temp p 8)ls_grdraw))
+                                           )
+                                        (list p0 p1)))
                             )
                          (mapcar 'car ls_entna_arctemp) ls_arc_temp(list T nil))
-                         
+                 
+
+                 (mapcar '(lambda(a)(grdraw(car a)(cadr a)(caddr a)))ls_grdraw)
+                 
                  )
              (progn
                
@@ -10038,11 +10058,18 @@
         / length_arc_min length_arc_max length_arc_x vec_p
         variable_a variable_b variable_c variable_d vec_tan
         dist_diff num_limit bool_loop ls_out radius1 radius2 delta
-        bool_loop_r  p_tan1 delta_r)
+        bool_loop_r  p_tan1 delta_r px hx vec_normal rr_min)
 
-  (setq bool_loop_r T p_tan1 p10 delta_r(* rr 0.1))
+  (setq bool_loop_r T delta_r(* rr 0.1))
+  (setq vec_p(mapcar '- p11 p01)
+        vec_normal(cross_product vec1 vec_p)
+        vec_normal(unit_vector(cross_product vec_normal vec1))
+        hx(apply '+(mapcar '* vec_normal vec_p))
+        p_tan1(mapcar '(lambda(a b)(+ a(* hx b)))p01 vec_normal)
+        )
+  
+  
   (while bool_loop_r
-    
     (setq length_arc_min 0 
           vec_p(mapcar '- p_tan1 p01)
           length_arc_max(distance p01 p_tan1)
@@ -10060,23 +10087,34 @@
               (+ variable_c(* length_arc_min variable_d)))
             vec_tan
             (mapcar '(lambda(a b c)
-                       (+ a(* length_arc_min b)(* -1. length_arc_x c)))
+                       (+ a(*  length_arc_min b)(* -1. length_arc_x c)))
                     vec_p vec0 vec1)
             vec_tan(unit_vector vec_tan)
             radius1(apply '+(mapcar '* vec0 vec_tan))
-            radius1(* length_arc_min(sqrt(/(- 1 radius1)(+ 1 radius1))))
             radius2(apply '+(mapcar '* vec1 vec_tan))
-            radius2(* length_arc_x(sqrt(/(+ 1 radius2)(- 1 radius2))))
-            
-            dist_diff(- radius2 radius1)
             )
+
+      (if(or(< radius1 0)(< radius2 0))
+          (setq dist_diff nil)
+        (if(<(abs(1- radius2))1e-8)
+            (setq radius1(* length_arc_min(sqrt(/(- 1 radius1)(+ 1 radius1))))
+                  radius2 radius1x dist_diff 0 )
+          (setq radius1(* length_arc_min(sqrt(/(- 1 radius1)(+ 1 radius1))))
+                radius2(* length_arc_x(sqrt(/(+ 1 radius2)(- 1 radius2))))
+                dist_diff(- radius2 radius1) )
+          ))
       
       (setq num_limit(1- num_limit))
       (cond
        ((< num_limit 0)(setq bool_loop nil))
+       ((null dist_diff))
        ((<(abs dist_diff)1e-8)
+        (setq dist_diff(- rr radius1))
         (cond
-         ((<(abs(- rr radius1))1e-6)
+         ((if(null rr_min)(>(setq rr_min radius1)rr))
+          (setq bool_loop_r nil)
+          )
+         ((<(abs dist_diff)1e-6)
           (setq vech0(unit_vector(cross_product vec_tan vec0))
                 vech1(unit_vector(cross_product vec_tan vec1))
                 
@@ -10095,20 +10133,27 @@
                            (list pc1 pt10 pt11 pt12 vech1 length_straight))
                 bool_loop nil)
           )
-         ;; (< rr radius1
+         ((< rr radius1)
+          (if(< delta_r 0)(setq delta_r(* -0.1 delta_r)))
+          (setq p_tan1(mapcar '(lambda(a b)(+ a(* delta_r b)))p_tan1 vec1))
+          )
+         (T
+          (if(> delta_r 0)(setq delta_r(* -0.1 delta_r)))
+          (setq p_tan1(mapcar '(lambda(a b)(+ a(* delta_r b)))p_tan1 vec1))
+          )
          
          )
         )
-       l
+       
        ((< dist_diff 0.)
-        (if(< delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
-        (setq length_arc_min(+ length_arc_min delta_arcmove))
+        (if(< delta 0)(setq delta(* -0.1 delta)))
+        (setq length_arc_min(+ length_arc_min delta_))
         )
-       ((< radius1 rr)
-        (setq bool_loop nil))
+       ;; ((< radius1 rr)
+       ;;  (setq bool_loop nil))
        (T
-        (if(> delta_arcmove 0)(setq delta_arcmove(* -0.1 delta_arcmove)))
-        (setq length_arc_min(+ length_arc_min delta_arcmove)))
+        (if(> delta 0)(setq delta(* -0.1 delta)))
+        (setq length_arc_min(+ length_arc_min delta)))
        )
       )
     
