@@ -1154,7 +1154,8 @@
                        (cons "ITEM"(list 22522 26412 35373 23450))
                        (cons "LOADFUNCTION" settile_basicsetting)
                        ;;実行すると別ウィンドウが開くのでそこで内容を確認してください
-                       (cons "HELP"(lambda()(mix_strasc(list 23455 34892 12377 12427 12392 21029 12454 12451 12531 12489 12454 12364 38283 12367 12398 12391 12381 12371 12391 20869 23481 12434 30906 35469 12375 12390 12367 12384 12373 12356  ))))
+                       ;;\nここで設定した値がデフォルト値となります\nここ以外で値を変更しても、コマンド再開時は基本的にデフォルト値を使用します
+                       (cons "HELP"(lambda()(mix_strasc(list 23455 34892 12377 12427 12392 21029 12454 12451 12531 12489 12454 12364 38283 12367 12398 12391 12381 12371 12391 20869 23481 12434 30906 35469 12375 12390 12367 12384 12373 12356 "\n" 12371 12371 12391 35373 23450 12375 12383 20516 12364 12487 12501 12457 12523 12488 20516 12392 12394 12426 12414 12377 "\n" 12371 12371 20197 22806 12391 20516 12434 22793 26356 12375 12390 12418 12289 12467 12510 12531 12489 20877 38283 26178 12399 22522 26412 30340 12395 12487 12501 12457 12523 12488 20516 12434 20351 29992 12375 12414 12377   ))))
                        )
                   (list(list "ENTER");;終了
                        (cons "ITEM"(list 32066 20102))
@@ -1174,7 +1175,7 @@
               (list nil 'int_ductmode 0)
               (list nil 'int_ccboxmode 0)
               (list nil 'int_cancelduct 0)
-              (list nil 'int_hidesolid 0)
+              (list nil 'int_hidesolid 1)
               (list T 'int_projectnode 0)
               ;; (list nil 'int_colduct_temp nil)
               (list nil 'str_ductname nil)
@@ -10052,7 +10053,25 @@
    )
   )
 
-
+(defun c:test_cal_radiustwist()
+  (setq p00(getpoint) p01(getpoint)
+        p10(getpoint) p11(getpoint)
+        p_tan p01
+        vec0(unit_vector(mapcar '- p01 p00))
+        vec1(unit_vector(mapcar '- p11 p10))
+        rr 5.
+        )
+  
+  (mapcar '(lambda(lst / pc p0 p1 p2 v d)
+             (mapcar 'set '(pc p0 p1 p2 v)lst)
+             (setq d(apply '+(mapcar '* v pc)))
+             (make_arcdimension
+              nil(list pc p0 p1 p2 rr v d " " (getvar "DIMSTYLE") ))
+             )
+          (cal_radiustwist rr p_tan p00 p01 p10 p11 vec0 vec1 0))
+  
+  )
+  
 (defun cal_radiustwist
     (rr p_tan p00 p01 p10 p11 vec0 vec1 length_straight
         / length_arc_min length_arc_max length_arc_x vec_p
@@ -10066,11 +10085,13 @@
         vec_normal(unit_vector(cross_product vec_normal vec1))
         hx(apply '+(mapcar '* vec_normal vec_p))
         p_tan1(mapcar '(lambda(a b)(+ a(* hx b)))p01 vec_normal)
+        
         )
+
   
   
   (while bool_loop_r
-    (setq length_arc_min 0 
+    (setq length_arc_min (* rr 0.1) 
           vec_p(mapcar '- p_tan1 p01)
           length_arc_max(distance p01 p_tan1)
           variable_a(expt length_arc_max 2)
@@ -10093,22 +10114,26 @@
             radius1(apply '+(mapcar '* vec0 vec_tan))
             radius2(apply '+(mapcar '* vec1 vec_tan))
             )
-
-      (if(or(< radius1 0)(< radius2 0))
-          (setq dist_diff nil)
+      
+      (if(<(abs(1+ radius1))1e-8)
+          (setq radius2(* length_arc_x(sqrt(/(+ 1 radius2)(- 1 radius2))))
+                radius1 radius2 dist_diff 0 )
         (if(<(abs(1- radius2))1e-8)
             (setq radius1(* length_arc_min(sqrt(/(- 1 radius1)(+ 1 radius1))))
-                  radius2 radius1x dist_diff 0 )
+                  radius2 radius1 dist_diff 0 )
           (setq radius1(* length_arc_min(sqrt(/(- 1 radius1)(+ 1 radius1))))
                 radius2(* length_arc_x(sqrt(/(+ 1 radius2)(- 1 radius2))))
                 dist_diff(- radius2 radius1) )
           ))
-      
+
       (setq num_limit(1- num_limit))
       (cond
        ((< num_limit 0)(setq bool_loop nil))
-       ((null dist_diff))
        ((<(abs dist_diff)1e-8)
+        (setq bool_loop nil)
+        (princ radius1)
+        (getint)
+        
         (setq dist_diff(- rr radius1))
         (cond
          ((if(null rr_min)(>(setq rr_min radius1)rr))
@@ -10131,7 +10156,7 @@
                             pc1(unit_vector(mapcar '(lambda(a b c)(+ a b(* -2 c)))pt10 pt11 pc1)))
                 ls_out(list(list pc0 pt00 pt01 pt02 vech0 length_straight)
                            (list pc1 pt10 pt11 pt12 vech1 length_straight))
-                bool_loop nil)
+                )
           )
          ((< rr radius1)
           (if(< delta_r 0)(setq delta_r(* -0.1 delta_r)))
