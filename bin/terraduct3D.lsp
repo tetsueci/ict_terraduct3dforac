@@ -428,10 +428,10 @@
              (cons "SYMBOL" 'height_ccbox)(cons "TEMP" 'height_ccbox_temp)
              (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)2.)))
         
-        (list(cons "TEXT"(mix_strasc(list 12510 12531 12507 12540 12523 30452 24452)))
-             (cons "ITEM" "EDIT_BOX");; マンホール直径
-             (cons "SYMBOL" 'diam_manhole)(cons "TEMP" 'diam_manhole_temp)
-             (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.9)))
+        ;; (list(cons "TEXT"(mix_strasc(list 12510 12531 12507 12540 12523 30452 24452)))
+        ;;      (cons "ITEM" "EDIT_BOX");; マンホール直径
+        ;;      (cons "SYMBOL" 'diam_manhole)(cons "TEMP" 'diam_manhole_temp)
+        ;;      (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.9)))
 
         (list(cons "TEXT"(mix_strasc(list 22343 12375 12467 12531 12458 12501 12475 12483 12488)))
              (cons "ITEM" "EDIT_BOX");; 均しコンオフセット
@@ -2151,7 +2151,7 @@
                             (mix_strasc
                              (list 31649 36335 12364 26354 32218 12392 12394 12427 31623 25152 12395 12362 12369 12427 26354 12370 21322 24452
                                    (if(= int_editarcradius 0)(list 12398 19979 38480 20516 "\n" 26354 12370 21322 24452 12399 30452 32218 37096 12398 31471 28857 12398 20301 32622 12363 12425 33258 21205 30340 12395 35336 31639 12373 12428 12289 12371 12398 20516 12434 19979 22238 12387 12383 12392 12365 12289 12371 12398 20516 12395 12394 12427 ))
-                                   (if intselectmenu str_guide_inputval str_guide_selectval)))))
+                                   (if int_selectmenu str_guide_inputval str_guide_selectval)))))
                     )
                
                (list(list 84);;T保護コンクリートタイプ
@@ -5953,7 +5953,7 @@
                     (list(list 82) ;;R経路の曲げ半径
                          (cons "ITEM"(list 32076 36335 12398 26354 12370 21322 24452))
                          (cons "INPUT"(lambda() 'radius_arcmove))
-                         (cons "HELP"(lambda()(mix_strasc(list 31649 36335 12364 26354 32218 12392 12394 12427 31623 25152 12395 12362 12369 12427 26354 12370 21322 24452(if intselectmenu str_guide_inputval str_guide_selectval)))))
+                         (cons "HELP"(lambda()(mix_strasc(list 31649 36335 12364 26354 32218 12392 12394 12427 31623 25152 12395 12362 12369 12427 26354 12370 21322 24452(if int_selectmenu str_guide_inputval str_guide_selectval)))))
                          
                          )
                     
@@ -6310,7 +6310,8 @@
 
              (if bool_tempdistlength
                  (setq bool_tempdistlength nil)
-               (setq p_ccbox0 nil p_ccbox1 nil p_ccbox2 nil p_manhole nil p_manhole_edge nil
+               (setq p_ccbox0 nil p_ccbox1 nil p_ccbox2 nil p_manhole nil
+                     p_manhole_edge nil p_manhole_edge1 nil p_manhole_edge2 nil
                      str_colccbox0 91 str_colccbox1 111
                      str_colccbox2 131 str_colmanhole 151 str_colmanhole_edge 171
                      ))
@@ -6380,7 +6381,7 @@
                     (cons "LOADUNCTION"
                           (lambda()nil))
                     ;;特殊部の天端から地表面までの高さで、マンホールを作成するときマンホール高さを表す数値となります
-                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 22825 31471 12363 12425 22320 34920 38754 12414 12391 12398 39640 12373 12391 12289 12510 12531 12507 12540 12523 12434 20316 25104 12377 12427 12392 12365 12510 12531 12507 12540 12523 39640 12373 12434 34920 12377 25968 20516 12392 12394 12426 12414 12377 (if intselectmenu str_guide_inputval str_guide_selectval)))))
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 22825 31471 12363 12425 22320 34920 38754 12414 12391 12398 39640 12373 12391 12289 12510 12531 12507 12540 12523 12434 20316 25104 12377 12427 12392 12365 12510 12531 12507 12540 12523 39640 12373 12434 34920 12377 25968 20516 12392 12394 12426 12414 12377 (if int_selectmenu str_guide_inputval str_guide_selectval)))))
                     )
                (list(list 72);;H特殊部高さ
                     (cons "ITEM"(list 29305 27530 37096 39640 12373))
@@ -6391,18 +6392,20 @@
                     (cons "LOADUNCTION"
                           (lambda()nil))
                     ;;
-                    (cons "HELP"(lambda()(mix_strasc(list(if intselectmenu str_guide_inputval str_guide_selectval)))))
+                    (cons "HELP"(lambda()(mix_strasc(list(if int_selectmenu str_guide_inputval str_guide_selectval)))))
                     )
-               (list(list 68);;Dマンホール直径
-                    (cons "ITEM"(list 12510 12531 12507 12540 12523 30452 24452))
-                    (cons "INPUT"(lambda()
-                                   (if diam_manhole_temp T
-                                     (setq diam_manhole_temp diam_manhole))
-                                   'diam_manhole_temp))
-                    (cons "LOADUNCTION"
-                          (lambda()nil))
-                    (cons "HELP"(lambda()(mix_strasc(list(if intselectmenu str_guide_inputval str_guide_selectval)))))
-                    )
+               
+               ;; (list(list 68);;Dマンホール直径
+               ;;      (cons "ITEM"(list 12510 12531 12507 12540 12523 30452 24452))
+               ;;      (cons "INPUT"(lambda()
+               ;;                     (if diam_manhole_temp T
+               ;;                       (setq diam_manhole_temp diam_manhole))
+               ;;                     'diam_manhole_temp))
+               ;;      (cons "LOADUNCTION"
+               ;;            (lambda()nil))
+               ;;      (cons "HELP"(lambda()(mix_strasc(list(if int_selectmenu str_guide_inputval str_guide_selectval)))))
+               ;;      )
+               
                (list(list 87);;W均しコンオフセット
                     (cons "ITEM"(list 22343 12375 12467 12531 12458 12501 12475 12483 12488))
                     (cons "INPUT"(lambda()
@@ -6412,7 +6415,7 @@
                     (cons "LOADUNCTION"
                           (lambda()nil))
                     ;;特殊部の全周に入力値を加える
-                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 20840 21608 12395 20837 21147 20516 12434 21152 12360 12427(if intselectmenu str_guide_inputval str_guide_selectval)))))
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 20840 21608 12395 20837 21147 20516 12434 21152 12360 12427(if int_selectmenu str_guide_inputval str_guide_selectval)))))
                     )
                (list(list 84);;T均しコン高さ
                     (cons "ITEM"(list 22343 12375 12467 12531 39640 12373))
@@ -6422,7 +6425,7 @@
                                    'height_levelingcon_temp))
                     (cons "LOADUNCTION"
                           (lambda()nil))
-                    (cons "HELP"(lambda()(mix_strasc(list(if intselectmenu str_guide_inputval str_guide_selectval)))))
+                    (cons "HELP"(lambda()(mix_strasc(list(if int_selectmenu str_guide_inputval str_guide_selectval)))))
                     )
                
                (list(list 49);;特殊部起点を選択
@@ -6441,7 +6444,7 @@
                     ;;特殊部の点を3つ選択します
                     ;;1点目と2点目で特殊部のいずれかの辺を表し、3点目はその辺と平行な辺上の任意の点を表します
                     ;;1点目
-                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 28857 12434 "3" 12388 36984 25246 12375 12414 12377 "\n1" 28857 30446 12392 "2" 28857 30446 12391 29305 27530 37096 12398 12356 12378 12428 12363 12398 36794 12434 34920 12375 12289 "3" 28857 30446 12399 12381 12398 36794 12392 24179 34892 12394 36794 19978 12398 20219 24847 12398 28857 12434 34920 12375 12414 12377 "\n1" 28857 30446 (if intselectmenu str_guide_point)))))
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 28857 12434 "3" 12388 36984 25246 12375 12414 12377 "\n1" 28857 30446 12392 "2" 28857 30446 12391 29305 27530 37096 12398 12356 12378 12428 12363 12398 36794 12434 34920 12375 12289 "3" 28857 30446 12399 12381 12398 36794 12392 24179 34892 12394 36794 19978 12398 20219 24847 12398 28857 12434 34920 12375 12414 12377 "\n1" 28857 30446 (if int_selectmenu str_guide_point)))))
                     )
                
                (list(list 50);;特殊部辺の端点を選択
@@ -6457,7 +6460,7 @@
                                 (setq bool_replacegrread T int_grread 2 elem_grread 51)
                                 ))
                             ))
-                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 28857 12434 "3" 12388 36984 25246 12375 12414 12377 "\n1" 28857 30446 12392 "2" 28857 30446 12391 29305 27530 37096 12398 12356 12378 12428 12363 12398 36794 12434 34920 12375 12289 "3" 28857 30446 12399 12381 12398 36794 12392 24179 34892 12394 36794 19978 12398 20219 24847 12398 28857 12434 34920 12375 12414 12377 "\n2" 28857 30446 (if intselectmenu str_guide_point)))))
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 28857 12434 "3" 12388 36984 25246 12375 12414 12377 "\n1" 28857 30446 12392 "2" 28857 30446 12391 29305 27530 37096 12398 12356 12378 12428 12363 12398 36794 12434 34920 12375 12289 "3" 28857 30446 12399 12381 12398 36794 12392 24179 34892 12394 36794 19978 12398 20219 24847 12398 28857 12434 34920 12375 12414 12377 "\n2" 28857 30446 (if int_selectmenu str_guide_point)))))
                     )
                
                (list(list 51);;特殊部対辺上の点を選択
@@ -6473,31 +6476,31 @@
                                 (setq bool_replacegrread T int_grread 2 elem_grread 52)
                                 ))
                             ))
-                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 28857 12434 "3" 12388 36984 25246 12375 12414 12377 "\n1" 28857 30446 12392 "2" 28857 30446 12391 29305 27530 37096 12398 12356 12378 12428 12363 12398 36794 12434 34920 12375 12289 "3" 28857 30446 12399 12381 12398 36794 12392 24179 34892 12394 36794 19978 12398 20219 24847 12398 28857 12434 34920 12375 12414 12377 "\n3" 28857 30446 (if intselectmenu str_guide_point)))))
+                    (cons "HELP"(lambda()(mix_strasc(list 29305 27530 37096 12398 28857 12434 "3" 12388 36984 25246 12375 12414 12377 "\n1" 28857 30446 12392 "2" 28857 30446 12391 29305 27530 37096 12398 12356 12378 12428 12363 12398 36794 12434 34920 12375 12289 "3" 28857 30446 12399 12381 12398 36794 12392 24179 34892 12394 36794 19978 12398 20219 24847 12398 28857 12434 34920 12375 12414 12377 "\n3" 28857 30446 (if int_selectmenu str_guide_point)))))
                     
                     )
                
-               (list(list 52);;マンホール-中心を選択
-                    (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20013 24515 12434 36984 25246 ))
-                    (cons "GETPOINT" (lambda() (list p_manhole(itoa str_colmanhole))))
-                    (cons "GETPOINTSNAP" ",_cen")
-                    (cons "LOADFUNCTION"
-                          (lambda(bool)
-                            (setq int_selectmenu nil)
-                            (if(/= int_ccboxmode 0)
-                                (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
-                              (progn
-                                (setq str_addsnap "")
-                                (if bool(setq p_manhole elem_grread))
-                                (setq bool_replacegrread T int_grread 2 elem_grread 53)
-                                ))
-                            ))
-                    ;;マンホールの中心,選択しないときマンホールは作成されません
-                    (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 12398 20013 24515 " " 36984 25246 12375 12394 12356 12392 12365 12510 12531 12507 12540 12523 12399 20316 25104 12373 12428 12414 12379 12435(if intselectmenu str_guide_point)))))
-                    
-                    )
-               (list(list 53);;マンホール-円周上の点を選択
-                    (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20870 21608 19978 12398 28857 12434 36984 25246 ))
+               ;; (list(list 52);;マンホール-中心を選択
+               ;;      (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20013 24515 12434 36984 25246 ))
+               ;;      (cons "GETPOINT" (lambda() (list p_manhole(itoa str_colmanhole))))
+               ;;      (cons "GETPOINTSNAP" ",_cen")
+               ;;      (cons "LOADFUNCTION"
+               ;;            (lambda(bool)
+               ;;              (setq int_selectmenu nil)
+               ;;              (if(/= int_ccboxmode 0)
+               ;;                  (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
+               ;;                (progn
+               ;;                  (setq str_addsnap "")
+               ;;                  (if bool(setq p_manhole elem_grread))
+               ;;                  (setq bool_replacegrread T int_grread 2 elem_grread 53)
+               ;;                  ))
+               ;;              ))
+               ;;      ;;マンホールの中心,選択しないときマンホールは作成されません
+               ;;      (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 12398 20013 24515 " " 36984 25246 12375 12394 12356 12392 12365 12510 12531 12507 12540 12523 12399 20316 25104 12373 12428 12414 12379 12435(if int_selectmenu str_guide_point)))))
+               ;;      )
+               
+               (list(list 52);;マンホール-円周上の点1を選択
+                    (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20870 21608 19978 12398 28857 "1" 12434 36984 25246 ))
                     (cons "GETPOINT" (lambda()(list p_manhole_edge(itoa str_colmanhole_edge))))
                     (cons "GETPOINTSNAP" ",_nea")
                     (cons "LOADFUNCTION"
@@ -6508,18 +6511,57 @@
                               (progn
                                 (setq str_addsnap "")
                                 (if bool(setq p_manhole_edge elem_grread))
-                                (if(and p_manhole p_manhole_edge)
-                                    (setq diam_manhole_temp
-                                          (* 2.(distance(carxy p_manhole)(carxy p_manhole_edge)))
-                                          diam_manhole_temp(atof(rtos diam_manhole_temp 2 8))
-                                          ))
+                                (setq bool_replacegrread T int_grread 2 elem_grread 53)
+                                ))
+                            ))
+
+                    ;;マンホールは円周上の点を3つクリックすることで中心と直径を自動計算して作成されます
+                    (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 12399 20870 21608 19978 12398 28857 12434 "3" 12388 12463 12522 12483 12463 12377 12427 12371 12392 12391 20013 24515 12392 30452 24452 12434 33258 21205 35336 31639 12375 12390 20316 25104 12373 12428 12414 12377  
+                                                          (if int_selectmenu str_guide_point)))))
+                    
+                    )
+               
+               (list(list 53);;マンホール-円周上の点2を選択
+                    (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20870 21608 19978 12398 28857 "2" 12434 36984 25246 ))
+                    (cons "GETPOINT" (lambda()(list p_manhole_edge1(itoa str_colmanhole_edge))))
+                    (cons "GETPOINTSNAP" ",_nea")
+                    (cons "LOADFUNCTION"
+                          (lambda(bool)
+                            (setq int_selectmenu nil)
+                            (if(/= int_ccboxmode 0)
+                                (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
+                              (progn
+                                (setq str_addsnap "")
+                                (if bool(setq p_manhole_edge1 elem_grread))
                                 (setq bool_replacegrread T int_grread 2 elem_grread 54)
                                 ))
                             ))
-                    ;;マンホール中心があるとき、選択するとマンホール直径の入力値を計算して入力します
-                    ;;\nマンホールがないとき、直径の入力値を使うときは選択する必要がありません
-                    (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 20013 24515 12364 12354 12427 12392 12365 12289 36984 25246 12377 12427 12392 12510 12531 12507 12540 12523 30452 24452 12398 20837 21147 20516 12434 35336 31639 12375 12390 20837 21147 12375 12414 12377  "\n" 12510 12531 12507 12540 12523 12364 12394 12356 12392 12365 12289 30452 24452 12398 20837 21147 20516 12434 20351 12358 12392 12365 12399 36984 25246 12377 12427 24517 35201 12364 12354 12426 12414 12379 12435
- (if intselectmenu str_guide_point)))))
+
+                    ;;マンホールは円周上の点を3つクリックすることで中心と直径を自動計算して作成されます
+                    (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 12399 20870 21608 19978 12398 28857 12434 "3" 12388 12463 12522 12483 12463 12377 12427 12371 12392 12391 20013 24515 12392 30452 24452 12434 33258 21205 35336 31639 12375 12390 20316 25104 12373 12428 12414 12377  
+                                                          (if int_selectmenu str_guide_point)))))
+                    )
+
+               
+               (list(list 54);;マンホール-円周上の点2を選択
+                    (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20870 21608 19978 12398 28857 "3" 12434 36984 25246 ))
+                    (cons "GETPOINT" (lambda()(list p_manhole_edge2(itoa str_colmanhole_edge))))
+                    (cons "GETPOINTSNAP" ",_nea")
+                    (cons "LOADFUNCTION"
+                          (lambda(bool)
+                            (setq int_selectmenu nil)
+                            (if(/= int_ccboxmode 0)
+                                (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
+                              (progn
+                                (setq str_addsnap "")
+                                (if bool(setq p_manhole_edge2 elem_grread))
+                                (setq bool_replacegrread T int_grread 2 elem_grread 55)
+                                ))
+                            ))
+
+                    ;;マンホールは円周上の点を3つクリックすることで中心と直径を自動計算して作成されます
+                    (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 12399 20870 21608 19978 12398 28857 12434 "3" 12388 12463 12522 12483 12463 12377 12427 12371 12392 12391 20013 24515 12392 30452 24452 12434 33258 21205 35336 31639 12375 12390 20316 25104 12373 12428 12414 12377  
+                                                          (if int_selectmenu str_guide_point)))))
                     
                     )
 
@@ -6595,7 +6637,7 @@
                                     bool_selectent nil bool_select nil int_selectmode -1
                                     ls_ssget nil xtype_ssget nil xdata_ssget nil
                                     p_ccbox0 nil p_ccbox1 nil p_ccbox2 nil
-                                    p_manhole nil p_manhole_edge nil
+                                    p_manhole nil p_manhole_edge nil p_manhole_edge1 nil p_manhole_edge2 nil
                                     )
                               
                               )
@@ -6606,7 +6648,7 @@
                                     ls_ssget(list(cons 0 "INSERT"))
                                     xtype_ssget "CCBOXBLOCK" xdata_ssget "terraduct3d"
                                     p_ccbox0 nil p_ccbox1 nil p_ccbox2 nil
-                                    p_manhole nil  p_manhole_edge nil
+                                    p_manhole nil  p_manhole_edge nil  p_manhole_edge1 nil p_manhole_edge2 nil
                                     )
                               )
                              ((= int_ccboxmode 2)
@@ -6616,7 +6658,7 @@
                                     ls_ssget(list(cons 0 "INSERT"))
                                     xtype_ssget "CCBOXBLOCK" xdata_ssget "terraduct3d"
                                     p_ccbox0 nil p_ccbox1 nil p_ccbox2 nil
-                                    p_manhole nil p_manhole_edge nil
+                                    p_manhole nil p_manhole_edge nil p_manhole_edge1 nil p_manhole_edge2 nil
                                     )
                               )
                              )
@@ -6672,8 +6714,9 @@
                                      " - Enter : " 29305 27530 37096 20316 25104 "}"
                                      "{\\C" str_gcol_g ";";;マンホールありなし
                                      "  " 12510 12531 12507 12540 12523
-                                     (if p_manhole(list 12354 12426)(list 12394 12375 )) "}"
-                                     )
+                                     (if(and p_manhole_edge p_manhole_edge1 p_manhole_edge2)
+                                         (list 12354 12426)(list 12394 12375 )) "}"
+                                         )
                                     )
                                  (list
                                   (list
@@ -6761,8 +6804,8 @@
                          (list(cadr ls_p)(cadddr ls_p)))
                  ))
            )
-        (list p_ccbox0 p_ccbox1 p_ccbox2 p_manhole p_manhole_edge)
-        (list str_colccbox0 str_colccbox1 str_colccbox2 str_colmanhole str_colmanhole_edge)
+        (list p_ccbox0 p_ccbox1 p_ccbox2 p_manhole p_manhole_edge p_manhole_edge1 p_manhole_edge2)
+        (list str_colccbox0 str_colccbox1 str_colccbox2 str_colmanhole str_colmanhole_edge str_colmanhole_edge str_colmanhole_edge)
         )
        
        ))
@@ -6857,6 +6900,22 @@
                vecy(list(-(cadr vecx))(car vecx))
                width_ccbox(apply '+(mapcar '*(mapcar '- p_ccbox2 p_ccbox0)vecy))
                )
+
+         ((lambda(p0 p1 p2 / px00 px01 px10 px11 vec)
+            (if(if(and p0 p1 p2)
+                   (progn
+                     (setq p0(carxy p0)p1(carxy p1)p2(carxy p2))
+                     (and(>(distance p0 p1)1e-5)(>(distance p1 p2)1e-5)(>(distance p2 p0)1e-5))
+                     ))
+                (setq px00(mapcar '(lambda(a b)(* 0.5(+ a b)))p1 p2)
+                      px01(mapcar '+ px00(list(-(cadr p1)(cadr p2))(-(car p2)(car p1))))
+                      px10(mapcar '(lambda(a b)(* 0.5(+ a b)))p0 p2)
+                      px11(mapcar '+ px10(list(-(cadr p0)(cadr p2))(-(car p2)(car p0))))
+                      p_manhole(inters px00 px01 px10 px11 nil)
+                      diam_manhole_temp(* 2(distance p_manhole p0))
+                      p_manhole(carxyz p_manhole 0) )
+              (setq p_manhole nil diam_manhole_temp 0.)))
+          p_manhole_edge p_manhole_edge1 p_manhole_edge2)
          
          (cond
           ((<(abs width_ccbox)1e-8)
@@ -6951,8 +7010,9 @@
                (vla-put-color vnam int_colccbox_temp)
                
                ))
+
            
-           (if(and(/= height_ccboxtop_temp 0.)(/= diam_manhole_temp 0.)p_manhole)
+           (if(and(/= height_ccboxtop_temp 0.) (/= diam_manhole_temp 0.)p_manhole)
                (progn
                  (setq entna(pole_sld(* diam_manhole_temp 0.5)
                                      height_ccboxtop_temp
@@ -7035,7 +7095,7 @@
           )
          
          
-         (setq p_ccbox0 nil p_ccbox1 nil p_ccbox2 nil p_manhole nil p_manhole_edge nil)
+         (setq p_ccbox0 nil p_ccbox1 nil p_ccbox2 nil p_manhole nil p_manhole_edge nil p_manhole_edge1 nil p_manhole_edge2 nil)
          )
         ((and(or(= elem_grread 13)(= int_grread 25))
              (or str_lasground height_ground))
@@ -10249,8 +10309,10 @@
       (setq num_limit(1- num_limit))
       (cond
        ((< num_limit 0)(setq bool_loop nil))
+       ((<(abs radius1)1e-8)(setq length_arc_min(+ length_arc_min delta)))
        ((<(abs dist_diff)1e-8)
         (setq bool_loop nil)
+        
         (princ radius1)
         (getint)
         
@@ -10292,7 +10354,7 @@
        
        ((< dist_diff 0.)
         (if(< delta 0)(setq delta(* -0.1 delta)))
-        (setq length_arc_min(+ length_arc_min delta_))
+        (setq length_arc_min(+ length_arc_min delta))
         )
        ;; ((< radius1 rr)
        ;;  (setq bool_loop nil))
