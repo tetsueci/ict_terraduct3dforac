@@ -8225,6 +8225,9 @@
        (cond
         ((null int_savecsvifc))
         ((vl-position int_savecsvifc(list 1 3))
+         
+         (princ(mix_strasc(list "\n" 22259 38754 20869 12398 24773 22577 12434 38598 12417 12390 12356 12414 12377 "..." 12362 24453 12385 12367 12384 12373 12356 "...\n") ))
+         ;;図面内の情報を集めています...お待ちください...
          (if ls_vnam_select T
            ((lambda( / num ls_out vnam)
               (setq set_ent(ssget "X"(list(cons 0 "INSERT")(list -3(list "terraduct3d"))))
@@ -8993,7 +8996,7 @@
                )
               
               ((and(= str_type "PROJECT")(= int_savecsvifc 1))
-               (setq ls_p_ceircle(list))
+               (setq ls_p_ceircle(list)ls_p_text(list))
                (vlax-for
                 obj vnam
 
@@ -9009,6 +9012,15 @@
                         (cons(vlax-safearray->list(vlax-variant-value(vla-get-center obj)))
                              ls_p_center))
                   )
+                 ((=(vla-get-ObjectName obj)"AcDbText")
+                  (setq ls_p_text
+                        (cons(cons
+                              (vla-get-rotation obj)
+                              (vlax-safearray->list(vlax-variant-value(vla-get-TextAlignmentPoint obj)))
+                              )
+                             ls_p_text))
+                  )
+                 
                  )
                 )
                
@@ -9022,15 +9034,22 @@
                                                  )))
                           ls_str_out)
                      )
+
                
                (mapcar
                 '(lambda(p / str_i str)
                    (setq str_i
                          (if(apply 'or(mapcar '(lambda(pc)(<(distance p pc)1e-8))ls_p_center))
                              "1" "0")
-                         str
-                         (apply 'strcat(mapcar '(lambda(a)(strcat ","(as-numstr a)))p))
-                         str(strcat "POINT," str_i str)
+                         str(apply 'strcat(mapcar '(lambda(a)(strcat ","(as-numstr a)))p))
+                         )
+                   (if ls_p_text
+                       (progn
+                         (mapcar '(lambda(a)(setq str(strcat str ","(as-numstr a))))
+                                 (car ls_p_text))
+                         (setq ls_p_text(cdr ls_p_text))
+                         ))
+                   (setq str(strcat "POINT," str_i str)
                          ls_str_out(cons str ls_str_out)
                          )
                    )
@@ -9771,16 +9790,31 @@
                    (while(progn(setq lst(car ls_str_in)ls_str_in(cdr ls_str_in)
                                      str_type(car lst))
                                (= str_type "POINT"));;PROJECTROADEND
+                     
                      (setq i(atoi(cadr lst))
-                           p(mapcar 'atof(cddr lst)))
+                           lst(mapcar 'atof(cddr lst))
+                           p(take_list lst 3)
+                           )
                      (mapcar '(lambda(a)(setq ls_p(cons a ls_p)))p)
                      (if(= i 1)
                          (setq v(vla-addcircle
                                  (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
                                  (vlax-3d-point p)radius_node)
                                ls_vnam_copy(cons v ls_vnam_copy)
+                               ;;ソリッドがvlaaddできないのでコピーが残っている
                                )
                        )
+
+                     (if(setq lst(cdddr lst))
+                         (progn
+                           (setq ang(car lst)
+                                 v(vla-addtext
+                                   (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                                   "arc"(vlax-3d-point(cdr lst))radius_node)
+                                 ls_vnam_copy(cons v ls_vnam_copy))
+                           (vla-put-Alignment v 13)
+                           (vla-put-rotation v ang)
+                           ))
                      
                      )
 
