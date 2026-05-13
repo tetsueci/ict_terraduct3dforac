@@ -6330,11 +6330,14 @@
                (list(list " - " 24179 38754 24418 29366 12434 12463 12522 12483 12463 12391 27770 23450 12377 12427)
                     (list " - " 24179 38754 24418 29366 12399 24517 12378 38263 26041 24418 12392 12394 12426 12289)
                     (list "   3" 28857 30446 12399 "1,2" 28857 30446 12392 24179 34892 12394 30452 32218 19978 12398 20219 24847 12398 28857 12434 36984 25246 12375 12390 12424 12356 )
-                    (list " - " 12510 12531 12507 12540 12523 12398 20013 24515 12434 36984 25246 12375 12394 12356 12392 12365 12289 12510 12531 12507 12540 12523 12434 20316 25104 12375 12394 12356 )
+                    (list " - " 12510 12531 12507 12540 12523 12399 20870 21608 19978 12398 "3" 28857 36984 25246 12363 12289 20013 24515 36984 25246 12392 30452 24452 20837 21147 12391 20316 25104 12377 12427  )
+                    (list " - " 12356 12378 12428 12418 12394 12356 12392 12365 20316 25104 12373 12428 12378 12289 20001 26041 36984 25246 12375 12383 12392 12365 20013 24515 12434 20778 20808 12377 12427 )
+                    
                     ))
               ;;平面形状をクリックで決定する
               ;;平面形状は必ず長方形となり、3点目は1,2点目と平行な直線上の任意の点を選択してよい
-              ;;マンホールの中心を選択しないとき、マンホールを作成しない
+              ;;マンホールは円周上の3点選択か、中心選択と直径入力で作成する
+              ;;いずれもないとき作成されず、両方選択したとき中心を優先する
               ls_guidemenu
               (list
                (list(list 76);; 地表面標高
@@ -6395,16 +6398,6 @@
                     (cons "HELP"(lambda()(mix_strasc(list(if int_selectmenu str_guide_inputval str_guide_selectval)))))
                     )
                
-               ;; (list(list 68);;Dマンホール直径
-               ;;      (cons "ITEM"(list 12510 12531 12507 12540 12523 30452 24452))
-               ;;      (cons "INPUT"(lambda()
-               ;;                     (if diam_manhole_temp T
-               ;;                       (setq diam_manhole_temp diam_manhole))
-               ;;                     'diam_manhole_temp))
-               ;;      (cons "LOADUNCTION"
-               ;;            (lambda()nil))
-               ;;      (cons "HELP"(lambda()(mix_strasc(list(if int_selectmenu str_guide_inputval str_guide_selectval)))))
-               ;;      )
                
                (list(list 87);;W均しコンオフセット
                     (cons "ITEM"(list 22343 12375 12467 12531 12458 12501 12475 12483 12488))
@@ -6480,24 +6473,6 @@
                     
                     )
                
-               ;; (list(list 52);;マンホール-中心を選択
-               ;;      (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20013 24515 12434 36984 25246 ))
-               ;;      (cons "GETPOINT" (lambda() (list p_manhole(itoa str_colmanhole))))
-               ;;      (cons "GETPOINTSNAP" ",_cen")
-               ;;      (cons "LOADFUNCTION"
-               ;;            (lambda(bool)
-               ;;              (setq int_selectmenu nil)
-               ;;              (if(/= int_ccboxmode 0)
-               ;;                  (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
-               ;;                (progn
-               ;;                  (setq str_addsnap "")
-               ;;                  (if bool(setq p_manhole elem_grread))
-               ;;                  (setq bool_replacegrread T int_grread 2 elem_grread 53)
-               ;;                  ))
-               ;;              ))
-               ;;      ;;マンホールの中心,選択しないときマンホールは作成されません
-               ;;      (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 12398 20013 24515 " " 36984 25246 12375 12394 12356 12392 12365 12510 12531 12507 12540 12523 12399 20316 25104 12373 12428 12414 12379 12435(if int_selectmenu str_guide_point)))))
-               ;;      )
                
                (list(list 52);;マンホール-円周上の点1を選択
                     (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20870 21608 19978 12398 28857 "1" 12434 36984 25246 ))
@@ -6564,6 +6539,36 @@
                                                           (if int_selectmenu str_guide_point)))))
                     
                     )
+
+               (list(list 88);;マンホール-中心を選択
+                    (cons "ITEM"(list 12510 12531 12507 12540 12523 32 20013 24515 12434 36984 25246 ))
+                    (cons "GETPOINT" (lambda() (list p_manhole(itoa str_colmanhole))))
+                    (cons "GETPOINTSNAP" ",_cen")
+                    (cons "LOADFUNCTION"
+                          (lambda(bool)
+                            (setq int_selectmenu nil)
+                            (if(/= int_ccboxmode 0)
+                                (x-alert(list 20316 25104 12514 12540 12489 12398 12392 12365 23455 34892 21487 33021 ))
+                              (progn
+                                (setq str_addsnap "")
+                                (if bool(setq p_manhole elem_grread))
+                                ))
+                            ))
+                    ;;マンホールの中心
+                    (cons "HELP"(lambda()(mix_strasc(list 12510 12531 12507 12540 12523 12398 20013 24515 (if int_selectmenu str_guide_point)))))
+                    )
+               (list(list 68);;Dマンホール直径
+                    (cons "ITEM"(list 12510 12531 12507 12540 12523 30452 24452))
+                    (cons "INPUT"(lambda()
+                                   (if diam_manhole_temp T
+                                     (setq diam_manhole_temp diam_manhole))
+                                   'diam_manhole_temp))
+                    (cons "LOADUNCTION"
+                          (lambda()nil))
+                    (cons "HELP"(lambda()(mix_strasc(list(if int_selectmenu str_guide_inputval str_guide_selectval)))))
+                    )
+
+               
 
                (list(list 78);;特殊部の名称
                     (cons "ITEM"(list 29305 27530 37096 12398 21517 31216))
@@ -6714,7 +6719,7 @@
                                      " - Enter : " 29305 27530 37096 20316 25104 "}"
                                      "{\\C" str_gcol_g ";";;マンホールありなし
                                      "  " 12510 12531 12507 12540 12523
-                                     (if(and p_manhole_edge p_manhole_edge1 p_manhole_edge2)
+                                     (if(or p_manhole(and p_manhole_edge p_manhole_edge1 p_manhole_edge2))
                                          (list 12354 12426)(list 12394 12375 )) "}"
                                          )
                                     )
@@ -6902,19 +6907,21 @@
                )
 
          ((lambda(p0 p1 p2 / px00 px01 px10 px11 vec)
-            (if(if(and p0 p1 p2)
-                   (progn
-                     (setq p0(carxy p0)p1(carxy p1)p2(carxy p2))
-                     (and(>(distance p0 p1)1e-5)(>(distance p1 p2)1e-5)(>(distance p2 p0)1e-5))
-                     ))
-                (setq px00(mapcar '(lambda(a b)(* 0.5(+ a b)))p1 p2)
-                      px01(mapcar '+ px00(list(-(cadr p1)(cadr p2))(-(car p2)(car p1))))
-                      px10(mapcar '(lambda(a b)(* 0.5(+ a b)))p0 p2)
-                      px11(mapcar '+ px10(list(-(cadr p0)(cadr p2))(-(car p2)(car p0))))
-                      p_manhole(inters px00 px01 px10 px11 nil)
-                      diam_manhole_temp(* 2(distance p_manhole p0))
-                      p_manhole(carxyz p_manhole 0) )
-              (setq p_manhole nil diam_manhole_temp 0.)))
+            (if p_manhole T
+              (if(if(and p0 p1 p2)
+                     (progn
+                       (setq p0(carxy p0)p1(carxy p1)p2(carxy p2))
+                       (and(>(distance p0 p1)1e-5)(>(distance p1 p2)1e-5)(>(distance p2 p0)1e-5))
+                       ))
+                  (setq px00(mapcar '(lambda(a b)(* 0.5(+ a b)))p1 p2)
+                        px01(mapcar '+ px00(list(-(cadr p1)(cadr p2))(-(car p2)(car p1))))
+                        px10(mapcar '(lambda(a b)(* 0.5(+ a b)))p0 p2)
+                        px11(mapcar '+ px10(list(-(cadr p0)(cadr p2))(-(car p2)(car p0))))
+                        p_manhole(inters px00 px01 px10 px11 nil)
+                        diam_manhole_temp(* 2(distance p_manhole p0))
+                        diam_manhole_temp(atof(rtos diam_manhole_temp 2 3))
+                        p_manhole(carxyz p_manhole 0) )
+                (setq p_manhole nil diam_manhole_temp 0.))))
           p_manhole_edge p_manhole_edge1 p_manhole_edge2)
          
          (cond
