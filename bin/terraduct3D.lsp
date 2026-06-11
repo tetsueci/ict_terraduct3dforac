@@ -10708,10 +10708,11 @@
     (if(if ls_p_through
            (apply 'and
                   (mapcar
-                   '(lambda(lst pd0 vec / pc p0 r)
-                      (setq pc(car lst)r(distance(cadr lst)pc))
-                      (<(abs(-(abs(apply '+(mapcar '*(mapcar '- pd0 pc)vec)))r))1e-8))
-                   ls_p_through(list p00 p11)(list vec_nline0 vec_nline1))))
+                   '(lambda(lst pd0 pd1 / pc p0)
+                      (setq p0(cadr lst))
+                      (<(distance(list 0 0 0)(cross_product(mapcar '- pd0 p0)(mapcar '- pd1 p0)))1e-6)
+                      )
+                   ls_p_through(list p00 p10)(list p01 p11))))
         
         (mapcar '(lambda(lst / pc p0 p1 p2 vec)
                    (mapcar 'set '(pc p0 p1 p2)lst)
