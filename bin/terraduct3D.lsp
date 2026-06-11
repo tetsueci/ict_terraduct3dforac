@@ -10705,14 +10705,13 @@
       (<(abs height_plane)1e-8));;面内のとき
 
     
-    (if ls_p_through
-        ;; (if ls_p_through
-        ;;    (apply 'and
-        ;;           (mapcar
-        ;;            '(lambda(lst pd0 vec / pc p0 r)
-        ;;               (setq pc(car lst)r(distance(cadr lst)pc))
-        ;;               (<(abs(-(abs(apply '+(mapcar '*(mapcar '- pd0 pc)vec)))r))1e-8))
-        ;;            ls_p_through(list p00 p11)(list vec_nline0 vec_nline1))))
+    (if(if ls_p_through
+           (apply 'and
+                  (mapcar
+                   '(lambda(lst pd0 vec / pc p0 r)
+                      (setq pc(car lst)r(distance(cadr lst)pc))
+                      (<(abs(-(abs(apply '+(mapcar '*(mapcar '- pd0 pc)vec)))r))1e-8))
+                   ls_p_through(list p00 p11)(list vec_nline0 vec_nline1))))
         
         (mapcar '(lambda(lst / pc p0 p1 p2 vec)
                    (mapcar 'set '(pc p0 p1 p2)lst)
