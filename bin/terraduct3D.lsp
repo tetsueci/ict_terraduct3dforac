@@ -8545,7 +8545,6 @@
                              ls_gcode(entget(cdr(assoc "OBJ" lst)))
                              str_out ""
                              )
-
                        (mapcar '(lambda(a)(setq str_out(strcat str_out ","(as-numstr a))))
                                (cdr(assoc 14 ls_gcode)))
                        (setq str_out(substr str_out 2))
@@ -8644,6 +8643,7 @@
                              numy 32
                              
                              ls_rgb(cdr(assoc "TCOLDUCT" ls_out_parameter))
+                             
                              ls_p(split_list 3 ls_p)
                              
                              str(apply
@@ -8670,6 +8670,21 @@
 
                              ls_str_out(cons(substr str 2)ls_str_out)
                              )
+
+                       (setq ls_dummy ls_p vec0 nil ls_p(list) p1 nil)
+                       (while ls_dummy
+                         (setq p0(car ls_dummy)ls_dummy(cdr ls_dummy))
+                         (if(setq p1(car ls_p))
+                             (setq vec1(unit_vector(mapcar '- p0 p1))
+                                   d(distance p0 p1))
+                           (setq d 0))
+                         (if(or(if(and vec0 vec1)
+                                   (>(abs(1-(apply '+(mapcar '* vec0 vec1))))1e-8))
+                               (> d 4.))
+                             (setq ls_p(cons p0 ls_p))
+                           (setq ls_p(cons p0(cdr ls_p))))
+                         (setq vec0 vec1 )
+                         )
                        
                        (setq ii 0 num(1-(length ls_p))
                              ls_intmesh(inclist 0 numy)
@@ -8677,8 +8692,6 @@
                              r(* 0.5(cdr(assoc "DIAM" ls_out_parameter)))
                              vecxp nil vecyp nil
                              )
-
-
                        
                        (setq ls_p(mapcar
                                   '(lambda(p / vec vecx vecy)
@@ -8700,15 +8713,12 @@
                                   ls_p)
                              
                              )
-
                        
-                       
-                       (mapcar
+                       (mapcar;;すごく時間がかかる
                         '(lambda(lst1 lst2 / p01 p02 p03 p04 p11 p12 p13 p14 ls_pmesh jj)
                            ;;(mapcar 'set '(p01 p02 p03 p04)lst1)
                            ;;(mapcar 'set '(p11 p12 p13 p14)lst2)
 
-                           
                            (setq ii(1+ ii)str_p "" i 0 
                                  ls_p_mesh
                                  (mapcar '(lambda(j / p01 p02 p11 p12)
@@ -8754,9 +8764,6 @@
                              ls_str_out(cons(substr str 2)ls_str_out)
                              )
                        )
-
-
-
                      
                      (if(setq vnam(cdr(assoc "MESHOBJ" ls_out_parameter)))
                          (progn
@@ -8848,7 +8855,6 @@
                      ))
                  
                  )
-               
                
                )
               ((= str_type "CCBOXBLOCK")
@@ -9009,8 +9015,9 @@
                                                    (cdr(assoc "ZBOTTOM" ls_out_parameter))))
                                            )
                                       )
-                              (if(setq z(cdr(assoc "LEVELINGHEIGHT" ls_out_parameter))
-                                       w(cdr(assoc "LEVELINGOFFSET" ls_out_parameter)))
+
+                              (if(and(setq z(cdr(assoc "LEVELINGHEIGHT" ls_out_parameter)))
+                                     (setq w(cdr(assoc "LEVELINGOFFSET" ls_out_parameter))))
                                   (append ls_con
                                           (list(cons "type" "RECT")
                                                (cons "x"(cdr(assoc "X0" ls_out_parameter)))
@@ -9022,6 +9029,7 @@
                                                (cons "height"(-(cdr(assoc "ZBOTTOM" ls_out_parameter))z))
                                                )
                                           )
+                                (progn(setq z 0.)nil)
                                 )
 
                               (if(setq h(cdr(assoc "MANHOLEHEIGHT" ls_out_parameter)))
@@ -9035,10 +9043,13 @@
                                                )
                                           )
                                 )
+
                               )
+                          
                           lst(vl-remove nil lst)
+                          lst(mapcar '(lambda(lst)(vl-remove nil lst))lst)
                           )
-                    
+
                     (mapcar
                      '(lambda(lst)
                         (setq str
@@ -9126,11 +9137,12 @@
                
                )
               )
-
              
              )
           ls_vnam_select )
-
+         
+         ;;ls_str_out
+         
          (if(= int_savecsvifc 1)
              (setq ls_str_out(append ls_str_out_ccbox ls_str_out_duct ls_str_out)))
          
@@ -10248,6 +10260,8 @@
         vec1(unit_vector(mapcar '- p11 p10))
         rr 5.
         )
+
+
   
   (mapcar '(lambda(lst / pc p0 p1 p2 v d)
              (mapcar 'set '(pc p0 p1 p2 v)lst)
@@ -10256,9 +10270,172 @@
               nil(list pc p0 p1 p2 rr v d " " (getvar "DIMSTYLE") ))
              )
           (cal_radiustwist rr p_tan p00 p01 p10 p11 vec0 vec1 0))
-  
+  (princ)
   )
+
+(defun cal_fixedstuff
+    (rr p_tan p00 p01 p10 p11 vec0 vec1 length_straight
+        / length_arc_min length_arc_max length_arc_x vec_p
+        variable_a variable_b variable_c variable_d vec_tan
+        dist_diff num_limit bool_loop ls_out radius1 radius2 delta
+        bool_loop_r  p_tan1 delta_r px hx vec_normal rr_min)
+
+  (setq length_fix 1.
+        angle_fix(/ length_fix rr)
+        num_max(1+(fix(/(* 1. pi)angle_fix)))
+        vecz(unit_vector(cross_product vec0 vec1))
+        vecx(trans-x vec0(list 0 0 1)vecz)
+        vecy(cross_product vecx vecz)
+        vec_p(mapcar '- p10 p00)
+        delta_h(apply '+(mapcar '* vec_p vecz))
+        vec1t(list(apply '+(mapcar '* vecx vec1))
+                  (apply '+(mapcar '* vecy vec1))
+                  0)
+        vec1t(unit_vector vec1t)
+        ;; p10t(list(apply '+(mapcar '* vecx p10))
+        ;;          (apply '+(mapcar '* vecy p10))
+        ;;          (apply '+(mapcar '* vecz p10)))
+        ;; p11t(list(apply '+(mapcar '* vecx p11))
+        ;;          (apply '+(mapcar '* vecy p11))
+        ;;          (apply '+(mapcar '* vecz p11)))
+        
+        vec_plane1(list(-(cadr vec1t))(car vec1t)0)
+        sin_angplane(abs(cadr vec1t))
+        cos_angplane(-(car vec1t))
+
+        
+        ;; dist_crossplane(/(apply '+(mapcar '*(mapcar '- p
+        
+        num0 0
+        ls_fix(list)
+        )
   
+  (while(<(setq num0(1+ num0))num_max)
+    (setq angle_cone(* 0.5 num0 angle_fix)
+          length_tan0(/(* rr(sin angle_cone))(cos angle_cone))
+          ;;angle_cone(-(* 2.0 pi)angle_tan0)
+          num1 -1)
+    (while(<(setq num1(1+ num1))num_max)
+      (setq angle_tan1(* 0.5 num1 angle_fix)
+            length_tan1(/(* rr(sin angle_tan1))(cos angle_tan1))
+            length_tan(+ length_tan0 length_tan1)
+
+            )
+      
+      
+      
+      
+      )
+    )
+  
+  (setq vec_normal(cross_product vec1 vec_p)
+        vec_normal(unit_vector(cross_product vec_normal vec1))
+        hx(apply '+(mapcar '* vec_normal vec_p))
+        p_tan1(mapcar '(lambda(a b)(+ a(* hx b)))p01 vec_normal)
+        
+        )
+
+  
+  
+  (while bool_loop_r
+    (setq length_arc_min (* rr 0.1) 
+          vec_p(mapcar '- p_tan1 p01)
+          length_arc_max(distance p01 p_tan1)
+          variable_a(expt length_arc_max 2)
+          variable_b(* 2.(apply '+(mapcar '* vec_p vec0)))
+          variable_c(* 2.(apply '+(mapcar '* vec_p vec1)))
+          variable_d(* 2.(1+(apply '+(mapcar '* vec0 vec1))))
+          num_limit 100 bool_loop T
+          delta(* rr 0.1)
+          )
+    
+    (while bool_loop
+      (setq length_arc_x
+            (/(+ variable_a(* length_arc_min variable_b))
+              (+ variable_c(* length_arc_min variable_d)))
+            vec_tan
+            (mapcar '(lambda(a b c)
+                       (+ a(*  length_arc_min b)(* -1. length_arc_x c)))
+                    vec_p vec0 vec1)
+            vec_tan(unit_vector vec_tan)
+            radius1(apply '+(mapcar '* vec0 vec_tan))
+            radius2(apply '+(mapcar '* vec1 vec_tan))
+            )
+      
+      (if(<(abs(1+ radius1))1e-8)
+          (setq radius2(* length_arc_x(sqrt(/(+ 1 radius2)(- 1 radius2))))
+                radius1 radius2 dist_diff 0 )
+        (if(<(abs(1- radius2))1e-8)
+            (setq radius1(* length_arc_min(sqrt(/(- 1 radius1)(+ 1 radius1))))
+                  radius2 radius1 dist_diff 0 )
+          (setq radius1(* length_arc_min(sqrt(/(- 1 radius1)(+ 1 radius1))))
+                radius2(* length_arc_x(sqrt(/(+ 1 radius2)(- 1 radius2))))
+                dist_diff(- radius2 radius1) )
+          ))
+
+      (setq num_limit(1- num_limit))
+      (cond
+       ((< num_limit 0)(setq bool_loop nil))
+       ((<(abs radius1)1e-8)(setq length_arc_min(+ length_arc_min delta)))
+       ((<(abs dist_diff)1e-8)
+        (setq bool_loop nil)
+        
+        (princ radius1)
+        (getint)
+        
+        (setq dist_diff(- rr radius1))
+        (cond
+         ((if(null rr_min)(>(setq rr_min radius1)rr))
+          (setq bool_loop_r nil)
+          )
+         ((<(abs dist_diff)1e-6)
+          (setq vech0(unit_vector(cross_product vec_tan vec0))
+                vech1(unit_vector(cross_product vec_tan vec1))
+                
+                pt00 p01
+                pc0 (mapcar '(lambda(a b)(+ a(* rr b)))pt00(cross_product vech0 vec0))
+                pt01(mapcar '(lambda(a b)(+ a(* rr b)))pc0(cross_product vec_tan vech0))
+                pt02(mapcar '(lambda(a b)(+ a(* rr b)))
+                            pc0(unit_vector(mapcar '(lambda(a b c)(+ a b(* -2 c)))pt00 pt01 pc0)))
+
+                pt10 p_tan1
+                pc1 (mapcar '(lambda(a b)(+ a(* rr b)))pt10(cross_product vech1 vec1))
+                pt11(mapcar '(lambda(a b)(+ a(* rr b)))pc1(cross_product vec_tan vech1))
+                pt12(mapcar '(lambda(a b)(+ a(* rr b)))
+                            pc1(unit_vector(mapcar '(lambda(a b c)(+ a b(* -2 c)))pt10 pt11 pc1)))
+                ls_out(list(list pc0 pt00 pt01 pt02 vech0 length_straight)
+                           (list pc1 pt10 pt11 pt12 vech1 length_straight))
+                )
+          )
+         ((< rr radius1)
+          (if(< delta_r 0)(setq delta_r(* -0.1 delta_r)))
+          (setq p_tan1(mapcar '(lambda(a b)(+ a(* delta_r b)))p_tan1 vec1))
+          )
+         (T
+          (if(> delta_r 0)(setq delta_r(* -0.1 delta_r)))
+          (setq p_tan1(mapcar '(lambda(a b)(+ a(* delta_r b)))p_tan1 vec1))
+          )
+         
+         )
+        )
+       
+       ((< dist_diff 0.)
+        (if(< delta 0)(setq delta(* -0.1 delta)))
+        (setq length_arc_min(+ length_arc_min delta))
+        )
+       ;; ((< radius1 rr)
+       ;;  (setq bool_loop nil))
+       (T
+        (if(> delta 0)(setq delta(* -0.1 delta)))
+        (setq length_arc_min(+ length_arc_min delta)))
+       )
+      )
+    
+    )
+  ls_out
+  )
+
+
 (defun cal_radiustwist
     (rr p_tan p00 p01 p10 p11 vec0 vec1 length_straight
         / length_arc_min length_arc_max length_arc_x vec_p
@@ -10526,8 +10703,16 @@
             height_plane(apply '+(mapcar '*(mapcar '- p10 p00)vec_plane))
             )
       (<(abs height_plane)1e-8));;面内のとき
+
     
-    (if ls_p_through
+    (if(if ls_p_through
+           (apply 'and
+                  (mapcar
+                   '(lambda(lst pd0 vec / pc p0 r)
+                      (setq pc(car lst)r(distance(cadr lst)pc))
+                      (<(abs(-(abs(apply '+(mapcar '*(mapcar '- pd0 pc)vec)))r))1e-8))
+                   ls_p_through(list p00 p11)(list vec_nline0 vec_nline1))))
+        
         (mapcar '(lambda(lst / pc p0 p1 p2 vec)
                    (mapcar 'set '(pc p0 p1 p2)lst)
                    (list pc p0 p1 p2 vec_plane length_straight))
