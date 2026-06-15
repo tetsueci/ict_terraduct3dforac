@@ -10708,9 +10708,13 @@
     (if(if ls_p_through
            (apply 'and
                   (mapcar
-                   '(lambda(lst pd0 pd1 / pc p0)
+                   '(lambda(lst pd0 pd1 / pc p0 d)
                       (setq p0(cadr lst))
-                      (<(distance(list 0 0 0)(cross_product(mapcar '- pd0 p0)(mapcar '- pd1 p0)))1e-6)
+                      (if(<(distance(list 0 0 0)(cross_product(mapcar '- pd0 p0)(mapcar '- pd1 p0)))1e-6)T
+                        (progn
+                          (setq p0(caddr lst))
+                          (<(distance(list 0 0 0)(cross_product(mapcar '- pd0 p0)(mapcar '- pd1 p0)))1e-6)
+                          ))
                       )
                    ls_p_through(list p00 p10)(list p01 p11))))
         
