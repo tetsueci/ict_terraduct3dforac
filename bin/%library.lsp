@@ -702,6 +702,8 @@
                  lst))) )
   )
 
+(defun addkillobj(x)(setq ls_vnam_killobj(cons x ls_vnam_killobj)) )
+(defun exckillobj(x)(setq ls_vnam_killobj(vl-remove x ls_vnam_killobj)) )
 
 (defun search_sty-lay-blo( lst / sym )
   
@@ -747,7 +749,7 @@
   (vlax-safearray-fill array_p ls_p)
   (setq vnam(vla-addlightweightpolyline
              (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))array_p))
-  (mapcar '(lambda(func val)(func vnam val))
+  (mapcar '(lambda(func val)(if(and vnam val)(func vnam val)))
           (list vla-put-layer vla-put-color vla-put-Closed)
           ls_val)
   vnam
@@ -913,7 +915,20 @@
 
 (defun error-preview_command_dcl(msg)
   (setq ls_entna_killobj nil);;load_dcl nil open_file nil ls_dcl_delete nil)
-  
+
+  (mapcar '(lambda(a / v e);;オブジェクト
+             (if(vl-catch-all-error-p
+                 (setq e(vl-catch-all-apply 'vlax-vla-object->ename(list a))))
+                 (setq v nil e nil)
+               (setq v a))
+             (if(if e(entget e))
+                 (progn
+                   (setq ls_vnam_highlight(vl-remove v ls_vnam_highlight)
+                         ls_vnam_visible(vl-remove v ls_vnam_visible) )
+                   (vla-delete v)
+                   )))
+          ls_vnam_killobj)
+
   (defun *error*(msg)(princ msg))
   (princ msg)
   )
@@ -1368,7 +1383,7 @@
   )
 
 (defun axd_function_read_session
-    (str_initialsession str_session / );;dclを使わない;;多分外に出す
+    (str_initialsession str_session / bool_initial );;dclを使わない;;多分外に出す
   (setq func_name "home")
   ((lambda(str)
      (mapcar '(lambda(a / sym)(if(setq sym(cdr(assoc str a)))(set sym nil)))ls_initialparameters))
@@ -1399,7 +1414,7 @@
                                (vlax-safearray->list array_data)))
                 ;; lst(split_list 0 lst)
                 )
-
+          
           ((lambda(ls_dummy)
              
              (while lst
@@ -1474,11 +1489,51 @@
           (if func(set sym(func val)))
           )
          
-         
          )
 
         )
      ls_initialparameters)
+
+
+    (if(if(vl-catch-all-error-p
+           (setq xrec(vl-catch-all-apply 'vla-Item (list asis_session "PARAMETER"))))
+           (progn
+             (setq xrec(vla-AddXRecord asis_session "PARAMETER") )
+             T
+             )
+         (progn
+           (vla-GetXRecordData xrec 'array_type 'array_data )
+           (if array_data nil T)
+           ))
+        (progn
+          
+          (setq lst(mapcar
+                    '(lambda(a / sym str int_type str_type)
+                       (if(setq sym(cdr(assoc "SYMBOL" a)))
+                           (setq str(vl-symbol-name sym)
+                                 val(eval sym)str_type(type val)))
+                       (if val
+                           (list(cons 1000 str)
+                                (cons(if(= str_type 'REAL)1040
+                                       (if(= str_type 'INT)1071
+                                         (if(= str_type 'STR)1000
+                                           )))
+                                     val)))
+                       
+                       
+                       )
+                    ls_initialparameters)
+                lst(apply 'append lst)
+                array_data(vlax-make-safearray
+                           vlax-vbVariant(cons 0(1-(length lst))))
+                array_type(vlax-make-safearray
+                           vlax-vbInteger(cons 0(1-(length lst))))
+                )
+          (vlax-safearray-fill array_type(mapcar 'car lst))
+          (vlax-safearray-fill array_data(mapcar 'cdr lst))
+          (vla-SetXRecordData xrec array_type array_data )
+          ))
+    
 
     (setq prev_select_sessionname(strcat str_initialsession str_session))
     
@@ -2244,8 +2299,11 @@
                                                 (if(= str_type 'STR)1000
                                                   )))
                                             val)))
+                              
+                              
                               )
                            ls_initialparameters)
+                       
                        lst(apply 'append lst)
                        array_data(vlax-make-safearray
                                   vlax-vbVariant(cons 0(1-(length lst))))
@@ -2483,6 +2541,7 @@
   
   (while bool_loop
     (progn
+
       (if bool_snap(setq str_osnaps(_getosmode (getvar 'OSMODE))))
       ;;(if(= int_snap 0)(setq str_osnaps(_getosmode (getvar 'OSMODE))))
       (if(= str_edit_loop str_edit) T
@@ -2504,7 +2563,8 @@
           (func_grinitial(list T))
           ))
       (setq str_edit_loop str_edit )
-
+      
+      
       (if((lambda( / str nn count start)
             (setq
              str
@@ -2569,7 +2629,7 @@
                          
                          (mapcar
                           '(lambda(lst / num str str_bool str_key str_item str_val func_con sym_input
-                                       bool_selectmenu bool_starselectmenu
+                                       bool_selectmenu bool_starselectmenu sym_num
                                        int_col int_key sym_bool ls_item)
                              
                              (setq ii(1+ ii)
@@ -2582,7 +2642,7 @@
                                                   (strcat(chr int_key)" ")))))
                              
                              (setq str_item(cdr(assoc "ITEM" lst)))
-                             
+
                              (cond
                               ((setq func_input(cdr(assoc "INPUT" lst)))
                                (setq sym_input(func_input)
@@ -2596,7 +2656,9 @@
                                (setq sym_input(func_input) int_col(eval sym_input))
                                )
                               ((setq func_input(cdr(assoc "INPUTSWITCH" lst)))
-                               (setq ls_item(func_input)str_val(nth(eval(car ls_item))(cadr ls_item)))
+                               (setq ls_item(func_input)sym_num(car ls_item)
+                                     str_val(if sym_num(nth(eval sym_num)(cadr ls_item))
+                                              (cadr ls_item)))
                                )
                               
                               ((setq func_input(cdr(assoc "GETPOINT" lst)))
@@ -2613,10 +2675,11 @@
                                )
                               ((setq func_con(cdr(assoc "STATUS" lst)))
                                (setq str_val(func_con))
+                               
                                )
                               
                               )
-                             
+
                              (cond
                               ((setq func_input(cdr(assoc "BOOL" lst)))
                                (setq int_displaybool 0)
@@ -2627,7 +2690,7 @@
                                                 (mix_strasc(cons "\n" lst)))
                                              str_val)))
                                )
-                              (T(list "\n{\\C" str_gcol_c ";  " str_key "}"
+                              (T(list "\n{\\C" str_gcol_c "; " str_key "}"
                                       (if(or bool_selectmenu bool_starselectmenu)
                                           (list
                                            (if(or bool_selectmenu(null int_selectmenu))
@@ -2650,7 +2713,7 @@
                           lst)
                          
                          (if bool_point
-                             (list "\n{\\C" str_gcol_c ";  S} "
+                             (list "\n{\\C" str_gcol_c "; S} "
                                    (if bool_selectsnap(list "{\\C" str_gcol_y ";" 9733 "}"))
                                    9 ": "
                                    (if bool_selectsnap
@@ -2679,22 +2742,21 @@
                  ))
               )
              )
+            
             (setq str_funcmarker "DISPLAY")
-
+            
+            
             (setq nn 0 start 1)
             (while(setq count(vl-string-search "\n" str start))
               (setq nn(1+ nn)start(+ count 1))
               )
             (setq int_row_guide nn)
             
-            (if(= str str_guide_prev)T
-              (setq str_guide_prev str nn nil))
+            (if(= str str_guide_prev)T (setq str_guide_prev str nn nil))
             ))
           T ;;IJのgrdrawのために必要
         (progn
-          (vla-put-textstring
-           vnam_guide
-           str_guide_prev )
+          (vla-put-textstring vnam_guide str_guide_prev )
           
           (if(= int_row_guide int_row_guideprev)T
             (setq height_guidewhole
@@ -2717,7 +2779,8 @@
             )
           )
         )
-
+      
+      
       (if func_loopunique(func_loopunique))
       (if bool_replacegrread(setq bool_replacegrread nil)
         (setq ls_grread(grread t 15(if bool_point 0 2))
@@ -2747,7 +2810,6 @@
                     (vla-put-InsertionPoint vnam_guide(vlax-3d-point point_base))
                     (vla-put-Height vnam_guide(* 2. height_text))
                     (vla-put-rotation vnam_guide ang_viewtwist)
-                    
                     ((lambda(lst / d pc)
                        (setq d(* height_text(car lst)))
                        (mapcar
@@ -3163,7 +3225,6 @@
                         
                         )
                      ls_vnam_temp)))
-
           
           
           (if(= int_selectmode -1) (setq ls_vnam_select ls_vnam_temp)
@@ -3180,7 +3241,6 @@
                            )
                         ls_vnam_temp)
                 )
-              
               (mapcar '(lambda(a)(vla-Highlight a :vlax-true))ls_vnam_highlight)
               ))
 
@@ -3335,6 +3395,7 @@
                             (if(< int_selectmenu 0)(setq lst nil)
                               (setq a(nth int_selectmenu ls_guidemenu))))
                            (ls_vnam_select (setq lst nil));;func_gr2へ
+                           
                            (T T);;(or(= elem_grread 13)(= int_grread 25)))
                            ))
                     (progn
@@ -3428,11 +3489,13 @@
                        (setq lst nil))
                  )
                )
+             
              (if str_next(if(=(type str_next)'STR)
                              (setq str_editreturn str_edit str_edit str_next )T))
              )
            ls_guidemenu))
-         
+
+
          (func_gr2
           (func_gr2)
           )
@@ -3441,7 +3504,6 @@
         )
        
        )
-
 
       )
     )
@@ -3486,6 +3548,9 @@
 
 (defun as-atof(a)(if a(if(=(type a)'STR)(atof a)a)0.))
 (defun as-atoi(a)(if a(if(=(type a)'STR)(atoi a)(fix a))0))
+(defun as-itoa(a)(if(=(type a)'STR)a
+                   (if(=(type a)'INT)(itoa a)
+                     (if(=(type a)'REAL)(itoa(fix a))))))
 (defun as-angtof(a)(if a(if(=(type a)'STR)(angtof a)a)0))
 (defun as-handent(a / e)(if(if(if(=(type a)'STR)(setq e(handent a)))(entget e))e))
 (defun as-numstr (x / a n s typ xx)
@@ -3514,7 +3579,7 @@
   (if(and(<=(abs real_x)0.015625)(<=(abs real_y)0.015625))
       (setq real_tanxz(expt(/ real_x real_z)2)
             real_zz(*(if(>(* real_x real_z)0)-1 1)(sqrt(/ real_tanxz(1+ real_tanxz))))
-            vec_x(list (*(if(> real_z 0)1 -1)(sqrt(- 1(expt real_zz 2)))) 0 real_zz))
+            vec_x(list (*(if(> real_z 0)1 1)(sqrt(- 1(expt real_zz 2)))) 0 real_zz))
     (setq vec_x(list(- real_y)real_x 0) dist_0(distance(list 0 0 0)vec_x)
           vec_x(mapcar '(lambda(a)(/ a dist_0 1.0))vec_x)) )
   (setq vec_y(mapcar '(lambda(a b)(-(*(a vec_z)(b vec_x))(*(a vec_x)(b vec_z))))
