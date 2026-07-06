@@ -3425,7 +3425,6 @@
                         (if(setq func(cdr(assoc "LOADFUNCTION" a)))(func))
                         T)
                        ((setq func_input(cdr(assoc "INPUT" a)))
-                        
                         (setq sym_input(func_input)
                               val_input(eval sym_input)
                               str_input(as-numstr val_input)
@@ -3489,7 +3488,7 @@
                        (setq lst nil))
                  )
                )
-             
+
              (if str_next(if(=(type str_next)'STR)
                              (setq str_editreturn str_edit str_edit str_next )T))
              )
