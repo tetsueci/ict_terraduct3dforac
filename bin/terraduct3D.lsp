@@ -11181,8 +11181,9 @@
                      (list(list str_type 0)(list "OBJ" obj) (list "COLOR"(vla-get-color obj)) )
                      )
                     ((= str_type "DUCTSOLID")
+                     (setq diam_duct_temp(cdr(assoc "DIAM" ls_xdata)))
                      (list(list str_type 0)(list "OBJ" obj)(list "COLOR"(vla-get-color obj))
-                          ((lambda(str)(list str(cdr(assoc str ls_xdata)))) "DIAM")
+                          (list "DIAM" diam_duct_temp)
                           )
                      )
                     ((= str_type "CONMESH")
@@ -11193,12 +11194,16 @@
                      )
                     )
                    ls_vnam_duct))
-            
+
             ;; (setq str(vla-get-objectname obj))
             ;; (if(or(= str "AcDbRotatedDimension")(= str "AcDb3PointAngularDimension"))
             ;;     (vla-put-visible obj(if(= int_invisible_annotation 1) :vlax-false :vlax-true)))
             )
-
+           (setq pitch_mesh(min pitch_project diam_duct_temp))
+           (if(<(abs pitch_mesh)1e-8)
+               (setq pitch_mesh diam_duct_temp))
+           
+           
            
            (setq int_max_duct num_duct num_duct(1+ num_duct)ls_pline1(list)
                  ls_arcpoint(list))
@@ -11213,6 +11218,7 @@
                    )
              (vla-put-startpoint vnam_line(vlax-3d-point p_line00))
              (vla-put-endpoint vnam_line(vlax-3d-point p_line01))
+
              (if(and(setq lst0(assoc(list "ARC" num_duct 0) ls_vnam_duct))
                     (setq lst1(assoc(list "ARC" num_duct 1) ls_vnam_duct))
                     )
@@ -11484,8 +11490,7 @@
                        
                        
                        ))
-
-
+                    
                     
                     (setq p p_arcstart
                           ls_arc_parameter
@@ -11605,7 +11610,7 @@
 
                            )
                           )
-                    
+
                     (mapcar
                      '(lambda( lst e ii / vnam vec_normal pc p0 p1 p2 length_straight e_out)
                         (mapcar 'set '(pc p0 p1 p2 vec_normal length_straight)lst)
@@ -11658,7 +11663,7 @@
                      )
                     
                     )))
-             
+
              (setq p_line10 p_line00 p_line11 p_line01
                    vec_line1(mapcar '- vec_line0)
                    )
@@ -11671,7 +11676,6 @@
            (setq p0(caddr(assoc "POINT"(assoc(list "DEPTH" 0 0)ls_vnam_duct))) )
            
            (while(<=(setq num_duct(1+ num_duct))int_max_duct)
-
              (if(setq ls_arc0(cdr(assoc(list num_duct 0)ls_arcpoint))) ;;pc p0 p1 p2 vec_normal)
                  (setq p1(cadr ls_arc0)ls_arc1(cdr(assoc(list num_duct 1)ls_arcpoint)))
                (setq p1(caddr(assoc "POINT"(assoc(list "DEPTH" num_duct 1)ls_vnam_duct))))
@@ -11683,7 +11687,7 @@
                (setq ls_pmesh(list(list p0 vec0))
                      ls_pbar(list(list p0 nil vec0))))
 
-             
+  
              
              ;; (setq ls_pbar(cons(list p1 nil vec0) ls_pbar))
              
@@ -11760,26 +11764,24 @@
                      )
                   (list ls_arc0 ls_arc1)(list 0 1))
 
-               (progn
-
-                 ((lambda( / d n i dd pm)
-                    (setq d(distance p0 p1) n(1+(fix(/ d pitch_mesh))) d(/ d n)
-                          dd 0.)
-                    (if(< d 1e-8)T
-                      (while(>=(setq n(1- n))-1)
-                        (setq dd(+ dd d)
-                              pm(mapcar '(lambda(a b)(+ a(* dd b)))p0 vec0)
-                              ls_pmesh(cons(list pm vec0)ls_pmesh)
-                              )
-                        )
+               ((lambda( / d n i dd pm)
+                  (setq d(distance p0 p1) n(1+(fix(/ d pitch_mesh))) d(/ d n)
+                        dd 0.)
+                  
+                  (if(< d 1e-8)T
+                    (while(>=(setq n(1- n))-1)
+                      (setq dd(+ dd d)
+                            pm(mapcar '(lambda(a b)(+ a(* dd b)))p0 vec0)
+                            ls_pmesh(cons(list pm vec0)ls_pmesh)
+                            )
                       )
-                    ))
-                 (setq ls_pbar(cons(list p1 nil vec0)ls_pbar))
-
-                 )
+                    )
+                  (setq ls_pbar(cons(list p1 nil vec0)ls_pbar))
+                  ))
+               
                )
              )
-           
+
            (setq ls_objcenterline(assoc(list "CENTERLINE" 0)ls_vnam_duct))
            (setq ls_pcenterline(mapcar 'car(reverse ls_pmesh)))
            (setq ls_p(apply 'append ls_pcenterline)
@@ -12089,11 +12091,8 @@
     
     )
 
-
+  
    
-   
-
-
    
    
    )
@@ -12138,8 +12137,6 @@
               ls_obj(vl-remove lst ls_obj)))
     
     )
-  
-
   
   
   (if str_path_tempdirectory T
