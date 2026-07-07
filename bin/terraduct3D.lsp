@@ -11014,6 +11014,27 @@
               
               ls_guidemenu
               (list
+
+               (list(list 76);; 地表面標高
+                    (cons "ITEM"(list 22320 34920 38754 27161 39640))
+                    (cons "STATUS"
+                          (lambda()
+                            (if str_lasground
+                                (mix_strasc
+                                 (list "{\\C" str_gcol_c ";" 12487 12540 12479 "} : "
+                                       (vl-string-subst "" "lasgrid-" str_lasground)))
+                              (if height_ground
+                                  (mix_strasc
+                                   (list"{\\C" str_gcol_g ";" 27161 39640 "} : "
+                                        (as-numstr height_ground)))
+                                (mix_strasc
+                                 (list "{\\C" str_gcol_r ";"
+                                       36984 25246 12373 12428 12390 12356 12414 12379 12435 "}"))
+                                ))
+                            ))
+                    (cons "LOADFUNCTION"(lambda()(settile_selectground)))
+                    (cons "HELP"(lambda()(mix_strasc(list 20351 29992 12377 12427 27161 39640 12434 "\n- las" 35501 36796 "\n- xml" 35501 36796 "\n- " 19968 23450 27161 39640 12398 25968 20516 20837 21147 "\n" 12363 12425 36984 25246 12391 12365 12414 12377 ))))
+                    )
                
                (list(list 49);;実行
                     (cons "ITEM"(list 23455 34892 ))
