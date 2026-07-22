@@ -2541,7 +2541,6 @@
   
   (while bool_loop
     (progn
-
       (if bool_snap(setq str_osnaps(_getosmode (getvar 'OSMODE))))
       ;;(if(= int_snap 0)(setq str_osnaps(_getosmode (getvar 'OSMODE))))
       (if(= str_edit_loop str_edit) T
@@ -2563,7 +2562,14 @@
           (func_grinitial(list T))
           ))
       (setq str_edit_loop str_edit )
-      
+
+      (setq ls_guidemenu_page
+            (vl-remove-if
+             '(lambda(a / lst)
+                (if(setq lst(cdr(assoc "PAGE" a)))
+                    (null(vl-position int_commandpage lst)))
+                )
+             ls_guidemenu))
       
       (if((lambda( / str nn count start)
             (setq
@@ -2621,26 +2627,24 @@
                  
                  ((lambda(func lst / str ii func_input lst)
                     (setq ii -1)
-
-                    (if ls_guidemenu
-                        
+                    (if ls_guidemenu_page
                         
                         (list
-                         
+
                          (mapcar
                           '(lambda(lst / num str str_bool str_key str_item str_val func_con sym_input
                                        bool_selectmenu bool_starselectmenu sym_num
-                                       int_col int_key sym_bool ls_item)
+                                       int_col int_key sym_bool ls_item int_page)
                              
                              (setq ii(1+ ii)
                                    bool_selectmenu(= int_selectmenu ii)
                                    bool_starselectmenu(= int_starselectmenu ii))
-                             
+
                              (if(setq int_key(caar lst))
                                  (setq str_key(if(= int_key 8)"BackSpace "
                                                 (if(= int_key 32)"Space "
-                                                  (strcat(chr int_key)" ")))))
-                             
+                                                  (strcat(chr int_key)" ")))
+                                       ))
                              (setq str_item(cdr(assoc "ITEM" lst)))
 
                              (cond
@@ -2662,16 +2666,23 @@
                                )
                               
                               ((setq func_input(cdr(assoc "GETPOINT" lst)))
-                               (setq lst(func_input)
-                                     str_val
-                                     (list "{\\C"(if(car lst)
-                                                     (list(cadr lst)";" 36984 25246 28168 12415 )
-                                                   (list str_gcol_r ";" 26410 36984 25246)
-                                                   )
-                                           "}"
-                                           )
+
+                               (setq str_val
+                                     ((lambda( / func ls_getpoint)
+                                        (setq ls_getpoint(func_input))
+                                        (if(setq func(cdr(assoc "STATUS" lst)))
+                                            (list(func))
+                                          (list "{\\C"(if(car ls_getpoint)
+                                                          (list(cadr ls_getpoint)
+                                                               ";" 36984 25246 28168 12415 )
+                                                        (list str_gcol_r ";" 26410 36984 25246)
+                                                        )
+                                                "}"
+                                                )
+                                          )))
                                      lst nil
                                      )
+                               
                                )
                               ((setq func_con(cdr(assoc "STATUS" lst)))
                                (setq str_val(func_con))
@@ -2679,7 +2690,7 @@
                                )
                               
                               )
-
+                             
                              (cond
                               ((setq func_input(cdr(assoc "BOOL" lst)))
                                (setq int_displaybool 0)
@@ -2709,6 +2720,7 @@
                                       )
                                 )
                               )
+                             
                              )
                           lst)
                          
@@ -2728,12 +2740,20 @@
                          "\n{\\C" str_gcol_y ";" 9733 "}" 32 "{\\C30;" 9734 "} "
                          "{\\C" str_gcol_g ";" 12364 12394 12356 12392 12365 " Enter , "
                          21491 12463 12522 12483 12463 " : "
-                         (cdr(assoc "ITEM"(assoc(list "ENTER")ls_guidemenu)))"}"
+
+                         (cdr(assoc "ITEM"(assoc(list "ENTER")ls_guidemenu_page)))"}"
                          )
                       (if func(func)) )
                     )
                   func_grdisp
-                  (vl-remove-if '(lambda(a)(assoc "ENTER" a))ls_guidemenu)
+                  (vl-remove-if
+                   '(lambda(a / lst)
+                      (or(assoc "ENTER" a)
+                         (if(setq lst(cdr(assoc "PAGE" a)))
+                             (null(vl-position int_commandpage lst)))
+                         )
+                      )
+                   ls_guidemenu_page)
                   )
                  
 
@@ -2937,7 +2957,7 @@
         (setq p_snap nil)
         
         (redraw)
-
+        
         ((lambda(num_e num_g ls_bool / p1 p2 ny y nx lst)
            (if(or(= num_g 0)(= int_guideclick 1))T
              (if((lambda( / d)
@@ -2991,11 +3011,11 @@
                ) )
            )
          (+ num_initialexplane(length ls_guideexplane))
-         (length(vl-remove-if '(lambda(a)(or(assoc "ENTER" a)(assoc "BOOL" a)))
-                              ls_guidemenu))
-         (vl-remove-if '(lambda(a)(null(assoc "BOOL" a)))ls_guidemenu)
+         (length(vl-remove-if '(lambda(a)(or(assoc "ENTER" a)(assoc "BOOL" a) ))
+                              ls_guidemenu_page))
+         (vl-remove-if '(lambda(a)(null(assoc "BOOL" a)))ls_guidemenu_page)
          )
-        
+
         (if(if(and(zerop (logand 16384 (getvar 'OSMODE)))bool_snap bool_point)
                (setq p_snap (osnap elem_grread(strcat str_osnaps str_addsnap))))
             ((lambda(p c / s ls_p)
@@ -3057,7 +3077,8 @@
          (bool_selectsnap (setq bool_snap(null bool_snap)) )
          (int_starselectmenu
           (setq int_selectmenu int_starselectmenu
-                lst(nth int_selectmenu ls_guidemenu))
+                lst(nth int_selectmenu ls_guidemenu_page)
+                )
           ;; (if(= ny int_selectmenu)
           (if(setq str(cdr(assoc "NEXTMODE" lst)))
               (if(setq func(cdr(assoc "CLICKFUNCTION" lst)))(func)
@@ -3070,7 +3091,7 @@
                   (cdr(assoc "LOADFUNCTION" lst))
                   (cdr(assoc "GETPOINT" lst))
                   )
-                (setq bool_replacegrread T bool_input nil
+                (setq bool_replacegrread T bool_input nil 
                       int_grread 2 elem_grread(caar lst))
               )
             )
@@ -3254,8 +3275,10 @@
         )
 
        ((or(= int_grread 2)(= int_grread 25))
+        
         (if(and bool_getpoint(or(= elem_grread 13)(= int_grread 25)))(func_input nil) )
         (setq bool_getpoint nil)
+
         (cond
          ((and(vl-position elem_grread(list 33 65281 -255))(/= str_edit "tempdistlength"))
           (if bool_input(setq bool_inputmeasure T str_inputmeasure nil))
@@ -3277,9 +3300,9 @@
           (if(if(setq func
                       (cond
                        ((if(and ls_guidemenu int_selectmenu)
-                            (cdr(assoc "HELP"(nth int_selectmenu ls_guidemenu)))))
+                            (cdr(assoc "HELP"(nth int_selectmenu ls_guidemenu_page )))))
                        ((if(and ls_guidemenu int_starselectmenu)
-                            (cdr(assoc "HELP"(nth int_starselectmenu ls_guidemenu)))))
+                            (cdr(assoc "HELP"(nth int_starselectmenu ls_guidemenu_page )))))
                        (func_guidemenu func_guidemenu)
                        )
                       )
@@ -3388,12 +3411,15 @@
                (if int_starselectmenu(setq int_selectmenu int_starselectmenu)))
              (while lst
                (setq a(car lst) lst(cdr lst))
+               (setq func_selectcansel_temp(cdr(assoc "SELECTCANCEL" a)))
+               
                (if(if(equal(car a)(list "ENTER"))
                       (if(or(= elem_grread 13)(= int_grread 25))
                           (cond
+                           ;;((progn  nil))
                            (int_selectmenu;;selectmenuがあるとき一覧にないキーを押すと反応してしまう
                             (if(< int_selectmenu 0)(setq lst nil)
-                              (setq a(nth int_selectmenu ls_guidemenu))))
+                              (setq a(nth int_selectmenu ls_guidemenu_page ))))
                            (ls_vnam_select (setq lst nil));;func_gr2へ
                            
                            (T T);;(or(= elem_grread 13)(= int_grread 25)))
@@ -3429,7 +3455,7 @@
                               val_input(eval sym_input)
                               str_input(as-numstr val_input)
                               type_input(type val_input)
-                              int_selectmenu(vl-position a ls_guidemenu)
+                              int_selectmenu(vl-position a ls_guidemenu_page)
                               func_input(cdr(assoc "LOADFUNCTION" a))
                               bool_input T
                               ;;str_edit str_edit_loop
@@ -3473,14 +3499,15 @@
                        ((setq func_input(cdr(assoc "GETPOINT" a)))
                         ((lambda(str)(if str(setq str_addsnap str)))(cdr(assoc "GETPOINTSNAP" a)))
                         (setq func_input(cdr(assoc "LOADFUNCTION" a))
-                              int_selectmenu(vl-position a ls_guidemenu)
+                              int_selectmenu(vl-position a ls_guidemenu_page)
                               bool_point T bool_getpoint T
                               )
                         (setq str_next T)
                         )
                        ((setq func(cdr(assoc "LOADFUNCTION" a)))
                         (func)
-                        (setq int_selectmenu nil)
+                        (setq int_selectmenu int_selectmenu_temp
+                              int_selectmenu_temp nil)
                         (setq str_next T)
                         )
                        )
@@ -3488,16 +3515,26 @@
                        (setq lst nil))
                  )
                )
-
-             (if str_next(if(=(type str_next)'STR)
-                             (setq str_editreturn str_edit str_edit str_next )T))
+             
+             (if func_selectcansel
+                 (if(equal func_selectcansel_temp func_selectcansel)T
+                   (progn(func_selectcansel)
+                         (setq func_selectcansel nil)
+                         )))
+             (if func_selectcansel_temp(setq func_selectcansel func_selectcansel_temp))
+             
+             (if str_next
+                 (if(=(type str_next)'STR)
+                     (setq str_editreturn str_edit str_edit str_next )
+                   T) )
              )
-           ls_guidemenu))
+           ls_guidemenu_page))
 
 
          (func_gr2
           (func_gr2)
           )
+         
          )
 
         )
@@ -3878,6 +3915,106 @@
           ii(1+ ii))
     )
   (list x y)
+  )
+
+
+;;(cloth_road_point (getpoint)(getpoint)(getpoint) 1240. 300. 300.)
+
+(defun cloth_road_point
+    (p1 p2 p3 real_radius a1 a2 delta_clth 
+        / vec_normal delta_clth pc ag px hh aa ed pp1 pp2 tc ii)
+  (setq vec_normal(list 0. 0. 1.)dist_normal 0. )
+  
+  (setq vec1(mapcar '- p2 p1)vec2(mapcar '- p3 p1)
+        bool_leftside(>(-(*(car vec1)(cadr vec2))(*(cadr vec1)(car vec2)))0)
+        angle1(angle p1 p2)angle2(angle p3 p2)
+        tau1(/ (* 0.5 a1 a1)(* real_radius real_radius))
+        tau2(/ (* 0.5 a2 a2)(* real_radius real_radius))
+        ang_varch1(+ angle1(*(if bool_leftside 1 -1)0.5 pi))
+        ang_varch2(+ angle2(*(if bool_leftside -1 1)0.5 pi))
+        )
+
+  (setq length_clth1(/(* a1 a1)real_radius))
+  (if(= length_clth1 0)(setq ns1 0 delta_length1 0 alph1 0)
+    (setq ns1(fix(1+(/ length_clth1 delta_clth)))
+          delta_length1(/ length_clth1 ns1)
+          alph1(/ 0.5(* a1 a1))
+          ))
+  (setq length_clth2(/(* a2 a2)real_radius))
+  
+  (if(= length_clth2 0)(setq ns2 0 delta_length2 0 alph2 0)
+    (setq ns2(fix(1+(/ length_clth2 delta_clth)))
+          delta_length2(/ length_clth2 ns2)
+          alph2(/ 0.5(* a2 a2))
+          ))
+  
+  (setq ls_clthxy1(clth_recurr (* length_clth1 length_clth1 alph1) a1)
+        x(car ls_clthxy1)y(cadr ls_clthxy1)
+        height1(+(abs y)(* real_radius(cos tau1)))
+        ls_clthxy2(clth_recurr (* length_clth2 length_clth2 alph2) a2)
+        x(car ls_clthxy2)y(cadr ls_clthxy2)
+        height2(+(abs y)(* real_radius(cos tau2)))
+        pc(inters(polar p1 ang_varch1 height1)
+                 (polar p2 ang_varch1 height1)
+                 (polar p2 ang_varch2 height2)
+                 (polar p3 ang_varch2 height2)nil)
+        ;; p_normal1(inters p1 p2 pc(polar pc ang_varch1 1)nil)
+        ;; p_normal2(inters p2 p3 pc(polar pc ang_varch2 1)nil)
+        )
+  
+  (setq p_clthend1(polar pc(+ ang_varch1(* tau1(if bool_leftside 1 -1)))(- real_radius))
+        p_clthend2(polar pc(+ ang_varch2(* tau2(if bool_leftside -1 1)))(- real_radius))
+        angle_arcx(angle p_clthend1 pc)
+        angle_arcy(+ angle_arcx(* 0.5 pi(if bool_leftside -1 1)))
+        vec_arcx(list(cos angle_arcx)(sin angle_arcx)0)
+        vec_arcy(list(cos angle_arcy)(sin angle_arcy)0)
+        )
+
+  (setq x(car ls_clthxy1)y(cadr ls_clthxy1)
+        p_clthsta1(polar(polar p_clthend1 angle1(- x))ang_varch1(- y)))
+
+  (setq sum_length(- delta_length1)
+        ls_point(mapcar
+                 '(lambda(i / x y xy tau p p_coup p_trail dist_0 dist_1 theta)
+                    (setq sum_length(+ sum_length delta_length1)
+                          xy(clth_recurr (* sum_length sum_length alph1) a1)
+                          x(car xy)y(cadr xy)
+                          )
+                    
+                    (polar(polar p_clthsta1 angle1 x)ang_varch1 y)
+                    )
+                 (inclist 0(1+ ns1)) )
+        p_harf(mapcar '(lambda(a b)(* 0.5(+ a b)))p_clthend1 p_clthend2)
+        ratio_arc(/(- real_radius(distance pc p_harf))(distance p_clthend1 p_harf))
+        ;; ls_ratio_r(reverse(cons(cons 42(* ratio_arc(if bool_leftside 1 -1)))
+        ;;                        (cdr(mapcar '(lambda(a)(cons 42 0))ls_point))))
+        n_arc(1-(length ls_point))
+        )
+  
+  (setq x(car ls_clthxy2)y(cadr ls_clthxy2)
+        p_clthsta2(polar(polar p_clthend2 angle2(- x))ang_varch2(- y))
+        sum_length2(- delta_length2)
+        ls_point(append
+                 ls_point
+                 (reverse
+                  (mapcar
+                   '(lambda(i / x y xy p)
+                      (setq sum_length2(+ sum_length2 delta_length2)
+                            xy(clth_recurr (* sum_length2 sum_length2 alph2) a2)
+                            x(car xy)y(cadr xy)
+                            )
+                      (polar(polar p_clthsta2 angle2 x)ang_varch2 y)
+                      )
+                   (inclist 0(1+ ns2)))
+                  ))
+        )
+
+  (setq vnam(xvla-lwpoly(apply 'append(mapcar 'carxy ls_point))(list nil nil :vlax-false)) )
+  (vla-setbulge vnam n_arc ratio_arc)
+  (list ls_point ls_ratio_r )
+
+  
+  vnam
   )
 
 
@@ -7255,6 +7392,381 @@
   
   (entmakex(append ls_codehead ls_code ls_codefin))
   )
+
+
+
+(defun bendpipe_objarray( ls_obj / sa )
+  (setq sa(vlax-make-safearray vlax-vbObject(cons 0(1-(length ls_obj)))))
+  (vlax-safearray-fill sa ls_obj)
+  sa
+  )
+
+(defun bendpipe_lwpsld
+    ( rr ls_pbar na ls_x
+         / doc spaceObj num i p0 p1 center r0 r1 nrm frm ocsx ocsy ang0 ang1 radi
+         tangent0 circEnt circObj pathEnt pathObj regionObj solidObj
+         solidList finalObj finalEnt seglen ov dtheta p_start vec_normal )
+  
+  (if (null na)(setq na (getvar "CLAYER")))
+  ;; (setq doc(vla-get-ActiveDocument(vlax-get-acad-object))
+  (setq spaceObj(vla-get-Block(vla-get-ActiveLayout(vla-get-ActiveDocument(vlax-get-acad-object)))))
+
+  (setq num(length ls_pbar) solidList(list) i 0)
+
+  ;;ポリラインを使う
+  ;;vla-setbulge
+  (setq ls_coord(list) ls_arc(list)int_lien -1)
+
+  (repeat
+   (1- num)
+   (setq lst(nth i ls_pbar)
+         p0(car lst)p_center0(cadr lst)tangent0(caddr lst)
+         lst(nth(1+ i)ls_pbar)
+         p1(car lst)p_center1(cadr lst)tangent1(caddr lst)
+         i(1+ i) bool_last(= i(- num 1))
+         )
+   (if p_center0
+       (progn
+         (setq vec_normal(unit_vector(cross_product tangent0 tangent1))
+               ls_arc(cons
+                      ((lambda( / nn r42 rr d0 d1 vv)
+                         (setq nn(length ls_coord)
+                               rr(distance p0 p_center0)
+                               d0(* 0.5(/(distance p0 p1) rr))
+                               d1(sqrt(- 1.(expt d0 2)))
+                               r42(/(- 1. d1)d0)
+                               vv(cross_product vec_normal tangent0)
+                               )
+                         (if(>(apply '+(mapcar '* vv tangent1))0)
+                             (setq r42(- r42)))
+                         (list nn r42)
+                         ))
+                      ls_arc)
+               )
+         
+         (setq ls_coord(cons p1(cons p0 ls_coord))
+               p_next p1
+               )
+         
+         )
+     
+     (progn
+       (if p_start
+           (setq p_next(mapcar '(lambda(a b ) (+(* 0.55 a)(* 0.45 b))) p0 p1 )
+                 ls_coord(cons(if bool_last p1
+                                (mapcar '(lambda(a b ) (+(* 0.5 a)(* 0.5 b))) p0 p1))
+                              ls_coord)
+                 )
+         
+         (if bool_last
+             (setq ls_coord(list p0 p1)
+                   p_start p0 tangent_start tangent0)
+           
+           (setq ls_coord(list p0)
+                 p_start p0 tangent_start tangent0)
+           )
+         )
+       )
+     )
+   
+   (if(if ls_coord
+          (if p_center0
+              (if p_center1
+                  (progn;;先端を作る
+                    ((lambda(p1 / p0)
+                       
+                       (setq p0(mapcar '(lambda(a b)(- a(* 0.02 rr b)))p1 tangent1)
+                             p1(mapcar '(lambda(a b)(+ a(* 0.02 rr b)))p1 tangent1)
+                             )
+                       
+                       (setq pathObj
+                             (vla-addline
+                              (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                              (vlax-3d-point p0) (vlax-3d-point p1)
+                              ))
+                       (setq circObj
+                             (vla-addcircle
+                              (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                              (vlax-3d-point p0)(* 0.8 rr)
+                              )
+                             )
+
+                       (vla-put-normal circObj(vlax-3d-point tangent1))
+                       (setq regionObj
+                             (car(vlax-safearray->list
+                                  (vlax-variant-value
+                                   (vla-addregion
+                                    spaceObj (bendpipe_objarray(list circObj)))))))
+                       (vl-catch-all-apply 'vla-delete(list circObj))
+                       (setq solidObj(vla-addextrudedsolidalongpath
+                                      spaceObj regionObj pathObj))
+                       (vl-catch-all-apply 'vla-delete(list regionObj))
+                       (vl-catch-all-apply 'vla-delete(list pathObj))
+                       
+                       (setq solidList(cons solidObj solidList))
+
+                       )
+                     p1
+                     )
+                    
+                    T )
+                nil )
+            T )
+        )
+       
+       (if(>(length ls_coord)1)
+           (progn
+             (if(null vec_normal)
+                 (progn
+                   
+                   (setq p0(car ls_coord)p1(cadr ls_coord)
+                         pathObj
+                         (vla-addline
+                          (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                          (vlax-3d-point p0) (vlax-3d-point p1)
+                          ))
+                   
+                   )
+               (progn
+                 
+                 (setq ls_coord(mapcar '(lambda(p)(trans-x p(list 0 0 1)vec_normal))ls_coord)
+                       elev0(caddr(car ls_coord))
+                       ls_coord(mapcar 'carxy ls_coord)
+                       pathobj (xvla-lwpoly(apply 'append ls_coord)(list nil nil :vlax-false))
+                       )
+                 (mapcar '(lambda(lst)(vla-setbulge pathobj(car lst)(cadr lst)) ) ls_arc)
+                 (vla-put-normal pathobj(vlax-3d-point vec_normal))
+                 (vla-put-elevation pathobj elev0)
+                 )
+               )
+             
+             (setq circObj
+                   (vla-addcircle
+                    (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                    (vlax-3d-point p_start)rr
+                    )
+                   )
+             (vla-put-normal circObj(vlax-3d-point tangent_start))
+
+             (setq regionObj
+                   (car(vlax-safearray->list
+                        (vlax-variant-value
+                         (vla-addregion
+                          spaceObj (bendpipe_objarray(list circObj)))))))
+
+             (vl-catch-all-apply 'vla-delete(list circObj))
+             
+             (setq solidObj(vla-addextrudedsolidalongpath spaceObj regionObj pathObj))
+             (vl-catch-all-apply 'vla-delete(list regionObj))
+             (vl-catch-all-apply 'vla-delete(list pathObj))
+             
+             (setq solidList(cons solidObj solidList))
+
+             (setq tangent_start tangent1
+                   p_start p_next ls_coord(list p_start)
+                   ls_arc(list))
+             
+             )
+         )
+     )
+   
+
+   
+   )
+
+  ;; 各区間のソリッドを1本に結合する(vla-booleanは第1引数を結合後のソリッドへ書き換え、
+  ;; 第2引数側は結合により消える)
+  (setq solidList(reverse solidList)
+        finalObj(car solidList))
+  (mapcar '(lambda(s)(vla-boolean finalObj 0 s))(cdr solidList))
+  (vla-put-Layer finalObj na)
+  (setq finalEnt(vlax-vla-object->ename finalObj))
+
+  ;; XDATAの付加(指定があれば、旧版と同じ形式)
+  (if ls_x
+      (entmod
+       (append
+        (entget finalEnt)
+        (list(list -3(list(car ls_x)(cons 1000(cadr ls_x))(cons 1005(caddr ls_x))))))))
+
+  (vlax-release-object spaceObj)
+  finalEnt
+  )
+
+(defun bendpipe_unionsld
+    ( rr ls_pbar ;;ppL cmL vdL
+         na ls_x
+         / doc spaceObj num i p0 p1 center r0 r1 nrm frm ocsx ocsy ang0 ang1 radi
+         tangent0 circEnt circObj pathEnt pathObj regionObj solidObj
+         solidList finalObj finalEnt seglen ov dtheta p_start)
+
+  (if (null na)(setq na (getvar "CLAYER")))
+  ;; (setq doc(vla-get-ActiveDocument(vlax-get-acad-object))
+  (setq spaceObj(vla-get-Block(vla-get-ActiveLayout(vla-get-ActiveDocument(vlax-get-acad-object)))))
+
+  (setq num(length ls_pbar) solidList(list) i 0)
+  
+  (repeat
+   (1- num)
+   (setq lst(nth i ls_pbar)   p0(car lst)center(cadr lst)tangent0(caddr lst)
+         lst(nth(1+ i)ls_pbar)p1(car lst)tangent1(caddr lst)
+         i(1+ i))
+   
+   (if center
+       ;; ---- 曲がり区間: center を中心とする円弧をパスにする ----
+       (progn
+         (setq r0(mapcar '- p0 center)
+               r1(mapcar '- p1 center)
+               nrm(unit_vector(cross_product r0 r1)) ;;曲がり平面の法線(回転の向き込み)
+               frm(vh-xyz nrm) ocsx(car frm) ocsy(cadr frm)
+               ang0(atan(apply '+(mapcar '* ocsy r0))(apply '+(mapcar '* ocsx r0)))
+               ang1(atan(apply '+(mapcar '* ocsy r1))(apply '+(mapcar '* ocsx r1)))
+               radi(distance center p0)
+               ;;tangent0(unit_vector(cross_product nrm r0)) ;;p0でのパス接線方向
+               )
+         (if(< ang1 ang0)(setq ang1(+ ang1(* 2 pi))))
+         ;; 隣接区間のソリッドと面がぴったり一致(接するだけ)だとvla-booleanが
+         ;; "オートメーション エラー。一般モデリングの失敗"で失敗することがあるため、
+         ;; パスの両端をわずかに(区間長とrrに応じた微小量)延長し、隣とわずかに
+         ;; 重なり合う(体積的に食い込む)ようにしてブーリアン結合を安定させる。
+
+         ;; (setq seglen(* radi(- ang1 ang0))
+         ;;       ov(min(* 0.1 seglen)(* 0.05 rr))
+         ;;       dtheta(/ ov radi))
+         (setq dtheta 0.0001)
+         
+         (setq ang0(- ang0 dtheta) ang1(+ ang1 dtheta))
+         
+         (setq pathObj
+               (vla-addarc
+                (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+                (vlax-3d-point center)radi
+                ang0 ang1)
+               )
+         
+         (vla-put-normal pathObj(vlax-3d-point nrm))
+
+         ;; (setq pathEnt
+         ;;       (entmakex
+         ;;        (list '(0 . "ARC")(cons 8 na)(cons 10(trans-x center '(0 0 1)nrm))(cons 40 radi)
+         ;;              (cons 50 ang0)(cons 51 ang1)(cons 210 nrm))))
+         )
+     ;; ---- 直線区間: p0→p1 の直線をパスにする ----
+     (progn
+       ;; (setq tangent0(unit_vector(mapcar '- p1 p0)))
+       ;; 曲がり区間と同じ理由で、直線パスの両端もわずかに延長しておく。
+       ;; (円の断面自体は元のp0を中心にしたままなので、パイプの形状には影響しない)
+       (setq seglen(distance p0 p1)
+             ov(min(* 0.1 seglen)(* 0.05 rr)))
+
+       (setq pathObj
+             (vla-addline
+              (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+              (vlax-3d-point p0);;(mapcar '-(nth i ppL)(mapcar '(lambda(a)(* a ov))tangent0)))
+              (vlax-3d-point p1);;(mapcar '+(nth(1+ i)ppL)(mapcar '(lambda(a)(* a ov))tangent0)))
+              ))
+       
+       ;; (setq pathEnt
+       ;;       (entmakex
+       ;;        (list '(0 . "LINE")(cons 8 na)
+       ;;              (cons 10(mapcar '-(nth i ppL)(mapcar '(lambda(a)(* a ov))tangent0)))
+       ;;              (cons 11(mapcar '+(nth(1+ i)ppL)(mapcar '(lambda(a)(* a ov))tangent0))))))
+       
+       )
+     )
+
+   ;; p0を中心・断面(パス起点の接線に垂直)とする円を作り、パスに沿って押し出す。
+   ;; 円は回転対称なので、旧版のような「継ぎ目角度の引き継ぎ」は一切不要。
+   ;; ※CIRCLE/ARCは210(押し出し方向)が(0,0,1)以外だと10の座標がOCS(任意座標系)
+   ;;   として解釈されるため、trans-xでWCS→OCSへ変換してから渡す。
+   
+   (setq circObj
+         (vla-addcircle
+          (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+          (vlax-3d-point p0)rr
+          )
+         )
+   (vla-put-normal circObj(vlax-3d-point tangent0))
+
+
+   ;; (setq circEnt
+   ;;       (entmakex(list '(0 . "CIRCLE")(cons 8 na)(cons 10(trans-x p0 '(0 0 1)tangent0))(cons 40 rr)(cons 210 tangent0)))
+   ;;       circObj(vlax-ename->vla-object circEnt))
+   ;; ;;       pathObj(vlax-ename->vla-object pathEnt))
+   ;; (getint)
+
+   (setq regionObj
+         (car(vlax-safearray->list
+              (vlax-variant-value
+               (vla-addregion
+                spaceObj (bendpipe_objarray(list circObj)))))))
+   (vl-catch-all-apply 'vla-delete(list circObj));;addregionは元の円を消さないため明示的に削除
+   (setq solidObj(vla-addextrudedsolidalongpath
+                  spaceObj regionObj pathObj))
+   (vl-catch-all-apply 'vla-delete(list regionObj))
+   (vl-catch-all-apply 'vla-delete(list pathObj))
+
+   (setq solidList(cons solidObj solidList))
+
+   (if(= i(1- num))T
+     (progn
+
+       (setq p0(mapcar '(lambda(a b)(- a(* 0.02 rr b)))p1 tangent1)
+             p1(mapcar '(lambda(a b)(+ a(* 0.02 rr b)))p1 tangent1)
+             )
+
+       (setq pathObj
+             (vla-addline
+              (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+              (vlax-3d-point p0) (vlax-3d-point p1)
+              ))
+       
+       (setq circObj
+             (vla-addcircle
+              (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
+              (vlax-3d-point p0)(* 0.8 rr)
+              )
+             )
+       (vla-put-normal circObj(vlax-3d-point tangent1))
+
+       (setq regionObj
+             (car(vlax-safearray->list
+                  (vlax-variant-value
+                   (vla-addregion
+                    spaceObj (bendpipe_objarray(list circObj)))))))
+       (vl-catch-all-apply 'vla-delete(list circObj));;addregionは元の円を消さないため明示的に削除
+       (setq solidObj(vla-addextrudedsolidalongpath
+                      spaceObj regionObj pathObj))
+       (vl-catch-all-apply 'vla-delete(list regionObj))
+       (vl-catch-all-apply 'vla-delete(list pathObj))
+       
+       (setq solidList(cons solidObj solidList))
+
+       ))
+   
+   )
+
+  ;; 各区間のソリッドを1本に結合する(vla-booleanは第1引数を結合後のソリッドへ書き換え、
+  ;; 第2引数側は結合により消える)
+  (setq solidList(reverse solidList)
+        finalObj(car solidList))
+  (foreach s(cdr solidList)
+           (vla-boolean finalObj 0 s));;0=acUnion
+
+  (vla-put-Layer finalObj na)
+  (setq finalEnt(vlax-vla-object->ename finalObj))
+
+  ;; XDATAの付加(指定があれば、旧版と同じ形式)
+  (if ls_x
+      (entmod
+       (append
+        (entget finalEnt)
+        (list(list -3(list(car ls_x)(cons 1000(cadr ls_x))(cons 1005(caddr ls_x))))))))
+
+  (vlax-release-object spaceObj)
+  finalEnt
+  )
+
 
 
 
