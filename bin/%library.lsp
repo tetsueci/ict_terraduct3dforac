@@ -3406,17 +3406,19 @@
          ;; ((setq ii(vl-position elem_grread(list 60 62)))
          ;;  (setq x_guidebase(+(nth ii(list 0.05 -0.05))x_guidebase)))
          
+         
          (((lambda(lst / a str_next func num)
              (if int_selectmenu T
                (if int_starselectmenu(setq int_selectmenu int_starselectmenu)))
              (while lst
                (setq a(car lst) lst(cdr lst))
                (setq func_selectcansel_temp(cdr(assoc "SELECTCANCEL" a)))
+               ;; (princ(car a))
                
                (if(if(equal(car a)(list "ENTER"))
                       (if(or(= elem_grread 13)(= int_grread 25))
                           (cond
-                           ;;((progn  nil))
+                           ((progn  nil))
                            (int_selectmenu;;selectmenuがあるとき一覧にないキーを押すと反応してしまう
                             (if(< int_selectmenu 0)(setq lst nil)
                               (setq a(nth int_selectmenu ls_guidemenu_page ))))
@@ -3448,6 +3450,7 @@
                         (setq str_next T)
                         )
                        ((setq str_next(cdr(assoc "NEXTMODE" a)))
+                        
                         (if(setq func(cdr(assoc "LOADFUNCTION" a)))(func))
                         T)
                        ((setq func_input(cdr(assoc "INPUT" a)))

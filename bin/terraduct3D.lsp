@@ -2132,10 +2132,9 @@
     (cons
      "KEYBOAD"
      (lambda( / ls_p bool_first ls_vnam block );;(d- gr2_home()
-       
        (cond
-        ((null(and(or(= elem_grread 13)(= int_grread 25)))))
-
+        ((null(and(or(= elem_grread 13)(= int_grread 25))))
+         )
         
         ((and(or(= int_projectmode 2)(= int_projectmode 3))
              ls_vnam_templine )
@@ -6669,15 +6668,14 @@
 
 
         ((if(and(or(= elem_grread 13)(= int_grread 25))
-                bool_ductedit ls_vnam_duct
+                bool_ductedit ls_vnam_duct str_name_profile
                 )
              (progn
-               
                (setq str_bname(strcat "terraduct3d$" str_name_profile) )
                (if(vl-catch-all-error-p
-                   (vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname)))
-                   (setq block_profile ni)
-                 (setq block_profile(vla-item vnam_blocktable str_bname))
+                   (setq block_profile(vl-catch-all-apply 'vla-Item(list vnam_blocktable str_bname))))
+                   (setq block_profile nil)
+                 ;; (setq block_profile(vla-item vnam_blocktable str_bname))
                  )
                (if block_profile
                    (setq ls_profile(load_profile_block block_profile nil)))
