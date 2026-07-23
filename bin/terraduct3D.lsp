@@ -435,10 +435,10 @@
              (cons "SYMBOL" 'height_ccbox)(cons "TEMP" 'height_ccbox_temp)
              (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)2.)))
         
-        ;; (list(cons "TEXT"(mix_strasc(list 12510 12531 12507 12540 12523 30452 24452)))
-        ;;      (cons "ITEM" "EDIT_BOX");; マンホール直径
-        ;;      (cons "SYMBOL" 'diam_manhole)(cons "TEMP" 'diam_manhole_temp)
-        ;;      (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.9)))
+        (list(cons "TEXT"(mix_strasc(list 12510 12531 12507 12540 12523 30452 24452)))
+             (cons "ITEM" "EDIT_BOX");; マンホール直径
+             (cons "SYMBOL" 'diam_manhole)(cons "TEMP" 'diam_manhole_temp)
+             (cons "TYPE" "REAL") (cons "INITIALFUNC"(lambda(a)0.9)))
 
         (list(cons "TEXT"(mix_strasc(list 22343 12375 12467 12531 12458 12501 12475 12483 12488)))
              (cons "ITEM" "EDIT_BOX");; 均しコンオフセット
@@ -1454,7 +1454,7 @@
                        )
                   
                   (list(list 67 );;断面図(未実装)
-                       (cons "ITEM"(list 26029 38754 22259 "(" 26410 23455 35013 ")")  )
+                       (cons "ITEM"(list 26029 38754 22259 )  )
                        (cons "NEXTMODE" "profiledrawing")
                        ;;
                        (cons "HELP"(lambda()(mix_strasc(list  ))))
@@ -5365,6 +5365,7 @@
               ls_vnam_duct)
              )
 
+
        ;; (if ls_exchangedepth
        ;;     (setq lst(car ls_exchangedepth)ls_exchangedepth(cdr ls_exchangedepth)
        ;;           entna_depth(car lst) p_road(cadr lst)
@@ -5372,6 +5373,7 @@
        ;;           bool_replacegrread(if ls_exchangedepth T)
        ;;           )
        ;;   )
+
        
        (cond
         (bool )
@@ -5598,7 +5600,6 @@
         (ls_exchangelevel)
         
         ((and int_adddepth num_line)
-         
          (setq ps(vlax-curve-getstartpoint vnam_line)
                pe(vlax-curve-getendpoint vnam_line)
 
@@ -6720,7 +6721,6 @@
            
            )
 
-
          (setq pitch_mesh(min pitch_project diam_duct_temp))
          (if(<(abs pitch_mesh)1e-8)
              (setq pitch_mesh diam_duct_temp))
@@ -6954,6 +6954,7 @@
                
                )
 
+
              (setq ls_coordinate(reverse ls_coordinate)
                    p_start(cadr(car ls_coordinate))
                    p_last(caddr(last ls_coordinate))
@@ -6962,7 +6963,7 @@
                    ls_pbar(list(list p_start nil vec1))
                    ls_coordinate(cdr ls_coordinate)
                    )
-             
+             (if ls_coordinate T(setq ls_coordinate(list(list "LINE"))))
              ;;anchor
              (while ls_coordinate
                (setq lst(car ls_coordinate)ls_coordinate(cdr ls_coordinate)
@@ -6973,7 +6974,6 @@
                       (setq p_end nil)))
                    (if(<(distance p_start p_end)1e-8)T
                      ((lambda( / d n i dd pm)
-                        
                         (if(null ls_coordinate)
                             (setq ls_pbar(cons(list p_end nil vec1)ls_pbar)))
                         (setq d(distance p_start p_end) n(1+(fix(/ d pitch_mesh))) d(/ d n)
@@ -7108,7 +7108,6 @@
                           array_p))
                (setq ls_vnam_copy(cons vnam ls_vnam_copy))
                (set_xda vnam(list(cons 1000 "CENTERLINE"))"terraduct3d")
-
                
                (if(setq numy num_protect_profile)
                    (progn
@@ -7193,7 +7192,7 @@
                (set_xda vnam(list(cons 1000 "CENTERLINE"))"terraduct3d")
                
                )
-             
+
              (if(null ls_vnam_copy)
                  (x-alert(list 28145 24230 35373 23450 12364 36275 12426 12394 12356 12383 12417 20309 12418 20316 25104 12373 12428 12414 12379 12435 )) ;;深度設定が足りないため何も作成されません
                (progn
@@ -7244,13 +7243,14 @@
                      ls_vnam_duct)
              
              (setq ls_vnam_duct(list) vnam_depth nil entna_depth nil
-                   bool_ductedit nil
+                   bool_ductedit(if vnam_road T)
                    int_ductdepth 0 int_selectmenu nil str_ductname nil
                    int_max_duct 0 int_min_duct 0 )
 
              (if(= int_editstatus 2)
                  (progn
-                   (setq bool_ductedit nil int_editstatus nil)
+                   (setq bool_ductedit(if vnam_road T)
+                         int_editstatus nil)
                    ))
              
              
@@ -7259,13 +7259,17 @@
           ls_profile
           )
 
-         (vla-put-visible vnam_currentinsert :vlax-true)
-         (setq ls_vnam_visible(vl-remove vnam_currentinsert ls_vnam_visible)
-               vnam_currentinsert nil )
+         (if vnam_currentinsert
+             (progn
+               (vla-put-visible vnam_currentinsert :vlax-true)
+               (setq ls_vnam_visible(vl-remove vnam_currentinsert ls_vnam_visible)
+                     vnam_currentinsert nil )
+               ))
          
          (if(= int_editstatus 2)
              (progn
-               (setq bool_ductedit nil int_editstatus nil)
+               (setq bool_ductedit(if vnam_road T)
+                     int_editstatus nil)
                ))
          
          )
@@ -7459,20 +7463,22 @@
                  ls_vnam_duct)
          
          (setq ls_vnam_duct(list) vnam_depth nil entna_depth nil
-               bool_ductedit nil
+               bool_ductedit(if vnam_road T)
                int_ductdepth 0 int_selectmenu nil str_ductname nil
                int_max_duct 0 int_min_duct 0 )
 
          (if(= int_editstatus 2)
              (progn
-               (setq bool_ductedit nil int_editstatus nil)
+               (setq bool_ductedit(if vnam_road T)
+                     int_editstatus nil)
                ))
          
          )
         
         ((and(or(= elem_grread 13)(= int_grread 25))
              bool_ductedit)
-         (setq bool_ductedit nil str_edit "home")
+         (setq bool_ductedit(if vnam_road T)
+               str_edit "home")
          
          )
 
@@ -9727,7 +9733,6 @@
              )
            
            )
-         
 
          (if((lambda(ls_dummy / vnam1 vnam2 bool)
                (setq bool T)
@@ -9756,13 +9761,13 @@
                      sum_vol 0.
                      area0 nil p_textinsertion nil
                      )
-               
+
                (setq ls_pmesh
                      (mapcar
-                      '(lambda(i / vnam_normal p_road vec vecx x_min x_max z_min xx)
+                      '(lambda(i / vnam_normal p_road vec vecx x_min x_max z_min xx  )
                          (if(setq p_road(vlax-curve-getpointatdist vnam_center_plane dist_road))T
                            (setq p_road(vlax-curve-getendpoint vnam_center_plane dist_road)))
-
+                         
                          (setq dist_road(+ dist_road delta_road)
                                vec_normal(xvla-normal vnam_center_plane p_road)
                                vecx(trans-x(list -1 0 0)vec_normal(list 0 0 1))
@@ -9775,17 +9780,26 @@
                          (addkillobj vnam_normal)
                          
                          (mapcar
-                          '(lambda(lst / vnsm vnam_center ww hh p xx x0 x1 zz)
+                          '(lambda(lst / vnam vnam_center ww hh p xx x0 x1 zz p_road ls_p)
                              (setq vnam(car lst)vnam_center(cadr lst)
                                    ww(caddr lst)hh(cadddr lst)
                                    )
-
-                             (if(setq p(car(get_inters_point_vna vnam_normal vnam 11)) )
+                             
+                             (if(setq ls_p(get_inters_point_vna vnam_normal vnam 11) )
                                  (progn
+                                   (setq ls_p(mapcar '(lambda(p / p_close dd)
+                                                        (setq p_close
+                                                              (vlax-curve-getclosestpointto vnam p nil)
+                                                              )
+                                                        (list(distance p_close p)p))
+                                                     ls_p)
+                                         p(cadar(vl-sort ls_p '(lambda(a b)(<(car a)(car b)))))
+                                         )
                                    (vla-put-startpoint vnam_cross_temp(vlax-3d-point p))
                                    (vla-put-endpoint vnam_cross_temp(vlax-3d-point(mapcar '+ p(list 0 0 1))))
                                    (if(setq p(car(get_inters_point_vna vnam_center vnam_cross_temp 11)))
                                        (progn
+                                         
                                          (setq xx(apply '+(mapcar '* p vecx))
                                                zz(-(caddr p)hh separate_excavation_temp)
                                                x0(- xx ww offset_excavation_temp)
@@ -9798,7 +9812,7 @@
                                            (setq z_min zz x_min x0 x_max x1))
                                          ))
                                    ))
-
+                             
                              )
                           ls_ductroad)
 
@@ -9807,40 +9821,75 @@
                                p1(carxyz(mapcar '+ p_road vec)z_min)
                                vec(mapcar '(lambda(a)(* a(- x_max xx)))vecx)
                                p2(carxyz(mapcar '+ p_road vec)z_min)
-                               vec(unit_vector(mapcar '(lambda(x z)(+(* ratio_excavation_temp x)z))
-                                                      (mapcar '- vecx)(list 0. 0. 1.)))
+                               vec0(unit_vector(mapcar '(lambda(x z)(+(* ratio_excavation_temp x)z))
+                                                       (mapcar '- vecx)(list 0. 0. 1.)))
+                               
                                p0(car(project_to_ground
-                                      (list p1)vec(list str_lasground height_ground)))
-                               vec(unit_vector(mapcar '(lambda(x z)(+(* ratio_excavation_temp x)z))
+                                      (list p1)vec0(list str_lasground height_ground)))
+                               vec1(unit_vector(mapcar '(lambda(x z)(+(* ratio_excavation_temp x)z))
                                                       vecx(list 0. 0. 1.)))
                                p3(car(project_to_ground
-                                      (list p2)vec(list str_lasground height_ground)))
+                                      (list p2)vec1(list str_lasground height_ground)))
                                )
-
-                         (if p_textinsertion T
-                           (setq p_textinsertion p2 vec_textnormal vec_normal))
                          
-                         (setq area1(apply '+(mapcar '(lambda(lst / p1 p2 p3 d1 d2 d3 ss)
-                                                        (mapcar 'set '(p1 p2 p3)lst)
-                                                        (setq d1(distance p1 p2)
-                                                              d2(distance p2 p3)
-                                                              d3(distance p3 p1)
-                                                              ss(*(+ d1 d2 d3)0.5)
-                                                              )
-                                                        (sqrt(*(- ss d1)(- ss d2)(- ss d3)ss))
+                         ;; (if(and p0 p3)T
+                         ;;   (progn
+                         ;;     (setq num_divide 20 recipro_divide 0.05
+                         ;;           ls_proj
+                         ;;           (mapcar
+                         ;;            '(lambda(ii / p v)
+                         ;;               (setq p(mapcar '(lambda(a b)
+                         ;;                                 (*(+(* ii a)(*(- num_divide ii)b))
+                         ;;                                   recipro_divide))
+                         ;;                              p1 p2)
+                         ;;                     v(mapcar '(lambda(a b)
+                         ;;                                 (*(+(* ii a)(*(- num_divide ii)b))
+                         ;;                                   recipro_divide))
+                         ;;                              vec0 vec1)
+                         ;;                     )
+                         ;;               (car(project_to_ground
+                         ;;                    (list p)v(list str_lasground height_ground)))
+                         ;;               )
+                         ;;            (inclist 1 num_divide))
+                         ;;           ls_proj(vl-remove nil ls_proj)
+                         ;;           )
+                         
+                         
+                         
+                         (if(and p0 p3)
+                             (progn
+                               
 
-                                                        )
-                                                     (list(list p0 p1 p2)(list p0 p2 p3))))
+                               
+                               (if p_textinsertion T
+                                 (setq p_textinsertion p2 vec_textnormal vec_normal))
+                               (setq area1(apply '+(mapcar '(lambda(lst / p1 p2 p3 d1 d2 d3 ss)
+                                                              (mapcar 'set '(p1 p2 p3)lst)
+                                                              (setq d1(distance p1 p2)
+                                                                    d2(distance p2 p3)
+                                                                    d3(distance p3 p1)
+                                                                    ss(*(+ d1 d2 d3)0.5)
+                                                                    )
+                                                              (sqrt(*(- ss d1)(- ss d2)(- ss d3)ss))
+
+                                                              )
+                                                           (list(list p0 p1 p2)(list p0 p2 p3))))
+                                     )
+                               (if area0(setq sum_vol(+ sum_vol(* 0.5(+ area0 area1)
+                                                                  (*(- i i_prev)delta_road)))))
+                               (setq area0 area1 i_prev i)
+                               (list p0 p1 p2 p3)
+                               
                                )
-                         (if area0(setq sum_vol(+ sum_vol(* 0.5(+ area0 area1)delta_road))))
-                         (setq area0 area1)
-                         (list p0 p1 p2 p3)
+                           (progn nil)
+                           )
                          )
                       (inclist 0(1+ num))
                       )
+
+                     ls_pmesh(vl-remove nil ls_pmesh)
                      )
                
-
                
                (setq i 0)
                (while
@@ -11237,7 +11286,7 @@
                                        nil(list p15 p13 p14 p16 rr
                                                 vec_normal dist_normal
                                                 (strcat "R="(if(< rr 1e-8)(chr 8734)
-                                                              (as-numstr rr )))
+                                                              (rtos rr 2 3 )))
                                                 (if(vl-position str_dim_temp ls_dimstyle)
                                                     str_dim_temp str_dimstyle_ductlevel)
                                                 ))
@@ -13641,11 +13690,15 @@
                                                               vnam_cross_temp vnam_center 10))
                                                        zz(*(caddr px)ratio_drawverti)
 
+                                                       xx(apply '+(mapcar '(lambda(a b c)(*(- a b)c))
+                                                                          px pc vec_line))
                                                        )
                                                  
                                                  (if(= type_drawcircle "1")
-                                                     (setq vec_ell(list 0. rr 0.)
-                                                           ratio_ell 1.)
+                                                     (setq vec_ell(list 0. rr 0.) ratio_ell 1.
+
+
+                                                           )
                                                    (progn
                                                      (setq vec(xvla-normal vnam_center px)
                                                            vec(trans-x vec(list 0 0 1)vec_normal)
@@ -13655,8 +13708,6 @@
                                                            vec_ell(mapcar '(lambda(a)
                                                                              (/(* a rr)(* dd ratio_ell)))
                                                                           vec_ell)
-                                                           xx(apply '+(mapcar '(lambda(a b c)(*(- a b)c))
-                                                                              px pc vec_line))
                                                            )
                                                      (if(<(cadr vec_ell)0.)
                                                          (setq vec_ell(mapcar '- vec_ell)))
@@ -13731,7 +13782,7 @@
                                              )
                                        
                                        (list str_name xmin xmax y_dl0(- y_dl1 y_dl0)
-                                             (itoa base_height) ls_ground ls_cross_duct)
+                                             (itoa base_height) ls_ground(list 0 ls_cross_duct))
                                        
                                        )
                                     ls_profiletrans)
@@ -14013,7 +14064,7 @@
                             (setq ls_drawprofile
                                   (list(list(mix_strasc(list 32294 26029 22259))
                                             xmin xmax y_dl0(- y_dl1 y_dl0)
-                                            (itoa base_height) ls_ground nil ls_project_duct)
+                                            (itoa base_height) ls_ground(list 1 ls_project_duct))
                                        )
                                   )
                             
@@ -14191,16 +14242,18 @@
          
          (setq x_base(car elem_grread)y_base(cadr elem_grread))
          (mapcar
-          '(lambda(lst / str_name height_y str_height ls_ground ls_cross_duct ls_project_duct)
+          '(lambda(lst / str_name height_y str_height ls_ground ls_cross_duct ls_project_duct
+                       bool_trans )
              
              (setq str_name(nth 0 lst)
                    base_height(nth 3 lst)
                    height_y(nth 4 lst)
                    str_height(nth 5 lst)
                    ls_ground(nth 6 lst)
-                   ls_cross_duct(nth 7 lst)
-                   ls_project_duct(nth 8 lst)
+                   lst(nth 7 lst)
                    )
+             (if(=(car lst)0)(setq ls_cross_duct(cadr lst) bool_trans T)
+               (setq ls_project_duct(cadr lst) ))
              
              (setq vnam_text(vla-addtext
                              (vla-get-modelspace
@@ -14239,7 +14292,7 @@
              
              
              
-             (if ls_cross_duct
+             (if bool_trans
                  (setq vnam(vla-addline
                             (vla-get-modelspace(vla-get-activedocument(vlax-get-acad-object)))
                             (vlax-3d-point(+ x_base(* 0.5 width_area))y_base 0.)
@@ -14335,7 +14388,7 @@
                                          )
                                    (apply 'append ls_p)
                                    ))
-                                (list nil nil :vlax-false)
+                                (list nil nil :vlax-true)
                                 )
                              )
                            )
