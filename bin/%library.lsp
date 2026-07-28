@@ -1556,10 +1556,10 @@
         )
 
   (mapcar 'set
-          '(str_gcol_w str_gcol_r str_gcol_y str_gcol_c str_gcol_g str_gcol_p)
+          '(str_gcol_w str_gcol_r str_gcol_y str_gcol_c str_gcol_g str_gcol_p str_gcol_gy)
           (if bool_backbright
-              (list "255" "10" "42" "140" "55" "220")
-            (list "255" "10" "50" "130" "71" "241"))
+              (list "255" "10" "42" "140" "55" "220" "8")
+            (list "255" "10" "50" "130" "71" "241" "8"))
           )
   
   (setq str_guidebackspace
