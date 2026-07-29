@@ -10039,8 +10039,13 @@
                     (cons "LOADFUNCTION"
                           (lambda()
                             (if ls_vnam_tempinfluence
-                                (setq str_next nil
-                                      int_execute_influence 32)
+                                (progn
+                                  (mapcar '(lambda(vnam)(exckillobj vnam) )
+                                          ls_vnam_tempinfluence)
+                                  (setq str_next nil
+                                        int_execute_influence 32
+                                        ls_vnam_tempinfluence nil)
+                                  )
                               (progn
                                 (x-alert(list 23550 35937 12364 12354 12426 12414 12379 12435 ))
                                 nil)
@@ -14624,7 +14629,7 @@
                               )
                             ))
                     )
-
+               
                (list(list 49) ;;横断作成 -DCL
                     (cons "ITEM"(list 27178 26029 20316 25104 ))
                     (list "PAGE" 1)
@@ -15123,7 +15128,7 @@
                               (end_list)
                               (start_list "drawend");;線形の端点
                               (add_list(mix_strasc(list 32218 24418 12398 31471 28857 )))
-                              (mapcar 'add_list ls_str_trans)
+                              (mapcar '(lambda(lst)(add_list(car lst)))ls_cross_number)
                               (end_list)
 
                               (action_tile "accept" "(accept_drawroad)")
@@ -15212,6 +15217,7 @@
                                 )
                              ls_distpoint)
 
+                            
                             (setq ls_project_duct
                                   (mapcar
                                    '(lambda(lst ls_px / vnam_center ls_para)
@@ -15222,22 +15228,25 @@
                                                   ls_px(reverse ls_px)
                                                   )
 
+                                            
                                             (setq lst(mapcar
                                                       '(lambda(px ls_dist / dd zz)
                                                          (setq dd(car ls_dist))
                                                          (if px
                                                              (progn
-                                                               (vla-put-startpoint vnam_cross_temp px)
+                                                               (vla-put-startpoint
+                                                                vnam_cross_temp
+                                                                (vlax-3d-point px))
                                                                (vla-put-endpoint
                                                                 vnam_cross_temp
-                                                                (mapcar '+ px(list 0. 0. 1.)))
+                                                                (vlax-3d-point
+                                                                 (mapcar '+ px(list 0. 0. 1.))))
                                                                (setq px(car(get_inters_point_vna
                                                                             vnam_cross_temp vnam_center 10))
                                                                      zz(caddr px)
                                                                      ymin(min ymin(* zz ratio_drawverti))
                                                                      ymax(max ymax(* zz ratio_drawverti))
                                                                      )
-                                                               
                                                                
                                                                (list(car ls_dist)zz)
                                                                ))
@@ -15250,7 +15259,6 @@
                                    ls_whole_duct ls_project_duct)
                                   ls_project_duct(vl-remove nil ls_project_duct)
                                   )
-                            
                             
                             (setq dist_basedraw(* 10. ratio_drawverti))
                             
@@ -15267,6 +15275,7 @@
                                             (itoa base_height) ls_ground(list 1 ls_project_duct))
                                        )
                                   )
+                            (princ(list 8 9))
                             
                             (setq width_area(+(- xmax xmin)space_drawing)
                                   height_area(apply '+(mapcar '(lambda(lst) (+(cadddr lst)space_drawing))
