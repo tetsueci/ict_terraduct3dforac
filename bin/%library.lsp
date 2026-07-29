@@ -3483,9 +3483,13 @@
                        ((setq func_input(cdr(assoc "INPUTCOLOR" a)))
                         (setq sym_input(func_input)
                               func_input(cdr(assoc "LOADFUNCTION" a))
-                              int_selectmenu nil)
-                        (if(setq i(acad_colordlg(eval sym_input)))
+                              int_selectmenu nil
+                              i(eval sym_input))
+                        (if(or(< i 1)(< i 255))
+                            (progn(setq i 1)(set sym_input i)))
+                        (if(setq i(acad_colordlg i));;(acad_colordlg(eval sym_input)))
                             (set sym_input i))
+                        
                         (if func_input(func_input))
                         (setq str_next T)
                         )

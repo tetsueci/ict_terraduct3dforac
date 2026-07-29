@@ -2,13 +2,22 @@
 ;;;; ccboxtemplate.lsp
 ;;;;   terraduct3D 追加モジュール : 特殊部テンプレート
 ;;;;
-;;;;   c:td3dtemplate … 内空断面と厚さを指定してテンプレートを作成/編集/削除
-;;;;   c:td3dccbox    … テンプレートを選び、2点クリックで特殊部を配置
+;;;;   td3dtemplate    … テンプレートの作成/編集/削除の画面
+;;;;                     terraduct3D.lsp のメニューから呼ばれる(コマンドではない)
+;;;;                     画面を閉じるとき、選択中の名前を str_templateccbox に返す
+;;;;   c:td3dtmpexport … テンプレートを CSV に書き出し
+;;;;   c:td3dtmpimport … CSV からテンプレートを取り込み
+;;;;
+;;;;   特殊部の配置そのものは terraduct3D.lsp が行う。
+;;;;   このファイルはテンプレートの管理と、形状を組み立てる部品を提供する。
+;;;;   terraduct3D.lsp から使うもの :
+;;;;     td3dtemplate / td3d_tmp_read / td3d_tmp_fill / td3d_tmp_paramdef
+;;;;     td3d_tmp_makeparts / td3d_tmp_copyparts / td3d_tmp_deleteparts
+;;;;     td3d_tmp_alert / td3d_tmp_numstr / td3d_tmp_ccboxhead
 ;;;;
 ;;;;   依存 : %library.lsp  (mix_strasc rac_sld code_loft_solid unit_vector
 ;;;;                          cross_product carxyz set_xda write_strlist)
-;;;;          terraduct3D.lsp (project_to_ground ls_lasgrid)
-;;;;   ロード順 : %library.lsp / terraduct3D.lsp のあと
+;;;;   ロード順 : %library.lsp のあと
 ;;;;
 ;;;;   断面の定義
 ;;;;     進行方向(2点クリックの方向)に直交する鉛直断面で内空を指定し、
@@ -70,23 +79,6 @@
    (list "TBACK"   (mix_strasc(list 32972 38754 "(" 32066 28857 20596 ")" 21402 " (0" 12391 38283 21475 ")")) 0.200 nil)
    ))
 
-;;---------------------------------------------------------------------
-;; 地表面グリッド辞書の一覧 ls_lasgrid を必要なら作り直す
-;;   c:terraduct3d を通さずに配置コマンドを使ったときのための保険
-;;---------------------------------------------------------------------
-(defun td3d_tmp_loadlasgrid( / dicts str )
-  (if(and(boundp 'ls_lasgrid)ls_lasgrid)
-      ls_lasgrid
-    (progn
-      (setq ls_lasgrid(list) dicts(td3d_tmp_dicts))
-      (vlax-for
-       vnam dicts
-       (if(vl-catch-all-error-p
-           (setq str(vl-catch-all-apply 'vla-get-name(list vnam))))
-           T
-         (if(vl-string-search "lasgrid-" str)
-             (setq ls_lasgrid(cons(cons str vnam)ls_lasgrid)))))
-      ls_lasgrid)))
 
 ;;---------------------------------------------------------------------
 ;; 辞書 入出力
@@ -440,89 +432,6 @@
       (princ (mix_strasc(list "\\n" 22269 22303 20132 36890 30465 22411 12434 " " (itoa num) " " 20214 36861 21152 12375 12414 12375 12383)))
       num)))
 
-;;---------------------------------------------------------------------
-;; 配置用ダイアログ
-;;---------------------------------------------------------------------
-(defun td3d_tmp_writeseldcl( / str_path open_file )
-  (setq str_path(strcat(td3d_tmp_tempdir)"td3dccboxplace.dcl")
-        open_file(open str_path "w"))
-  (if(null open_file)nil
-    (progn
-      (write_strlist
-       open_file
-       (list
-        "td3dsel :dialog"
-        "{"
-        (mix_strasc(list " label = \"" 29305 27530 37096 12398 37197 32622 "\";"))
-        " :boxed_column"
-        " {"
-        (mix_strasc(list "  label = \"" 12486 12531 12503 12524 12540 12488 "\";"))
-        "  :list_box { key = \"sellist\"; width = 30; height = 14; }"
-        " }"
-        (mix_strasc(list " :edit_box { key = \"cover\"; label = \"" 22825 31471 12363 12425 22320 34920 38754 12414 12391 12398 28145 12373 "\"; edit_width = 10; }"))
-        (mix_strasc(list " :edit_box { key = \"ground\"; label = \"" 22320 34920 38754 12398 27161 39640 "\"; edit_width = 10; }"))
-        (mix_strasc(list " :text { label = \"" 8251 22320 34920 38754 12464 12522 12483 12489 12364 35373 23450 12373 12428 12390 12356 12427 12392 12365 12399 27161 39640 27396 12399 20351 12356 12414 12379 12435 "\"; }"))
-        " ok_cancel;"
-        "}"
-        ))
-      (close open_file)
-      str_path)))
-
-;;OK ボタン
-(defun td3d_tmp_dlg_place( / num str_name str_cover str_ground ls_val )
-  (setq num(atoi(get_tile "sellist"))
-        str_cover(get_tile "cover")
-        str_ground(get_tile "ground"))
-  (cond
-   ((null(setq str_name(td3d_tmp_nth num td3d_tmp_ls_name)))
-    (alert (mix_strasc(list 12486 12531 12503 12524 12540 12488 12434 19968 35239 12363 12425 36984 12435 12391 12367 12384 12373 12356))))
-   ((null(setq ls_val(td3d_tmp_read str_name)))
-    (alert (mix_strasc(list 12486 12531 12503 12524 12540 12488 12434 35501 12415 36796 12417 12414 12379 12435 12391 12375 12383))))
-   (T
-    (setq td3d_tmp_result
-          (list str_name ls_val
-                (if(= str_cover "")0.(atof str_cover))
-                (if(= str_ground "")nil(atof str_ground))))
-    (done_dialog 1)))
-  (princ))
-
-;;テンプレートと配置条件を選ばせる
-;;   戻り値 : (名前 値リスト かぶり 地表面標高) / nil
-(defun td3d_tmp_selectdlg( / str_path load_dcl int_ret )
-  (td3d_tmp_ensuredefault)
-  (setq td3d_tmp_ls_name(td3d_tmp_names))
-  (cond
-   ((null td3d_tmp_ls_name)
-    (td3d_tmp_alert (mix_strasc(list 12486 12531 12503 12524 12540 12488 12364 12354 12426 12414 12379 12435 "\\ntd3dtemplate " 12467 12510 12531 12489 12391 20316 25104 12375 12390 12367 12384 12373 12356)))
-    nil)
-   ((null(setq str_path(td3d_tmp_writeseldcl)))
-    (td3d_tmp_alert (mix_strasc(list 12480 12452 12450 12525 12464 23450 32681 12501 12449 12452 12523 12434 26360 12365 20986 12379 12414 12379 12435 12391 12375 12383)))
-    nil)
-   (T
-    (setq td3d_tmp_result nil
-          load_dcl(load_dialog str_path))
-    (cond
-     ((< load_dcl 0)
-      (td3d_tmp_alert (mix_strasc(list 12480 12452 12450 12525 12464 12434 35501 12415 36796 12417 12414 12379 12435 12391 12375 12383)))nil)
-     ((null(new_dialog "td3dsel" load_dcl))
-      (unload_dialog load_dcl)
-      (td3d_tmp_alert (mix_strasc(list 12480 12452 12450 12525 12464 12434 38283 12369 12414 12379 12435 12391 12375 12383)))nil)
-     (T
-      (start_list "sellist")
-      (if td3d_tmp_ls_name(mapcar 'add_list td3d_tmp_ls_name))
-      (end_list)
-      (set_tile "sellist" "0")
-      (set_tile "cover"
-                (td3d_tmp_numstr(if(and(boundp 'height_ccboxtop)height_ccboxtop)
-                                    height_ccboxtop 0.6)))
-      (set_tile "ground"
-                (if(and(boundp 'height_ground)height_ground)
-                    (td3d_tmp_numstr height_ground)""))
-      (action_tile "accept" "(td3d_tmp_dlg_place)")
-      (setq int_ret(start_dialog))
-      (unload_dialog load_dcl)
-      (if(= int_ret 1)td3d_tmp_result nil))
-     ))))
 
 ;;=====================================================================
 ;; ダイアログ (DCL)
@@ -641,12 +550,6 @@
 (defun td3dtemplate( / str_path load_dcl int_ret bool_loop
                        str_name ls_val )
 
-  ;; (setq *error*
-  ;;       (lambda(msg)
-  ;;         (if(and(boundp 'load_dcl)load_dcl)
-  ;;             (vl-catch-all-apply 'unload_dialog(list load_dcl)))
-  ;;         (princ msg)))
-
   (if(null(setq str_path(td3d_tmp_writedcl)))
       (td3d_tmp_alert (mix_strasc(list 12480 12452 12450 12525 12464 23450 32681 12501 12449 12452 12523 12434 26360 12365 20986 12379 12414 12379 12435 12391 12375 12383)))
     (progn
@@ -716,285 +619,6 @@
   (princ)
   )
 
-
-(defun ---td3dccbox( / lst str_name ls_val p0 p1 p_mid vecx length_sld
-                    str_ground height_top height_base ls_p elevation_ground
-                    elevation_bottom p_center_bottom ls_part str_bname
-                    blocks blk vnam set_ent num ii bool str_err
-                    w h ttop tbot tside hu hv du dv tfr tbk int_col )
-  
-  (cond
-   ((null(setq lst(td3d_tmp_selectdlg))))
-   (T
-    (setq str_name(car lst) ls_val(td3d_tmp_fill(cadr lst))
-          height_top(caddr lst) height_base(cadddr lst))
-    (mapcar 'set '(w h ttop tbot tside hu hv du dv tfr tbk)ls_val)
-
-    ;;--- 標高の決定方法 ---
-    ;;  c:terraduct3d のセッションで地表面グリッドが設定されていればそれを使い、
-    ;;  無ければダイアログで入力された標高を使う。
-    (setq str_ground(if(and(boundp 'str_lasground)str_lasground)str_lasground nil))
-
-    ;;セッションで選ばれていても、図面内に該当グリッドが無ければ使えない
-    (if(and str_ground(null(assoc str_ground(td3d_tmp_loadlasgrid))))
-        (setq str_ground nil))
-
-    (cond
-     ((and(null str_ground)(null height_base))
-      (td3d_tmp_alert (mix_strasc(list 22320 34920 38754 12364 35373 23450 12373 12428 12390 12356 12414 12379 12435 "\\nc:terraduct3d " 12391 22320 34920 38754 12434 36984 25246 12377 12427 12363 12289 27161 39640 12434 20837 21147 12375 12390 12367 12384 12373 12356))))
-     (T
-      ;;--- 2点クリック ---
-      (setq p0(getpoint (mix_strasc(list "\\n" 36215 28857 12434 25351 23450 " : "))))
-      (if(null p0)(princ)
-        (progn
-          (setq p1(getpoint p0 (mix_strasc(list "\\n" 32066 28857 12434 25351 23450 " (" 24310 38263 12392 21521 12365 12395 12394 12426 12414 12377 ") : "))))
-          (cond
-           ((null p1)(princ))
-           (T
-            (setq p0(carxyz p0 0.) p1(carxyz p1 0.)
-                  length_sld(distance p0 p1))
-            (cond
-             ((< length_sld 1e-6)
-              (td3d_tmp_alert (mix_strasc(list "2" 28857 12364 36817 12377 12366 12414 12377))))
-             (T
-              (setq vecx(unit_vector(mapcar '- p1 p0))
-                    p_mid(mapcar '(lambda(a b)(* 0.5(+ a b)))p0 p1))
-
-
-              
-              ;;--- 地表面標高 ---
-              (setq ls_p
-                    (if str_ground
-                        (project_to_ground(list p0 p1)(list 0. 0. 1.)
-                                          (list str_ground nil))
-                      (list(carxyz p0 height_base)(carxyz p1 height_base))))
-
-              (cond
-               ((null ls_p)
-                (td3d_tmp_alert (mix_strasc(list 25351 23450 12375 12383 28857 12363 12425 22320 34920 38754 12398 27161 39640 12364 21462 24471 12391 12365 12414 12379 12435))))
-               (T
-                (setq elevation_ground
-                      (/(apply '+(mapcar 'caddr ls_p))(length ls_p))
-                      elevation_bottom
-                      (- elevation_ground height_top(+ h ttop tbot))
-                      p_center_bottom(carxyz p_mid elevation_bottom))
-
-                ;;--- 部材の作成 ---
-                (setq ls_part(td3d_tmp_makeparts ls_val p_center_bottom vecx
-                                                 length_sld(getvar "CLAYER")))
-                (cond
-                 ((null ls_part)
-                  (td3d_tmp_alert (mix_strasc(list 24418 29366 12398 20316 25104 12395 22833 25943 12375 12414 12375 12383 "\\n" 12486 12531 12503 12524 12540 12488 12398 23544 27861 12434 35211 30452 12375 12390 12367 12384 12373 12356))))
-                 (T
-                  ;;色と xdata を部材ごとに付ける
-                  (setq int_col(if(and(boundp 'int_colccbox)int_colccbox)int_colccbox 8))
-                  (mapcar
-                   '(lambda(a / vna str_part)
-                      (setq vna(car a) str_part(cdr a))
-                      (vl-catch-all-apply 'vla-put-color(list vna int_col))
-                      ;;既存の集計処理が拾えるよう先頭は CCBOXSOLID にする
-                      (set_xda vna
-                               (list(cons 1000 "CCBOXSOLID")
-                                    (cons 1000 "PART")(cons 1000 str_part)
-                                    (cons 1000 "TEMPLATE")(cons 1000 str_name))
-                               "terraduct3d"))
-                   ls_part)
-
-                  ;;--- ブロック化 ---
-                  (setq blocks(vla-get-Blocks
-                               (vla-get-ActiveDocument(vlax-get-acad-object)))
-                        ii 0 bool T)
-                  (while bool
-                    (setq str_bname(strcat td3d_tmp_ccboxhead
-                                           (substr(itoa(+ 1000 ii))2)))
-                    (if(vl-catch-all-error-p
-                        (vl-catch-all-apply 'vla-Item(list blocks str_bname)))
-                        (setq bool nil)
-                      (setq ii(1+ ii))))
-
-                  (setq blk(vla-Add blocks(vlax-3d-point 0 0 0)str_bname))
-                  (td3d_tmp_copyparts ls_part blk)
-                  (td3d_tmp_deleteparts ls_part)
-
-                  (setq vnam(vla-InsertBlock
-                             (vla-get-ModelSpace
-                              (vla-get-ActiveDocument(vlax-get-acad-object)))
-                             (vlax-3d-point 0 0 0)str_bname 1 1 1 0))
-
-                  ;;テンプレート名と全寸法はブロック側に記録する
-                  (set_xda vnam
-                           (append
-                            (list(cons 1000 "CCBOXBLOCK")
-                                 (cons 1000 "TEMPLATE")(cons 1000 str_name)
-                                 (cons 1000 "PROJECT-D")
-                                 (cons 1000(if str_ground str_ground ""))
-                                 (cons 1000 "PROJECT-H")
-                                 (cons 1040(if height_base height_base 0.))
-                                 (cons 1000 "LENGTH")(cons 1040 length_sld))
-                            (apply 'append
-                                   (mapcar '(lambda(lst val)
-                                              (list(cons 1000(car lst))(cons 1040 val)))
-                                           (td3d_tmp_paramdef)ls_val)))
-                           "terraduct3d")
-
-                  (vl-catch-all-apply 'vlax-release-object(list blk))
-                  (princ (mix_strasc(list "\\n" 20316 25104 12375 12414 12375 12383 " : " str_bname " (" str_name ") L=" (td3d_tmp_numstr length_sld))))
-                  ))
-                ))
-              ))
-            ))
-          ))
-      ))
-    ))
-
-  (princ)
-  )
-
-
-;;=====================================================================
-;; コマンド : テンプレートを選んで特殊部を配置
-;;=====================================================================
-(defun c:td3dccbox( / *error* lst str_name ls_val p0 p1 p_mid vecx length_sld
-                      str_ground height_top height_base ls_p elevation_ground
-                      elevation_bottom p_center_bottom ls_part str_bname
-                      blocks blk vnam set_ent num ii bool str_err
-                      w h ttop tbot tside hu hv du dv tfr tbk int_col )
-
-  (setq *error*
-        (lambda(msg)
-          (vl-catch-all-apply
-           'vla-EndUndoMark
-           (list(vla-get-ActiveDocument(vlax-get-Acad-Object))))
-          (setq *error*(lambda(m)(princ m)))
-          (princ msg)))
-
-  (vla-StartUndoMark(vla-get-ActiveDocument(vlax-get-Acad-Object)))
-
-  (cond
-   ((null(setq lst(td3d_tmp_selectdlg))))
-   (T
-    (setq str_name(car lst) ls_val(td3d_tmp_fill(cadr lst))
-          height_top(caddr lst) height_base(cadddr lst))
-    (mapcar 'set '(w h ttop tbot tside hu hv du dv tfr tbk)ls_val)
-
-    ;;--- 標高の決定方法 ---
-    ;;  c:terraduct3d のセッションで地表面グリッドが設定されていればそれを使い、
-    ;;  無ければダイアログで入力された標高を使う。
-    (setq str_ground(if(and(boundp 'str_lasground)str_lasground)str_lasground nil))
-
-    ;;セッションで選ばれていても、図面内に該当グリッドが無ければ使えない
-    (if(and str_ground(null(assoc str_ground(td3d_tmp_loadlasgrid))))
-        (setq str_ground nil))
-
-    (cond
-     ((and(null str_ground)(null height_base))
-      (td3d_tmp_alert (mix_strasc(list 22320 34920 38754 12364 35373 23450 12373 12428 12390 12356 12414 12379 12435 "\\nc:terraduct3d " 12391 22320 34920 38754 12434 36984 25246 12377 12427 12363 12289 27161 39640 12434 20837 21147 12375 12390 12367 12384 12373 12356))))
-     (T
-      ;;--- 2点クリック ---
-      (setq p0(getpoint (mix_strasc(list "\\n" 36215 28857 12434 25351 23450 " : "))))
-      (if(null p0)(princ)
-        (progn
-          (setq p1(getpoint p0 (mix_strasc(list "\\n" 32066 28857 12434 25351 23450 " (" 24310 38263 12392 21521 12365 12395 12394 12426 12414 12377 ") : "))))
-          (cond
-           ((null p1)(princ))
-           (T
-            (setq p0(carxyz p0 0.) p1(carxyz p1 0.)
-                  length_sld(distance p0 p1))
-            (cond
-             ((< length_sld 1e-6)
-              (td3d_tmp_alert (mix_strasc(list "2" 28857 12364 36817 12377 12366 12414 12377))))
-             (T
-              (setq vecx(unit_vector(mapcar '- p1 p0))
-                    p_mid(mapcar '(lambda(a b)(* 0.5(+ a b)))p0 p1))
-
-              ;;--- 地表面標高 ---
-              (setq ls_p
-                    (if str_ground
-                        (project_to_ground(list p0 p1)(list 0. 0. 1.)
-                                          (list str_ground nil))
-                      (list(carxyz p0 height_base)(carxyz p1 height_base))))
-
-              (cond
-               ((null ls_p)
-                (td3d_tmp_alert (mix_strasc(list 25351 23450 12375 12383 28857 12363 12425 22320 34920 38754 12398 27161 39640 12364 21462 24471 12391 12365 12414 12379 12435))))
-               (T
-                (setq elevation_ground
-                      (/(apply '+(mapcar 'caddr ls_p))(length ls_p))
-                      elevation_bottom
-                      (- elevation_ground height_top(+ h ttop tbot))
-                      p_center_bottom(carxyz p_mid elevation_bottom))
-
-                ;;--- 部材の作成 ---
-                (setq ls_part(td3d_tmp_makeparts ls_val p_center_bottom vecx
-                                                 length_sld(getvar "CLAYER")))
-                (cond
-                 ((null ls_part)
-                  (td3d_tmp_alert (mix_strasc(list 24418 29366 12398 20316 25104 12395 22833 25943 12375 12414 12375 12383 "\\n" 12486 12531 12503 12524 12540 12488 12398 23544 27861 12434 35211 30452 12375 12390 12367 12384 12373 12356))))
-                 (T
-                  ;;色と xdata を部材ごとに付ける
-                  (setq int_col(if(and(boundp 'int_colccbox)int_colccbox)int_colccbox 8))
-                  (mapcar
-                   '(lambda(a / vna str_part)
-                      (setq vna(car a) str_part(cdr a))
-                      (vl-catch-all-apply 'vla-put-color(list vna int_col))
-                      ;;既存の集計処理が拾えるよう先頭は CCBOXSOLID にする
-                      (set_xda vna
-                               (list(cons 1000 "CCBOXSOLID")
-                                    (cons 1000 "PART")(cons 1000 str_part)
-                                    (cons 1000 "TEMPLATE")(cons 1000 str_name))
-                               "terraduct3d"))
-                   ls_part)
-
-                  ;;--- ブロック化 ---
-                  (setq blocks(vla-get-Blocks
-                               (vla-get-ActiveDocument(vlax-get-acad-object)))
-                        ii 0 bool T)
-                  (while bool
-                    (setq str_bname(strcat td3d_tmp_ccboxhead
-                                           (substr(itoa(+ 1000 ii))2)))
-                    (if(vl-catch-all-error-p
-                        (vl-catch-all-apply 'vla-Item(list blocks str_bname)))
-                        (setq bool nil)
-                      (setq ii(1+ ii))))
-
-                  (setq blk(vla-Add blocks(vlax-3d-point 0 0 0)str_bname))
-                  (td3d_tmp_copyparts ls_part blk)
-                  (td3d_tmp_deleteparts ls_part)
-
-                  (setq vnam(vla-InsertBlock
-                             (vla-get-ModelSpace
-                              (vla-get-ActiveDocument(vlax-get-acad-object)))
-                             (vlax-3d-point 0 0 0)str_bname 1 1 1 0))
-
-                  ;;テンプレート名と全寸法はブロック側に記録する
-                  (set_xda vnam
-                           (append
-                            (list(cons 1000 "CCBOXBLOCK")
-                                 (cons 1000 "TEMPLATE")(cons 1000 str_name)
-                                 (cons 1000 "PROJECT-D")
-                                 (cons 1000(if str_ground str_ground ""))
-                                 (cons 1000 "PROJECT-H")
-                                 (cons 1040(if height_base height_base 0.))
-                                 (cons 1000 "LENGTH")(cons 1040 length_sld))
-                            (apply 'append
-                                   (mapcar '(lambda(lst val)
-                                              (list(cons 1000(car lst))(cons 1040 val)))
-                                           (td3d_tmp_paramdef)ls_val)))
-                           "terraduct3d")
-
-                  (vl-catch-all-apply 'vlax-release-object(list blk))
-                  (princ (mix_strasc(list "\\n" 20316 25104 12375 12414 12375 12383 " : " str_bname " (" str_name ") L=" (td3d_tmp_numstr length_sld))))
-                  ))
-                ))
-              ))
-            ))
-          ))
-      ))
-    ))
-
-  (vla-EndUndoMark(vla-get-ActiveDocument(vlax-get-Acad-Object)))
-  (setq *error*(lambda(msg)(princ msg)))
-  (princ))
 
 ;;=====================================================================
 ;; CSV 入出力
@@ -1275,16 +899,7 @@
 ;; コマンド : CSV 書き出し / 取り込み
 ;;   (テンプレート画面のボタンからも同じ処理を呼ぶ)
 ;;=====================================================================
-(defun c:td3dtmpinfo( / lst str_name ls_val )
-  ;;診断用 : 選んだテンプレートに保存されている値をそのまま表示する
-  (if(null(setq lst(td3d_tmp_selectdlg)))(princ)
-    (progn
-      (setq str_name(car lst) ls_val(td3d_tmp_fill(cadr lst)))
-      (princ (mix_strasc(list "\\n--- " str_name " ---")))
-      (mapcar '(lambda(def val)
-                 (princ (mix_strasc(list "\\n  " (car def) " = " (td3d_tmp_numstr val) "  (" (cadr def) ")"))))
-              (td3d_tmp_paramdef)ls_val)))
-  (princ))
+
 
 ;; (defun c:td3dtmpexport( / )(td3d_tmp_export)(princ))
 ;; (defun c:td3dtmpimport( / )(td3d_tmp_import)(princ))
