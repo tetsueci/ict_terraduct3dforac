@@ -2352,12 +2352,24 @@
    )
   )
 
-(defun axd_settile_att
-    (path_addattributedcl elem_grread ls_ssget / )
-  (if(setq set_ent(ssget elem_grread ls_ssget))
+(defun axd_settile_att(path_addattributedcl elem_grread ls_ssget / p_select0 p_select1)
+
+  (setq p_select0(mapcar '(lambda(a b)(+ a(* -0.5 height_text b)))elem_grread vec_x_onview)
+        p_select1(mapcar '(lambda(a b)(+ a(*  0.5 height_text b)))elem_grread vec_x_onview)
+        )
+
+  (if(setq set_ent(ssget "CP"(mapcar '(lambda(v / vec)
+                                        (setq vec(mapcar
+                                                  '(lambda(x y)(* 0.4 height_text
+                                                                  (+(*(car v)x)(*(cadr v)y))))
+                                                  vec_x_onview vec_y_onview))
+                                        (mapcar '+ elem_grread vec)
+                                        )
+                                     (list(list 1 1)(list 1 -1)(list -1 -1)(list -1 1))
+                                     )
+                         ls_ssget))
       (progn
         (setq vnam(vlax-ename->vla-object(ssname set_ent 0)))
-        
         (setq load_dcl (load_dialog path_addattributedcl))
         (new_dialog "Sedit" load_dcl)
         

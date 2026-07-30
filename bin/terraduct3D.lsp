@@ -4721,7 +4721,7 @@
                        ls_out
                        ))
                     )
-                    
+               
                (list(list "ENTER");;メインメニューへ
                     (cons "ITEM"(mix_strasc(list 12513 12452 12531 12513 12491 12517 12540 12408)))
                     (cons "LOADFUNCTION"
@@ -4882,6 +4882,7 @@
                  )
                ))
 
+         
          (if vnam_road
              (if(setq p_close(vlax-curve-getclosestpointto vnam_road p_ground nil))
                  ((lambda(ls_p / p vec vec1 vec2 x y ang ang1 ang2 d pn dn)
@@ -4965,6 +4966,7 @@
                       ))
                 )
               ls_p_road p_roadclick_temp)
+           
            
            ((lambda(p c / s ls_p)
               (setq s(* height_text 0.8)
@@ -5411,7 +5413,6 @@
                      vnam(vla-Item(vla-get-Blocks(vla-get-ActiveDocument(vlax-get-acad-object)))
                                   hand_road)
                      vnam_road_temp nil)
-
                
                (vlax-for
                 obj vnam
@@ -5451,13 +5452,14 @@
                           p1(vl-catch-all-apply 'vlax-curve-getendpoint(list vnam))
                           ls_vnam_select nil )
                     (if(null(or(vl-catch-all-error-p p0)(vl-catch-all-error-p p1)))
-                        (>(distance p0 p1)1e-8))))
+                        (if(vl-position(vla-get-objectname vnam)(list "AeccDbSurfaceTin"))nil
+                          (>(distance p0 p1)1e-8)))))
                (progn
-                 
                  (if(and(null ls_vnam_duct)(= int_getcolor_ductroad 0))
                      (progn
                        (setq int_colduct_temp(get_visual_color vnam))
                        ))
+                 
                  (setq vnam_road vnam
                        hand_road(vla-get-handle vnam_road)
                        ls_p_road(if(vl-catch-all-error-p ls_p)(list p0 p1)
@@ -5472,7 +5474,6 @@
                  )
              )
            )
-         
          (setq int_ductdepth 0 bool_ductedit T  int_duct 0 int_selectmenu -1)
          
          )
@@ -5743,13 +5744,13 @@
                        ))
                )
            )
-         
          )
         
         ((or(and bool_ductedit
                  ;;(vl-position int_ductdepth(list 0 1));;切りたい
                  (null vnam_insertany)(null vnam_insertduct)
                  )
+            
             (if(= int_bool_branch 1)
                 (if(setq set_ent(ssget elem_grread(list(cons 0 "INSERT")(list -3(list "terraduct3d")))))
                     ((lambda( / vnam vnam0 vnma1 vnam2)
@@ -5823,7 +5824,6 @@
                      ))
               )
             )
-         
          
          (if int_selectmenu_ductedit(setq int_selectmenu_ductedit nil))
          (if(vl-position str_editreturn(list "insertarc" ))
@@ -6227,11 +6227,11 @@
                            (mapcar
                             '(lambda(lst / p v vecx vecy)
                                (setq p(car lst)v(cadr lst)
-                                     v(unit_vector(carxyz v 0.))
+                                     v(unit_vector v )
                                      vecx(trans-x(list 1 0 0)v(list 0 0 1))
                                      vecy(trans-x(list 0 1 0)v(list 0 0 1))
                                      )
-
+                               
                                (if(if vecxp(>(apply '+(mapcar '* vecx vecxp))0)T)T
                                  (setq vecx vecxp))
                                (setq vecxp vecx)
@@ -6365,7 +6365,9 @@
 
          )
 
-        ((and(null bool_ductedit)vnam_insertduct(= str_type "DUCTBLOCK"))
+        ;;editmode
+        ((and(null ls_vnam_duct)
+             vnam_insertduct(= str_type "DUCTBLOCK"))
          
          (setq str(vla-get-name vnam_insertduct)
                vnam(vla-Item(vla-get-Blocks (vla-get-ActiveDocument(vlax-get-acad-object)))str)
@@ -7163,7 +7165,7 @@
                          (mapcar
                           '(lambda(lst / p v vecx vecy)
                              (setq p(car lst)v(cadr lst)
-                                   v(unit_vector(carxyz v 0.))
+                                   v(unit_vector v )
                                    vecx(trans-x(list 1 0 0)v(list 0 0 1))
                                    vecy(trans-x(list 0 1 0)v(list 0 0 1))
                                    )
@@ -7365,6 +7367,7 @@
           ls_profile
           )
 
+         (setq ls_vnam_duct nil)
          (if vnam_currentinsert
              (progn
                (vla-put-visible vnam_currentinsert :vlax-true)
@@ -12628,7 +12631,7 @@
                              (mapcar
                               '(lambda(lst / p v vecx vecy)
                                  (setq p(car lst)v(cadr lst)
-                                       v(unit_vector(carxyz v 0.))
+                                       v(unit_vector v)
                                        vecx(trans-x(list 1 0 0)v(list 0 0 1))
                                        vecy(trans-x(list 0 1 0)v(list 0 0 1))
                                        )
@@ -14016,7 +14019,7 @@
                          (mapcar
                           '(lambda(lst / p v vecx vecy)
                              (setq p(car lst)v(cadr lst)
-                                   v(unit_vector(carxyz v 0.))
+                                   v(unit_vector v )
                                    vecx(trans-x(list 1 0 0)v(list 0 0 1))
                                    vecy(trans-x(list 0 1 0)v(list 0 0 1))
                                    )
@@ -17311,7 +17314,7 @@
                               (mapcar
                                '(lambda(lst / p v vecx vecy)
                                   (setq p(car lst)v(cadr lst)
-                                        v(unit_vector(carxyz v 0.))
+                                        v(unit_vector v )
                                         vecx(trans-x(list 1 0 0)v(list 0 0 1))
                                         vecy(trans-x(list 0 1 0)v(list 0 0 1))
                                         )
