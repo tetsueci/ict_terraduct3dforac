@@ -8410,7 +8410,7 @@
            (setq ls_part(td3d_tmp_makeparts ls_val p_center_bottom vec length_sld(getvar "CLAYER")))
            (cond
             ((null ls_part)
-             (td3d_tmp_alert (mix_strasc(list 24418 29366 12398 20316 25104 12395 22833 25943 12375 12414 12375 12383 "\\n" 12486 12531 12503 12524 12540 12488 12398 23544 27861 12434 35211 30452 12375 12390 12367 12384 12373 12356))))
+             (td3d_tmp_alert (mix_strasc(list 24418 29366 12398 20316 25104 12395 22833 25943 12375 12414 12375 12383 "\n" 12486 12531 12503 12524 12540 12488 12398 23544 27861 12434 35211 30452 12375 12390 12367 12384 12373 12356))))
             (T
              ;;色と xdata を部材ごとに付ける
              (setq int_col(if(and(boundp 'int_colccbox)int_colccbox)int_colccbox 8))
@@ -8456,7 +8456,15 @@
                             (cons 1000(if str_ground str_ground ""))
                             (cons 1000 "PROJECT-H")
                             (cons 1040(if height_base height_base 0.))
-                            (cons 1000 "LENGTH")(cons 1040 length_sld))
+                            (cons 1000 "LENGTH")(cons 1040 length_sld)
+                            ;;CSV/IFC で同じ形を作り直すために配置そのものも残す
+                            ;;  BASE-* は makeparts に渡した底版下面の中心
+                            ;;  VEC-* は進行方向(水平の単位ベクトル)
+                            (cons 1000 "BASE-X")(cons 1040(car p_center_bottom))
+                            (cons 1000 "BASE-Y")(cons 1040(cadr p_center_bottom))
+                            (cons 1000 "BASE-Z")(cons 1040(caddr p_center_bottom))
+                            (cons 1000 "VEC-X")(cons 1040(car vec))
+                            (cons 1000 "VEC-Y")(cons 1040(cadr vec)))
                        (apply 'append
                               (mapcar '(lambda(lst val)
                                          (list(cons 1000(car lst))(cons 1040 val)))
@@ -8464,7 +8472,7 @@
                       "terraduct3d")
 
              (vl-catch-all-apply 'vlax-release-object(list blk))
-             (princ (mix_strasc(list "\\n" 20316 25104 12375 12414 12375 12383 " : " str_bname " (" str_name ") L=" (td3d_tmp_numstr length_sld))))
+             (princ (mix_strasc(list "\n" 20316 25104 12375 12414 12375 12383 " : " str_bname " (" str_name ") L=" (td3d_tmp_numstr length_sld))))
              ))
            )
           
@@ -8898,8 +8906,10 @@
                p0(carxyz p_ccbox0 0.) p1(if p_ccbox1(carxyz p_ccbox1 0.))
                )
          
-         (if p1(setq vecu(unit_vector(mapcar '- p1 p0))))
-         
+         ;;vecu はローカル宣言されていないので、前回の向きが残らないよう毎回入れ直す
+         ;;  nil のとき makeparts は X 方向として扱う
+         (setq vecu(if p1(unit_vector(mapcar '- p1 p0))))
+
          (setq p_top(carxyz p0 elevation_ground)
                ls_part(td3d_mh_makeparts ls_val p_top vecu height_all (getvar "CLAYER")))
 
@@ -8946,7 +8956,14 @@
                         (cons 1040(if height_base height_base 0.))
                         (cons 1000 "CENTER-X")(cons 1040(car p0))
                         (cons 1000 "CENTER-Y")(cons 1040(cadr p0))
-                        (cons 1000 "TOPZ")(cons 1040 elevation_ground))
+                        (cons 1000 "TOPZ")(cons 1040 elevation_ground)
+                        ;;CSV/IFC で同じ形を作り直すために向きと総高さも残す
+                        ;;  VEC-* は角形・偏心のときの向き(未指定なら X 方向)
+                        ;;  TOTALH は 0 のときテンプレートの合計高さをそのまま使う
+                        (cons 1000 "VEC-X")(cons 1040(if vecu(car vecu)1.))
+                        (cons 1000 "VEC-Y")(cons 1040(if vecu(cadr vecu)0.))
+                        (cons 1000 "TOTALH")
+                        (cons 1040(if height_all height_all 0.)))
                    (apply 'append
                           (mapcar '(lambda(lst val)
                                      (list(cons 1000(car lst))(cons 1040 val)))
@@ -11152,10 +11169,11 @@
              (setq bool_point nil
                    bool_selectent T bool_select T int_selectmode 0
                    ls_ssget(list(cons 0 "INSERT"))
-                   xtype_ssget "DUCTBLOCK,CCBOXBLOCK" xdata_ssget "terraduct3d"
+                   xtype_ssget "DUCTBLOCK,CCBOXBLOCK,CCBOXTEMPBLOCK,MANHOLEBLOCK"
+                   xdata_ssget "terraduct3d"
                    ls_vnam_select nil
                    )
-             
+
              (setq int_overwrite_readcsv 0)
              (setq int_savecsvifc nil)
              
@@ -11317,6 +11335,7 @@
          (setq ls_str_out_duct(list)
                ls_str_out_ccbox(list)
                ls_str_out_road(list)
+               ls_str_out_temp(list);;テンプレートから作った特殊部・マンホール
                )
          
          (mapcar
@@ -12094,6 +12113,156 @@
                
                )
               
+              ;;--- テンプレートから作った特殊部 / マンホール -------------------
+              ;;  ブロックの XDATA にテンプレート名・配置・全パラメータが入っている。
+              ;;  CSV はその値をそのまま並べるだけにして、読込時は makeparts を
+              ;;  もう一度呼んで作り直す(形状の作り方をここに二重に持たない)。
+              ;;  IFC は形状そのものが要るので、テンプレート側の ifcrows に作らせる。
+              ((or(= str_type "CCBOXTEMPBLOCK")(= str_type "MANHOLEBLOCK"))
+               ((lambda( / bool_mh ls_def ls_val ls_rgbpart int_colpart lst
+                           str_part str_temp p_base vecx ls_row num_total num_length)
+                  (setq bool_mh(= str_type "MANHOLEBLOCK")
+                        ls_def(if bool_mh(td3d_mh_paramdef)(td3d_tmp_paramdef))
+                        ;;パラメータは定義の順に引く。項目を足しても列がずれない
+                        ls_val(mapcar '(lambda(lst)(cdr(assoc(car lst)ls_xdata)))ls_def)
+                        ls_val(if bool_mh(td3d_mh_fill ls_val)(td3d_tmp_fill ls_val))
+                        str_temp(cdr(assoc "TEMPLATE" ls_xdata))
+                        vecx(list(cdr(assoc "VEC-X" ls_xdata))
+                                 (cdr(assoc "VEC-Y" ls_xdata))0.)
+                        p_base(if bool_mh
+                                  (list(cdr(assoc "CENTER-X" ls_xdata))
+                                       (cdr(assoc "CENTER-Y" ls_xdata))
+                                       (cdr(assoc "TOPZ" ls_xdata)))
+                                (list(cdr(assoc "BASE-X" ls_xdata))
+                                     (cdr(assoc "BASE-Y" ls_xdata))
+                                     (cdr(assoc "BASE-Z" ls_xdata))))
+                        num_total(cdr(assoc "TOTALH" ls_xdata))
+                        num_length(cdr(assoc "LENGTH" ls_xdata))
+                        ls_rgbpart(list)
+                        )
+                  ;;この改訂より前に置いたブロックには配置の記録が無い
+                  (if(car vecx)T(setq vecx(list 1. 0. 0.)))
+                  (if num_total T(setq num_total 0.))
+                  (if num_length T(setq num_length 0.))
+
+                  ;;部材ごとの色を集める(マンホールの鉄蓋だけ色が違う)
+                  (vlax-for
+                   obj vnam
+                   (vla-getXData obj "terraduct3d" 'array_Type 'array_Data )
+                   (setq lst(if array_data
+                                (split_list 0(mapcar 'vlax-variant-value
+                                                     (vlax-safearray->list array_data))))
+                         str_part(cdr(assoc "PART" lst)))
+                   (if(null str_part)T
+                     (progn
+                       (if(assoc str_part ls_rgbpart)T
+                         (setq ls_rgbpart
+                               (cons(cons str_part
+                                          ((lambda(vtc)
+                                             (mapcar '(lambda(a)(a vtc))
+                                                     (list vla-get-red vla-get-green
+                                                           vla-get-blue)))
+                                           (vla-get-truecolor obj)))
+                                    ls_rgbpart)))
+                       ;;CSV に書く色番号は鉄蓋以外(配置時の int_colccbox)を使う
+                       (if(or int_colpart(= str_part "MHCOVER"))T
+                         (setq int_colpart(vla-get-color obj)))
+                       )))
+                  (if int_colpart T(setq int_colpart 8))
+
+                  (cond
+                   ;;配置の記録が無いものは作り直せないので飛ばす
+                   ((null(car p_base))
+                    ;;配置の記録が無いため出力できません。置き直してください
+                    (princ(mix_strasc
+                           (list "\n" str " : " 37197 32622 12398 35352 37682 12364 28961 12356 12383 12417
+                                 20986 21147 12391 12365 12414 12379 12435 12290
+                                 32622 12365 30452 12375 12390 12367 12384 12373 12356)))
+                    nil)
+                   ((= int_savecsvifc 1)
+                      ;;--- CSV ---
+                      (progn
+                        (setq str_out
+                              (apply 'strcat
+                                     (mapcar '(lambda(a)(strcat ","(as-numstr a)))
+                                             (append
+                                              (list str int_colpart str_temp
+                                                    (cdr(assoc "PROJECT-D" ls_xdata))
+                                                    (cdr(assoc "PROJECT-H" ls_xdata)))
+                                              (if bool_mh
+                                                  (list(car p_base)(cadr p_base)
+                                                       (caddr p_base)num_total)
+                                                (list num_length
+                                                     (car p_base)(cadr p_base)
+                                                     (caddr p_base)))
+                                              (list(car vecx)(cadr vecx))
+                                              ls_val)))
+                              str_out(strcat(if bool_mh "MANHOLETEMP" "CCBOXTEMP")str_out)
+                              ls_str_out_temp(cons str_out ls_str_out_temp)
+                              ls_str_out_temp
+                              (cons(strcat "ATTRIBUTE"
+                                           (apply 'strcat
+                                                  (mapcar '(lambda(str)(strcat "," str))
+                                                          ls_xdata_att)))
+                                   ls_str_out_temp)
+                              )
+                        ))
+
+                   ;;--- IFC ---
+                   ;;  部材を SOLIDUNION 〜 SOLIDEND で囲んで 1 オブジェクトにする。
+                   ;;  押し出し系(RECT/CIRCLE/CYLINDER)と FACE が混ざるときは
+                   ;;  ifc_exchange.py 側が RepresentationType を Brep にする。
+                   (T
+                      (setq ls_row
+                            (if bool_mh
+                                ;;TOTALH が 0 のときはテンプレートの合計高さを使う
+                                (td3d_mh_ifcrows ls_val p_base vecx
+                                                 (if(< num_total 1e-8)nil num_total))
+                              (td3d_tmp_ifcrows ls_val p_base vecx num_length))
+                            ls_row
+                            (cons(list(cons "type" "SOLIDUNION")
+                                      (cons "name" str)
+                                      (cons "properties"
+                                            (strcat
+                                             "\""
+                                             (substr
+                                              (apply 'strcat
+                                                     (mapcar '(lambda(str)(strcat "|" str))
+                                                             ls_xdata_att))
+                                              2)
+                                             "\"")))
+                                 ;;部材ごとの色を足す
+                                 (append
+                                  (mapcar
+                                   '(lambda(lst / ls_rgb)
+                                      (setq ls_rgb(cdr(assoc(cdr(assoc "part" lst))
+                                                            ls_rgbpart)))
+                                      (if ls_rgb T(setq ls_rgb(list 128 128 128)))
+                                      (append
+                                       (list(cons "name" str)
+                                            (cons "r"(/(car ls_rgb)255.))
+                                            (cons "g"(/(cadr ls_rgb)255.))
+                                            (cons "b"(/(caddr ls_rgb)255.)))
+                                       lst))
+                                   ls_row)
+                                  (list(list(cons "type" "SOLIDEND"))))))
+
+                      (mapcar
+                       '(lambda(lst)
+                          (setq str_out
+                                (apply
+                                 'strcat
+                                 (mapcar
+                                  '(lambda(str / strx)
+                                     (if(setq strx(cdr(assoc str lst)))T(setq strx ""))
+                                     (strcat ","(as-numstr strx)))
+                                  ls_ifcparameter))
+                                ls_str_out(cons(substr str_out 2)ls_str_out)))
+                       ls_row)
+                      ))
+                  ))
+               )
+
               ((and(= str_type "PROJECT")(= int_savecsvifc 1))
                (setq ls_p_ceircle(list)ls_p_text(list))
                (vlax-for
@@ -12165,7 +12334,8 @@
          ;;ls_str_out
          
          (if(= int_savecsvifc 1)
-             (setq ls_str_out(append ls_str_out_ccbox ls_str_out_duct ls_str_out)))
+             (setq ls_str_out(append ls_str_out_temp ls_str_out_ccbox
+                                     ls_str_out_duct ls_str_out)))
          
          (setq bool_ifcexe nil)
          (if(setq str_path
@@ -12312,7 +12482,8 @@
                  str(car lst)ls_vnam_copy (list))
            
            (cond
-            ((or(= str "DUCTBLOCK")(= str "CCBOX")(= str "PROJECTROAD"))
+            ((or(= str "DUCTBLOCK")(= str "CCBOX")(= str "PROJECTROAD")
+                (= str "CCBOXTEMP")(= str "MANHOLETEMP"))
              (setq str_name(cadr lst)))
             ;; (
             ;;  (setq i 0)
@@ -12899,6 +13070,106 @@
                                       ))
                    
                    )
+                  ;;--- テンプレートから作った特殊部 / マンホール -------------------
+                  ;;  形状の作り方はテンプレート側にしかないので、ここでは持たず
+                  ;;  makeparts をもう一度呼んで同じ形を作り直す。
+                  ;;  列 : 名前, 色, テンプレート名, 投影図名, 投影高さ,
+                  ;;       (特殊部) 延長, 基準点X, 基準点Y, 基準点Z,
+                  ;;       (マンホール) 中心X, 中心Y, 天端Z, 総高さ,
+                  ;;       向きX, 向きY, テンプレートのパラメータ…
+                  ((or(= str "CCBOXTEMP")(= str "MANHOLETEMP"))
+                   ((lambda( / bool_mh ls_field ls_head ii ls_rest ls_val
+                              int_coltemp str_temp str_prjd num_prjh
+                              num_a num_b num_c num_d num_vx num_vy
+                              p_base vecx num_len num_total ls_part)
+                      (setq bool_mh(= str "MANHOLETEMP")
+                            ls_field(cdr lst)
+                            ls_head(list)
+                            ls_rest ls_field
+                            ii -1)
+                      ;;先頭 11 列が見出し。12 列目からがテンプレートのパラメータ
+                      (while(<(setq ii(1+ ii))11)
+                        (setq ls_head(cons(car ls_rest)ls_head)
+                              ls_rest(cdr ls_rest)))
+                      (setq ls_head(reverse ls_head)
+                            ls_val(mapcar 'atof ls_rest)
+                            ls_val(if bool_mh(td3d_mh_fill ls_val)
+                                    (td3d_tmp_fill ls_val)))
+
+                      (mapcar 'set
+                              '(str_name int_coltemp str_temp str_prjd num_prjh
+                                         num_a num_b num_c num_d num_vx num_vy)
+                              ls_head)
+                      (setq int_coltemp(atoi int_coltemp)
+                            num_prjh(atof num_prjh)
+                            vecx(list(atof num_vx)(atof num_vy)0.)
+                            vecx(if(<(distance(list 0. 0. 0.)vecx)1e-8)
+                                    (list 1. 0. 0.)
+                                  (unit_vector vecx)))
+
+                      (if(=(caar ls_str_in)"ATTRIBUTE")
+                          (setq ls_xdata_att(cdar ls_str_in)
+                                ls_str_in(cdr ls_str_in)))
+
+                      (if bool_mh
+                          (setq p_base(list(atof num_a)(atof num_b)(atof num_c))
+                                num_total(atof num_d)
+                                ls_part(td3d_mh_makeparts
+                                        ls_val p_base vecx
+                                        (if(< num_total 1e-8)nil num_total)
+                                        (getvar "CLAYER")))
+                        (setq num_len(atof num_a)
+                              p_base(list(atof num_b)(atof num_c)(atof num_d))
+                              ls_part(td3d_tmp_makeparts
+                                      ls_val p_base vecx num_len(getvar "CLAYER"))))
+
+                      (mapcar
+                       '(lambda(a / vna str_part)
+                          (setq vna(car a)str_part(cdr a))
+                          ;;鉄蓋だけは配置時と同じく色を固定する
+                          (vl-catch-all-apply
+                           'vla-put-color
+                           (list vna(if(and bool_mh(= str_part "MHCOVER"))
+                                        td3d_mh_covercolor int_coltemp)))
+                          (set_xda vna
+                                   (list(cons 1000(if bool_mh "MANHOLESOLID"
+                                                    "CCBOXTEMPSOLID"))
+                                        (cons 1000 "PART")(cons 1000 str_part)
+                                        (cons 1000 "TEMPLATE")(cons 1000 str_temp))
+                                   "terraduct3d")
+                          (setq ls_vnam_copy(cons vna ls_vnam_copy)))
+                       ls_part)
+
+                      ;;ブロックに付ける XDATA は配置時とまったく同じ並びにする
+                      (setq ls_xdata
+                            (append
+                             (list(cons 1000(if bool_mh "MANHOLEBLOCK"
+                                              "CCBOXTEMPBLOCK"))
+                                  (cons 1000 "TEMPLATE")(cons 1000 str_temp)
+                                  (cons 1000 "PROJECT-D")(cons 1000 str_prjd)
+                                  (cons 1000 "PROJECT-H")(cons 1040 num_prjh))
+                             (if bool_mh
+                                 (list(cons 1000 "CENTER-X")(cons 1040(car p_base))
+                                      (cons 1000 "CENTER-Y")(cons 1040(cadr p_base))
+                                      (cons 1000 "TOPZ")(cons 1040(caddr p_base))
+                                      (cons 1000 "VEC-X")(cons 1040(car vecx))
+                                      (cons 1000 "VEC-Y")(cons 1040(cadr vecx))
+                                      (cons 1000 "TOTALH")(cons 1040 num_total))
+                               (list(cons 1000 "LENGTH")(cons 1040 num_len)
+                                    (cons 1000 "BASE-X")(cons 1040(car p_base))
+                                    (cons 1000 "BASE-Y")(cons 1040(cadr p_base))
+                                    (cons 1000 "BASE-Z")(cons 1040(caddr p_base))
+                                    (cons 1000 "VEC-X")(cons 1040(car vecx))
+                                    (cons 1000 "VEC-Y")(cons 1040(cadr vecx))))
+                             (apply 'append
+                                    (mapcar '(lambda(a val)
+                                               (list(cons 1000(car a))(cons 1040 val)))
+                                            (if bool_mh(td3d_mh_paramdef)
+                                              (td3d_tmp_paramdef))
+                                            ls_val))))
+                      ))
+                   )
+
                   ((= str "PROJECTROAD")
                    (setq lst(cddr lst)
                          int_col(atoi(car lst))hand_road(cadr lst)ls_p(list))
@@ -12954,16 +13225,18 @@
                   )
                  
                  (setq ls_vla-release(cons block ls_vla-release))
-                 
-                 (vla-copyobjects
-                  (vla-get-ActiveDocument(vlax-get-acad-object))
-                  (vlax-make-variant
-                   (vlax-safearray-fill
-                    (vlax-make-safearray
-                     vlax-vbObject(cons 0(1-(length ls_vnam_copy))) )
-                    ls_vnam_copy)
-                   )
-                  block)
+
+                 ;;何も作れなかったときは safearray が作れずエラーになるので飛ばす
+                 (if(null ls_vnam_copy)T
+                   (vla-copyobjects
+                    (vla-get-ActiveDocument(vlax-get-acad-object))
+                    (vlax-make-variant
+                     (vlax-safearray-fill
+                      (vlax-make-safearray
+                       vlax-vbObject(cons 0(1-(length ls_vnam_copy))) )
+                      ls_vnam_copy)
+                     )
+                    block))
 
                  (vlax-for
                   obj block

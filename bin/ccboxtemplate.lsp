@@ -14,6 +14,7 @@
 ;;;;     td3dtemplate / td3d_tmp_read / td3d_tmp_fill / td3d_tmp_paramdef
 ;;;;     td3d_tmp_makeparts / td3d_tmp_copyparts / td3d_tmp_deleteparts
 ;;;;     td3d_tmp_alert / td3d_tmp_numstr / td3d_tmp_ccboxhead
+;;;;     td3d_tmp_ifcrows (IFC 出力用の形状行)
 ;;;;
 ;;;;   依存 : %library.lsp  (mix_strasc rac_sld code_loft_solid unit_vector
 ;;;;                          cross_product carxyz set_xda write_strlist)
@@ -306,12 +307,12 @@
     (setq ls_out(reverse ls_out))
     (if td3d_tmp_quiet T
       (progn
-        (princ (mix_strasc(list "\\n" 20316 25104 12375 12383 37096 26448 " (" (itoa(length ls_out)) ") : ")))
+        (princ (mix_strasc(list "\n" 20316 25104 12375 12383 37096 26448 " (" (itoa(length ls_out)) ") : ")))
         (mapcar '(lambda(a)(princ(strcat(cdr a)" ")))ls_out)
         (if(<= tfr 0.)
-            (princ (mix_strasc(list "\\n  " 8251 21069 38754 "(" 36215 28857 20596 ")" 21402 12364 " 0 " 12398 12383 12417 21069 38754 12399 38283 21475 12391 12377))))
+            (princ (mix_strasc(list "\n  " 8251 21069 38754 "(" 36215 28857 20596 ")" 21402 12364 " 0 " 12398 12383 12417 21069 38754 12399 38283 21475 12391 12377))))
         (if(<= tbk 0.)
-            (princ (mix_strasc(list "\\n  " 8251 32972 38754 "(" 32066 28857 20596 ")" 21402 12364 " 0 " 12398 12383 12417 32972 38754 12399 38283 21475 12391 12377))))))
+            (princ (mix_strasc(list "\n  " 8251 32972 38754 "(" 32066 28857 20596 ")" 21402 12364 " 0 " 12398 12383 12417 32972 38754 12399 38283 21475 12391 12377))))))
     ls_out)))
 
 ;;部材リストを削除する
@@ -332,6 +333,134 @@
          (mapcar 'car ls_part)))
        blk)
       T)))
+
+;;---------------------------------------------------------------------
+;; IFC 出力用の形状行を作る
+;;
+;;   makeparts と同じ寸法・同じ並びで、部材 1 つにつき 1 行ぶんの
+;;   ((列名 . 値) …) を返す。列名は terraduct3D.lsp の ls_ifcparameter に合わせる。
+;;   色は部材ごとに違うことがあるので、ここでは付けずに呼び側で足す。
+;;   "part" は列にはならないが、呼び側が色を引くために入れてある。
+;;
+;;   ls_val     : パラメータ値リスト
+;;   p_base     : 底版下面の中心(makeparts に渡した p_center_bottom)
+;;   vecx       : 進行方向(水平の単位ベクトル)
+;;   length_sld : 全長
+;;
+;;   角柱は RECT(矩形の押し出し)で正確に表せる。
+;;   ハンチは三角柱で、CSV に該当する型が無いため FACE(IfcFacetedBrep)にする。
+;;---------------------------------------------------------------------
+(defun td3d_tmp_ifcrows( ls_val p_base vecx length_sld
+                         / w h ttop tbot tside hu hv du dv tfr tbk
+                           vecz vecu ang len_in x_in ls_out fn_box fn_haunch )
+  (setq ls_val(td3d_tmp_fill ls_val))
+  (mapcar 'set '(w h ttop tbot tside hu hv du dv tfr tbk)ls_val)
+  (setq vecz(list 0. 0. 1.)
+        vecx(unit_vector(carxyz vecx 0.))
+        vecu(unit_vector(cross_product vecz vecx))
+        ;;RECT の断面はプロファイルを rotate だけ回して置く。
+        ;;ifc_exchange.py は rotate の符号を逆に取るため、進行方向の角度に -1 を掛ける
+        ang(- (atan(cadr vecx)(car vecx)))
+        len_in(- length_sld tfr tbk)
+        x_in(* 0.5(- tfr tbk))
+        ls_out(list))
+
+  ;;角柱を 1 つ。引数の意味は makeparts の fn_box と同じ
+  (setq fn_box
+        (lambda(half_x half_u height dz dx dulen str_part / p)
+          (setq p(mapcar '(lambda(a x u)(+ a(* dx x)(* dulen u)))
+                         (mapcar '+ p_base(list 0. 0. dz))
+                         vecx vecu)
+                ls_out
+                (cons(list(cons "type" "RECT")(cons "part" str_part)
+                          (cons "x"(car p))(cons "y"(cadr p))(cons "z"(caddr p))
+                          (cons "ex" 0.)(cons "ey" 0.)(cons "ez" 1.)
+                          (cons "rotate" ang)
+                          (cons "dx"(* 2. half_x))(cons "dy"(* 2. half_u))
+                          (cons "height" height))
+                     ls_out))))
+
+  ;;ハンチ(三角柱)を 1 つ。頂点の作り方は makeparts の fn_haunch と同じ
+  (setq fn_haunch
+        (lambda(size_u size_v sign_u sign_v
+                        / uu vv ls_uv p_start ls_fro ls_rea)
+          (if(or(<= size_u 0.)(<= size_v 0.))nil
+            (progn
+              (setq uu(* sign_u 0.5 w) vv(* sign_v 0.5 h)
+                    ls_uv(if(>(* sign_u sign_v)0.)
+                             (list(list uu(- vv(* sign_v size_v)))
+                                  (list uu vv)
+                                  (list(- uu(* sign_u size_u))vv))
+                           (list(list(- uu(* sign_u size_u))vv)
+                                (list uu vv)
+                                (list uu(- vv(* sign_v size_v)))))
+                    p_start(mapcar '(lambda(a x)(+ a(*(- x_in(* 0.5 len_in))x)))
+                                   (mapcar '+ p_base(list 0. 0.(+ tbot(* 0.5 h))))
+                                   vecx)
+                    ls_fro(mapcar '(lambda(p)
+                                     (mapcar '(lambda(a u z)
+                                                (+ a(*(car p)u)(*(cadr p)z)))
+                                             p_start vecu(list 0. 0. 1.)))
+                                  ls_uv)
+                    ls_rea(mapcar '(lambda(p)
+                                     (mapcar '(lambda(a x)(+ a(* len_in x)))p vecx))
+                                  ls_fro)
+                    ls_out(cons(list(cons "type" "FACE")(cons "part" "CCBOXHAUNCH")
+                                    (cons "face"(td3d_tmp_prismfaces ls_fro ls_rea)))
+                               ls_out))))))
+
+  (cond
+   ((< length_sld 1e-6) nil)
+   ((< len_in 1e-6) nil)
+   (T
+    (fn_box (* 0.5 length_sld)(+(* 0.5 w)tside) tbot 0. 0. 0. "CCBOXBOTTOM")
+    (fn_box (* 0.5 length_sld)(+(* 0.5 w)tside) ttop (+ tbot h) 0. 0. "CCBOXTOP")
+    (fn_box (* 0.5 length_sld)(* 0.5 tside) h tbot 0.
+            (+(* 0.5 w)(* 0.5 tside)) "CCBOXWALL")
+    (fn_box (* 0.5 length_sld)(* 0.5 tside) h tbot 0.
+            (-(+(* 0.5 w)(* 0.5 tside))) "CCBOXWALL")
+    (if(> tfr 0.)
+        (fn_box (* 0.5 tfr)(* 0.5 w) h tbot
+                (-(-(* 0.5 length_sld)(* 0.5 tfr))) 0. "CCBOXFRONT"))
+    (if(> tbk 0.)
+        (fn_box (* 0.5 tbk)(* 0.5 w) h tbot
+                (-(* 0.5 length_sld)(* 0.5 tbk)) 0. "CCBOXBACK"))
+    (fn_haunch hu hv  1.  1.)
+    (fn_haunch hu hv -1.  1.)
+    (fn_haunch du dv  1. -1.)
+    (fn_haunch du dv -1. -1.)
+    (reverse ls_out))))
+
+;;点のリストを face 列の 1 面ぶんの文字列にする
+(defun td3d_tmp_facestr( ls_p / )
+  (substr(apply 'strcat
+                (mapcar '(lambda(p)
+                           (apply 'strcat
+                                  (mapcar '(lambda(a)(strcat ","(as-numstr a)))p)))
+                        ls_p))
+         2))
+
+;;起点側と終点側のループから角柱の閉じたシェルを作り、face 列の文字列にする
+;;  ls_a : 起点側 / ls_b : 終点側。同じ個数・同じ順序で渡す
+;;  ls_a は押し出し方向(ls_a → ls_b)を法線とする向き(反時計回り)であること
+;;    → 起点側の面は順序を逆にすると外向きになる
+;;  面は "|"、座標は "," で区切る。CSV の1セルに入れるので "" で囲む
+(defun td3d_tmp_prismfaces( ls_a ls_b / num ii jj ls_face )
+  (setq num(length ls_a)
+        ls_face(list(td3d_tmp_facestr(reverse ls_a))
+                    (td3d_tmp_facestr ls_b))
+        ii -1)
+  (while(<(setq ii(1+ ii))num)
+    (setq jj(rem(1+ ii)num)
+          ls_face(cons(td3d_tmp_facestr
+                       (list(td3d_tmp_nth ii ls_a)(td3d_tmp_nth jj ls_a)
+                            (td3d_tmp_nth jj ls_b)(td3d_tmp_nth ii ls_b)))
+                      ls_face)))
+  (strcat "\""
+          (substr(apply 'strcat
+                        (mapcar '(lambda(str)(strcat "|" str))(reverse ls_face)))
+                 2)
+          "\""))
 
 ;;---------------------------------------------------------------------
 ;; サンプルブロック(テンプレートの形状見本)を作り直す
@@ -408,7 +537,7 @@
           (td3d_tmp_write str_name ls_val)
           (td3d_tmp_makesampleblock str_name ls_val)
           (setq num(1+ num))
-          (princ (mix_strasc(list "\\n  " str_name))))))
+          (princ (mix_strasc(list "\n  " str_name))))))
    ls_def)
   (setq td3d_tmp_quiet bool_quiet)
   num)
@@ -427,9 +556,9 @@
                                  (td3d_tmp_defaultdef))))
   (if(null ls_add)nil
     (progn
-      (princ (mix_strasc(list "\\n" 22269 22303 20132 36890 30465 22411 12398 12358 12385 30331 37682 12373 12428 12390 12356 12394 12356 12418 12398 12434 36861 21152 12375 12414 12377)))
+      (princ (mix_strasc(list "\n" 22269 22303 20132 36890 30465 22411 12398 12358 12385 30331 37682 12373 12428 12390 12356 12394 12356 12418 12398 12434 36861 21152 12375 12414 12377)))
       (setq num(td3d_tmp_makedefault ls_add))
-      (princ (mix_strasc(list "\\n" 22269 22303 20132 36890 30465 22411 12434 " " (itoa num) " " 20214 36861 21152 12375 12414 12375 12383)))
+      (princ (mix_strasc(list "\n" 22269 22303 20132 36890 30465 22411 12434 " " (itoa num) " " 20214 36861 21152 12375 12414 12375 12383)))
       num)))
 
 
@@ -594,15 +723,15 @@
                   ls_val(cadr td3d_tmp_result))
             (td3d_tmp_write str_name ls_val)
             (if(td3d_tmp_makesampleblock str_name ls_val)
-                (princ (mix_strasc(list "\\n" 20445 23384 12375 12414 12375 12383 " : " str_name)))
+                (princ (mix_strasc(list "\n" 20445 23384 12375 12414 12375 12383 " : " str_name)))
               (progn
-                (princ (mix_strasc(list "\\n" 20445 23384 12375 12414 12375 12383 " : " str_name)))
-                (td3d_tmp_alert (mix_strasc(list 12486 12531 12503 12524 12540 12488 12399 20445 23384 12375 12414 12375 12383 12364 12289 24418 29366 12398 20316 25104 12395 22833 25943 12375 12414 12375 12383 "\\n" 23544 27861 12434 35211 30452 12375 12390 12367 12384 12373 12356)))))
+                (princ (mix_strasc(list "\n" 20445 23384 12375 12414 12375 12383 " : " str_name)))
+                (td3d_tmp_alert (mix_strasc(list 12486 12531 12503 12524 12540 12488 12399 20445 23384 12375 12414 12375 12383 12364 12289 24418 29366 12398 20316 25104 12395 22833 25943 12375 12414 12375 12383 "\n" 23544 27861 12434 35211 30452 12375 12390 12367 12384 12373 12356)))))
             )
            ((= int_ret 3)
             (setq str_name(car td3d_tmp_result))
             (td3d_tmp_erase str_name)
-            (princ (mix_strasc(list "\\n" 21066 38500 12375 12414 12375 12383 " : " str_name))))
+            (princ (mix_strasc(list "\n" 21066 38500 12375 12414 12375 12383 " : " str_name))))
            ((= int_ret 4)(td3d_tmp_export))
            ((= int_ret 5)(td3d_tmp_import))
            
@@ -725,8 +854,8 @@
               (setq num(1+ num)))))
      ls_name)
     (close open_file)
-    (princ (mix_strasc(list "\\n" 26360 12365 20986 12375 12414 12375 12383 " : " (itoa num) 20214 "  " str_path)))
-    (td3d_tmp_alert (mix_strasc(list 26360 12365 20986 12375 12414 12375 12383 "\\n" (itoa num) 20214 "\\n" str_path)))
+    (princ (mix_strasc(list "\n" 26360 12365 20986 12375 12414 12375 12383 " : " (itoa num) 20214 "  " str_path)))
+    (td3d_tmp_alert (mix_strasc(list 26360 12365 20986 12375 12414 12375 12383 "\n" (itoa num) 20214 "\n" str_path)))
     str_path)))
 
 ;;---------------------------------------------------------------------
@@ -828,7 +957,7 @@
     (cond
      ((null int_name)
       (close open_file)
-      (td3d_tmp_alert (mix_strasc(list "1" 34892 30446 12395 " NAME " 21015 12364 35211 12388 12363 12426 12414 12379 12435 "\\nNAME,WIDTH,HEIGHT," 8230 " " 12398 24418 24335 12395 12375 12390 12367 12384 12373 12356)))
+      (td3d_tmp_alert (mix_strasc(list "1" 34892 30446 12395 " NAME " 21015 12364 35211 12388 12363 12426 12414 12379 12435 "\nNAME,WIDTH,HEIGHT," 8230 " " 12398 24418 24335 12395 12375 12390 12367 12384 12373 12356)))
       nil)
      (T
       ;;--- データ行 ---
@@ -885,11 +1014,11 @@
              ls_data)
 
             (setq ls_err(reverse ls_err) td3d_tmp_quiet nil)
-            (princ (mix_strasc(list "\\n" 21462 12426 36796 12415 32080 26524 " " 26032 35215 (itoa num_add) " / " 19978 26360 12365 (itoa num_ow) " / " 12473 12461 12483 12503 (itoa num_skip) " / " 12456 12521 12540 (itoa num_err))))
+            (princ (mix_strasc(list "\n" 21462 12426 36796 12415 32080 26524 " " 26032 35215 (itoa num_add) " / " 19978 26360 12365 (itoa num_ow) " / " 12473 12461 12483 12503 (itoa num_skip) " / " 12456 12521 12540 (itoa num_err))))
             (mapcar '(lambda(str)(princ(strcat "\n  " str)))ls_err)
-            (setq str_tail(if ls_err (mix_strasc(list "\\n\\n" 12456 12521 12540 12398 20869 23481 12399 12467 12510 12531 12489 12521 12452 12531 12434 35211 12390 12367 12384 12373 12356)) ""))
+            (setq str_tail(if ls_err (mix_strasc(list "\n\n" 12456 12521 12540 12398 20869 23481 12399 12467 12510 12531 12489 12521 12452 12531 12434 35211 12390 12367 12384 12373 12356)) ""))
             (td3d_tmp_alert
-             (mix_strasc(list 21462 12426 36796 12415 12414 12375 12383 "\\n\\n" 26032 35215 " : " (itoa num_add) 20214 "\\n" 19978 26360 12365 " : " (itoa num_ow) 20214 "\\n" 12473 12461 12483 12503 " : " (itoa num_skip) 20214 "\\n" 12456 12521 12540 " : " (itoa num_err) 20214 str_tail)))
+             (mix_strasc(list 21462 12426 36796 12415 12414 12375 12383 "\n\n" 26032 35215 " : " (itoa num_add) 20214 "\n" 19978 26360 12365 " : " (itoa num_ow) 20214 "\n" 12473 12461 12483 12503 " : " (itoa num_skip) 20214 "\n" 12456 12521 12540 " : " (itoa num_err) 20214 str_tail)))
             T))
         ))
       ))

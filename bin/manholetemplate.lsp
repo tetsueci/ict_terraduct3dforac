@@ -736,12 +736,206 @@
       (progn
         (if td3d_mh_quiet T
           (progn
-            ;;(princ (mix_strasc(list "\n" 20316 25104 12375 12383 37096 26448 " (" (itoa(length ls_out)) ") : ")))
-            ;;(mapcar '(lambda(a)(princ(strcat(cdr a)" ")))ls_out)
-            ;;(princ (mix_strasc(list "\n  " 32207 39640 12373 " " (td3d_mh_numstr(- ztop z)))))
-            ))
+            (princ (mix_strasc(list "\n" 20316 25104 12375 12383 37096 26448 " (" (itoa(length ls_out)) ") : ")))
+            (mapcar '(lambda(a)(princ(strcat(cdr a)" ")))ls_out)
+            (princ (mix_strasc(list "\n  " 32207 39640 12373 " " (td3d_mh_numstr(- ztop z)))))))
         ls_out)))))
 
+
+;;---------------------------------------------------------------------
+;; IFC 出力用の形状行を作る
+;;
+;;   makeparts と同じ寸法・同じ並びで、部材 1 つにつき 1 行ぶんの
+;;   ((列名 . 値) …) を返す。列名は terraduct3D.lsp の ls_ifcparameter に合わせる。
+;;   色は部材ごとに違う(鉄蓋だけ別色)ので、ここでは付けずに呼び側で足す。
+;;   "part" は列にはならないが、呼び側が色を引くために入れてある。
+;;
+;;   型の使い分け
+;;     一定断面の筒   円形 → CYLINDER(外円柱 − 内円柱)
+;;                    角形 → RECT 4 枚(隅で重ならないよう長短に分ける)
+;;     中実の板・鉄蓋 円形 → CIRCLE / 角形 → RECT
+;;     斜壁           CSV に該当する型が無いので FACE(IfcFacetedBrep)。
+;;                    区画の分け方は makeparts の eccring と同じ
+;;                    (円形は td3d_mh_arcdiv 分割の内接多角形。
+;;                     同心の斜壁は CAD 側では真円の円錐台なので、
+;;                     IFC では多角形近似になる)
+;;---------------------------------------------------------------------
+(defun td3d_mh_ifcrows( ls_val p_top vecu height_all
+                        / shape tw tl tt th tph bw bl bt bh st cd cvt ecc
+                          vecv ang p_center p_upper ztop z cw cl off_ecc
+                          ls_out fn_rect fn_disc fn_ring fn_taper )
+  (setq ls_val(td3d_mh_fill ls_val))
+  (mapcar 'set '(shape tw tl tt th tph bw bl bt bh st cd cvt ecc)ls_val)
+  (setq off_ecc(if(> tph 0.)(td3d_mh_eccoffset ls_val)0.))
+
+  (if(null vecu)(setq vecu(list 1. 0. 0.)))
+  (setq vecu(unit_vector(carxyz vecu 0.))
+        vecv(unit_vector(cross_product(list 0. 0. 1.)vecu))
+        ;;ifc_exchange.py は rotate の符号を逆に取るため -1 を掛ける
+        ang(- (atan(cadr vecu)(car vecu)))
+        p_center(carxyz p_top 0.)
+        ztop(caddr p_top)
+        z ztop
+        ls_out(list)
+        p_upper(mapcar '(lambda(a u)(+ a(* off_ecc u)))p_center vecu))
+
+  (if height_all(setq bh(- height_all th tph st)))
+
+  ;;矩形の角柱を 1 つ。du dv は中心から vecu vecv 方向へのずれ
+  (setq fn_rect
+        (lambda(p z0 height dx dy du dv str_part / q)
+          (setq q(mapcar '(lambda(a u v)(+ a(* du u)(* dv v)))p vecu vecv)
+                ls_out
+                (cons(list(cons "type" "RECT")(cons "part" str_part)
+                          (cons "x"(car q))(cons "y"(cadr q))(cons "z" z0)
+                          (cons "ex" 0.)(cons "ey" 0.)(cons "ez" 1.)
+                          (cons "rotate" ang)
+                          (cons "dx" dx)(cons "dy" dy)
+                          (cons "height" height))
+                     ls_out))))
+
+  ;;中実の柱(鉄蓋・底版)。w l は内空寸法、offset は外側への足し分
+  (setq fn_disc
+        (lambda(p z0 height w l offset str_part / )
+          (if(or(<= height 1e-9)(<=(+(* 0.5 w)offset)1e-9))nil
+            (if(td3d_mh_roundp ls_val)
+                (setq ls_out
+                      (cons(list(cons "type" "CIRCLE")(cons "part" str_part)
+                                (cons "x"(car p))(cons "y"(cadr p))(cons "z" z0)
+                                (cons "ex" 0.)(cons "ey" 0.)(cons "ez" 1.)
+                                (cons "rotate" ang)
+                                (cons "radius"(+(* 0.5 w)offset))
+                                (cons "height" height))
+                           ls_out))
+              (fn_rect p z0 height(+ w(* 2. offset))(+ l(* 2. offset))
+                       0. 0. str_part)))))
+
+  ;;一定断面の筒。w l は内空寸法、thk は壁厚
+  (setq fn_ring
+        (lambda(p z0 height w l thk str_part / )
+          (cond
+           ((or(<= height 1e-9)(<= thk 1e-9)(<=(* 0.5 w)1e-9)) nil)
+           ((td3d_mh_roundp ls_val)
+            (setq ls_out
+                  (cons(list(cons "type" "CYLINDER")(cons "part" str_part)
+                            (cons "x"(car p))(cons "y"(cadr p))(cons "z" z0)
+                            (cons "ex" 0.)(cons "ey" 0.)(cons "ez" 1.)
+                            (cons "rotate" ang)
+                            (cons "radius"(+(* 0.5 w)thk))
+                            (cons "thickness" thk)
+                            (cons "height" height))
+                       ls_out)))
+           (T
+            ;;vecu 側の 2 枚は外形の全長、vecv 側の 2 枚は内空の幅にして隅の重なりを避ける
+            (fn_rect p z0 height thk(+ l(* 2. thk))
+                     (+(* 0.5 w)(* 0.5 thk)) 0. str_part)
+            (fn_rect p z0 height thk(+ l(* 2. thk))
+                     (-(+(* 0.5 w)(* 0.5 thk))) 0. str_part)
+            (fn_rect p z0 height w thk 0.(+(* 0.5 l)(* 0.5 thk)) str_part)
+            (fn_rect p z0 height w thk 0.(-(+(* 0.5 l)(* 0.5 thk))) str_part)))))
+
+  ;;斜壁。下端=下部断面 / 上端=上部断面。区画ごとに FACE を1行出す
+  (setq fn_taper
+        (lambda(z0 height / num ii jj a0 a1 b0 b1)
+          (if(<= height 1e-9)nil
+            (progn
+              (setq num(if(td3d_mh_roundp ls_val)td3d_mh_arcdiv 4)
+                    a0(td3d_mh_ringloop shape p_center z0 bw bl 0.  vecu vecv num)
+                    a1(td3d_mh_ringloop shape p_center z0 bw bl bt  vecu vecv num)
+                    b0(td3d_mh_ringloop shape p_upper(+ z0 height)tw tl 0. vecu vecv num)
+                    b1(td3d_mh_ringloop shape p_upper(+ z0 height)tw tl tt vecu vecv num)
+                    ii -1)
+              (while(<(setq ii(1+ ii))num)
+                (setq jj(rem(1+ ii)num)
+                      ls_out
+                      (cons(list(cons "type" "FACE")(cons "part" "MHTAPER")
+                                (cons "face"
+                                      (td3d_mh_prismfaces
+                                       ;;下面 : 内i → 外i → 外j → 内j (反時計回り)
+                                       (list(td3d_mh_nth ii a0)(td3d_mh_nth ii a1)
+                                            (td3d_mh_nth jj a1)(td3d_mh_nth jj a0))
+                                       (list(td3d_mh_nth ii b0)(td3d_mh_nth ii b1)
+                                            (td3d_mh_nth jj b1)(td3d_mh_nth jj b0)))))
+                           ls_out)))))))
+
+  (cond
+   ((< bh 0.) nil)
+   ((<(+ th tph bh st)1e-6) nil)
+   (T
+    ;;鉄蓋 : 最上段の内空と同じ断面。上面が天端に一致する
+    (if(or(> th 0.)(> tph 0.))(setq cw tw cl tl)(setq cw bw cl bl))
+    (if(> cvt 0.)(fn_disc p_upper(- ztop cvt)cvt cw cl 0. "MHCOVER"))
+
+    (if(> th 0.)
+        (progn(fn_ring p_upper(- z th)th tw tl tt "MHNECK")
+              (setq z(- z th))))
+
+    (if(> tph 0.)
+        (progn(fn_taper(- z tph)tph)
+              (setq z(- z tph))))
+
+    (if(> bh 0.)
+        (progn(fn_ring p_center(- z bh)bh bw bl bt "MHBODY")
+              (setq z(- z bh))))
+
+    (if(> st 0.)
+        (progn(fn_disc p_center(- z st)st bw bl bt "MHSLAB")
+              (setq z(- z st))))
+
+    (reverse ls_out))))
+
+;;外形(または内空)の閉じたループの頂点を返す
+;;   int_shape 0=円形 / 1=角形、w l は内空寸法、offset は外側への足し分
+;;   num は円形のときの分割数(角形は 4 として呼ぶ)
+;;   +Z から見て反時計回りに並べる
+(defun td3d_mh_ringloop( int_shape p zz w l offset vecu vecv num
+                         / rr uu vv ii ang ls_out )
+  (if(<(abs int_shape)0.5)
+      (progn
+        (setq rr(+(* 0.5 w)offset) ii -1 ls_out(list))
+        (while(<(setq ii(1+ ii))num)
+          (setq ang(/(* 2. pi ii)num)
+                ls_out(cons(list(+(car p)(* rr(cos ang)))
+                                (+(cadr p)(* rr(sin ang)))
+                                zz)
+                           ls_out)))
+        (reverse ls_out))
+    (progn
+      (setq uu(+(* 0.5 w)offset) vv(+(* 0.5 l)offset))
+      (mapcar '(lambda(q)(td3d_mh_toworld p vecu vecv(car q)(cadr q)zz))
+              (list(list uu(- vv))(list uu vv)
+                   (list(- uu)vv)(list(- uu)(- vv)))))))
+
+;;点のリストを face 列の 1 面ぶんの文字列にする
+(defun td3d_mh_facestr( ls_p / )
+  (substr(apply 'strcat
+                (mapcar '(lambda(p)
+                           (apply 'strcat
+                                  (mapcar '(lambda(a)(strcat ","(as-numstr a)))p)))
+                        ls_p))
+         2))
+
+;;下面と上面のループから角柱の閉じたシェルを作り、face 列の文字列にする
+;;  ls_a : 下面 / ls_b : 上面。同じ個数・同じ順序で渡す
+;;  ls_a は ls_a → ls_b の向きを法線とする向き(反時計回り)であること
+;;    → 下面は順序を逆にすると外向きになる
+;;  面は "|"、座標は "," で区切る。CSV の1セルに入れるので "" で囲む
+(defun td3d_mh_prismfaces( ls_a ls_b / num ii jj ls_face )
+  (setq num(length ls_a)
+        ls_face(list(td3d_mh_facestr(reverse ls_a))
+                    (td3d_mh_facestr ls_b))
+        ii -1)
+  (while(<(setq ii(1+ ii))num)
+    (setq jj(rem(1+ ii)num)
+          ls_face(cons(td3d_mh_facestr
+                       (list(td3d_mh_nth ii ls_a)(td3d_mh_nth jj ls_a)
+                            (td3d_mh_nth jj ls_b)(td3d_mh_nth ii ls_b)))
+                      ls_face)))
+  (strcat "\""
+          (substr(apply 'strcat
+                        (mapcar '(lambda(str)(strcat "|" str))(reverse ls_face)))
+                 2)
+          "\""))
 
 ;;---------------------------------------------------------------------
 ;; サンプルブロック
@@ -821,8 +1015,7 @@
           (td3d_mh_write str_name ls_val)
           (td3d_mh_makesampleblock str_name ls_val)
           (setq num(1+ num))
-          ;;(princ (mix_strasc(list "\n  " str_name)))
-          )))
+          (princ (mix_strasc(list "\n  " str_name))))))
    ls_def)
   (setq td3d_mh_quiet bool_quiet)
   num)
@@ -836,9 +1029,9 @@
                                  (td3d_mh_defaultdef))))
   (if(null ls_add)nil
     (progn
-      ;;(princ (mix_strasc(list "\n" 27161 28310 12510 12531 12507 12540 12523 12398 12358 12385 30331 37682 12373 12428 12390 12356 12394 12356 12418 12398 12434 36861 21152 12375 12414 12377)))
+      (princ (mix_strasc(list "\n" 27161 28310 12510 12531 12507 12540 12523 12398 12358 12385 30331 37682 12373 12428 12390 12356 12394 12356 12418 12398 12434 36861 21152 12375 12414 12377)))
       (setq num(td3d_mh_makedefault ls_add))
-      ;;(princ (mix_strasc(list "\n" 27161 28310 12510 12531 12507 12540 12523 12434 " " (itoa num) " " 20214 36861 21152 12375 12414 12375 12383)))
+      (princ (mix_strasc(list "\n" 27161 28310 12510 12531 12507 12540 12523 12434 " " (itoa num) " " 20214 36861 21152 12375 12414 12375 12383)))
       num)))
 
 
@@ -941,13 +1134,12 @@
             (if(td3d_mh_makesampleblock str_name ls_val)
                 (princ (mix_strasc(list "\n" 20445 23384 12375 12414 12375 12383 " : " str_name)))
               (progn
-                ;;(princ (mix_strasc(list "\n" 20445 23384 12375 12414 12375 12383 " : " str_name)))
+                (princ (mix_strasc(list "\n" 20445 23384 12375 12414 12375 12383 " : " str_name)))
                 (td3d_mh_alert (mix_strasc(list 12486 12531 12503 12524 12540 12488 12399 20445 23384 12375 12414 12375 12383 12364 12289 24418 29366 12398 20316 25104 12395 22833 25943 12375 12414 12375 12383 "\n" 23544 27861 12434 35211 30452 12375 12390 12367 12384 12373 12356))))))
            ((= int_ret 3)
             (setq str_name(car td3d_mh_result))
             (td3d_mh_erase str_name)
-            ;;(princ (mix_strasc(list "\n" 21066 38500 12375 12414 12375 12383 " : " str_name)))
-            )
+            (princ (mix_strasc(list "\n" 21066 38500 12375 12414 12375 12383 " : " str_name))))
            ((= int_ret 4)(td3d_mh_export))
            ((= int_ret 5)(td3d_mh_import))
            (T
@@ -994,8 +1186,8 @@
               (setq num(1+ num)))))
      ls_name)
     (close open_file)
-    ;;(princ (mix_strasc(list "\\n" 26360 12365 20986 12375 12414 12375 12383 " : " (itoa num) 20214 "  " str_path)))
-    (td3d_mh_alert (mix_strasc(list 26360 12365 20986 12375 12414 12375 12383 "\\n" (itoa num) 20214 "\\n" str_path)))
+    (princ (mix_strasc(list "\n" 26360 12365 20986 12375 12414 12375 12383 " : " (itoa num) 20214 "  " str_path)))
+    (td3d_mh_alert (mix_strasc(list 26360 12365 20986 12375 12414 12375 12383 "\n" (itoa num) 20214 "\n" str_path)))
     str_path)))
 
 (defun td3d_mh_writeimpdcl( / str_path open_file )
@@ -1127,10 +1319,10 @@
                   (if bool_exist(setq num_ow(1+ num_ow))(setq num_add(1+ num_add))))))
              ls_data)
             (setq ls_err(reverse ls_err) td3d_mh_quiet nil)
-            ;;(princ (mix_strasc(list "\\n" 21462 12426 36796 12415 32080 26524 " " 26032 35215 (itoa num_add) " / " 19978 26360 12365 (itoa num_ow) " / " 12473 12461 12483 12503 (itoa num_skip) " / " 12456 12521 12540 (itoa num_err))))
-            ;;(mapcar '(lambda(str)(princ(strcat "\n  " str)))ls_err)
-            (setq str_tail(if ls_err (mix_strasc(list "\\n\\n" 12456 12521 12540 12398 20869 23481 12399 12467 12510 12531 12489 12521 12452 12531 12434 35211 12390 12367 12384 12373 12356)) ""))
-            (td3d_mh_alert (mix_strasc(list 21462 12426 36796 12415 12414 12375 12383 "\\n\\n" 26032 35215 " : " (itoa num_add) 20214 "\\n" 19978 26360 12365 " : " (itoa num_ow) 20214 "\\n" 12473 12461 12483 12503 " : " (itoa num_skip) 20214 "\\n" 12456 12521 12540 " : " (itoa num_err) 20214 str_tail)))
+            (princ (mix_strasc(list "\n" 21462 12426 36796 12415 32080 26524 " " 26032 35215 (itoa num_add) " / " 19978 26360 12365 (itoa num_ow) " / " 12473 12461 12483 12503 (itoa num_skip) " / " 12456 12521 12540 (itoa num_err))))
+            (mapcar '(lambda(str)(princ(strcat "\n  " str)))ls_err)
+            (setq str_tail(if ls_err (mix_strasc(list "\n\n" 12456 12521 12540 12398 20869 23481 12399 12467 12510 12531 12489 12521 12452 12531 12434 35211 12390 12367 12384 12373 12356)) ""))
+            (td3d_mh_alert (mix_strasc(list 21462 12426 36796 12415 12414 12375 12383 "\n\n" 26032 35215 " : " (itoa num_add) 20214 "\n" 19978 26360 12365 " : " (itoa num_ow) 20214 "\n" 12473 12461 12483 12503 " : " (itoa num_skip) 20214 "\n" 12456 12521 12540 " : " (itoa num_err) 20214 str_tail)))
             T))
         ))
       ))
