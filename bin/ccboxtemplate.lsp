@@ -34,6 +34,11 @@
       td3d_tmp_ccboxhead "CCBOX$"                    ;;配置した特殊部のブロック名接頭辞
       td3d_tmp_samplelen 1.0                         ;;サンプルブロックの延長
       td3d_tmp_quiet     nil                         ;;T のとき部材リストを表示しない
+      ;;プレビューの固定スケール枠(黄)。断面を切り替えても縮尺が変わらない。
+      ;;既定値は 標準型式21件の外形最大 1.46×2.06(国交省_I型BOX) と、
+      ;;既定入力値の外形 1.9×2.2(内空1.5×1.8+壁厚0.2) の両方が収まる値
+      td3d_tmp_prevframe_w 2.0                       ;;枠の幅
+      td3d_tmp_prevframe_h 2.3                       ;;枠の高さ
       )
 
 ;;---------------------------------------------------------------------
@@ -608,6 +613,18 @@
         "   spacer;"
         (mix_strasc(list "   :text { label = \"" 8251 12495 12531 12481 12399 27700 24179 12392 37467 30452 12398 20001 26041 12364 27491 12398 12392 12365 12384 12369 20837 12426 12414 12377 "\"; }"))
         "  }"
+        ;;--- 断面プレビュー ---
+        "  :boxed_column"
+        "  {"
+        (mix_strasc(list "   label = \"" 12503 12524 12499 12517 12540 "\";"));;プレビュー
+        "   :image { key = \"preview\"; width = 34; height = 20;"
+        "            fixed_width = true; fixed_height = true; color = 0; }"
+        (mix_strasc(list "   :edit_box { key = \"prevw\"; label = \"" 26528 12398 24133 "\"; edit_width = 8; }"));;枠の幅
+        (mix_strasc(list "   :edit_box { key = \"prevh\"; label = \"" 26528 12398 39640 12373 "\"; edit_width = 8; }"));;枠の高さ
+        (mix_strasc(list "   :text { label = \"" 8251 20516 12434 22793 26356 12377 12427 12392 26356 26032 12373 12428 12414 12377 "\"; }"));;※値を変更すると更新されます
+        (mix_strasc(list "   :text { label = \"" 8251 26528 "(" 40644 ")" 12399 22266 23450 12473 12465 12540 12523 12398 30446 23433 "\"; }"));;※枠(黄)は固定スケールの目安
+        (mix_strasc(list "   :text { label = \"" 8251 26528 12363 12425 12399 12415 20986 12383 37096 20998 12399 34920 31034 12373 12428 12414 12379 12435 "\"; }"));;※枠からはみ出た部分は表示されません
+        "  }"
         " }"
         " :row"
         " {"
@@ -639,6 +656,123 @@
 (defun td3d_tmp_gettiles( / )
   (mapcar '(lambda(lst)(atof(get_tile(car lst))))(td3d_tmp_paramdef)))
 
+;;---------------------------------------------------------------------
+;; 断面プレビュー
+;;   image タイルに vector_image で断面(進行方向に直交する鉛直断面)を描く。
+;;   前面厚・背面厚(TFRONT/TBACK)は断面に現れないので描かない。
+;;
+;;   縮尺は断面の大きさではなく固定スケール枠(黄・td3d_tmp_prevframe_w/h)
+;;   から決めるので、断面を切り替えても縮尺が変わらない。
+;;   枠より大きい断面は画像の範囲で切り取られて、はみ出しは表示されない
+;;   (線分ごとに Liang-Barsky 法で画像範囲にクリップしてから描く。
+;;    範囲外の座標を vector_image に渡さないための保護でもある)。
+;;   入力途中でも落ちないよう、負値は 0 として扱い、内空が
+;;   決まらないうちは枠だけにする
+;;---------------------------------------------------------------------
+(defun td3d_tmp_preview( ls_val / w h ttop tbot tside hu hv du dv tfr tbk
+                                  dx dy fw fh sc cx cy wo
+                                  fnx fny fline )
+  (mapcar 'set '(w h ttop tbot tside hu hv du dv tfr tbk)(td3d_tmp_fill ls_val))
+  (mapcar '(lambda(sym)(if(<(eval sym)0.)(set sym 0.)))
+          '(w h ttop tbot tside hu hv du dv))
+  (setq dx(dimx_tile "preview")dy(dimy_tile "preview")
+        fw(if(and(boundp 'td3d_tmp_prevframe_w)(> td3d_tmp_prevframe_w 1e-9))
+             td3d_tmp_prevframe_w 1.5)
+        fh(if(and(boundp 'td3d_tmp_prevframe_h)(> td3d_tmp_prevframe_h 1e-9))
+             td3d_tmp_prevframe_h 2.1)
+        ;;縮尺は枠から決める(88%で収める)
+        sc(min(/(* 0.88 dx)fw)(/(* 0.88 dy)fh))
+        ;;断面の外形中心を画像中心に置く。枠も同じ中心に描く
+        wo(+(* 0.5 w)tside)
+        cx 0.
+        cy(if(and(> w 1e-9)(> h 1e-9))(* 0.5(-(+ h ttop)tbot))0.)
+        ;;モデル座標 → 画像座標(Yは上下反転)。クリップのため実数のまま返す
+        fnx(lambda(x)(+(*(- x cx)sc)(* 0.5 dx)))
+        fny(lambda(y)(+(*(- cy y)sc)(* 0.5 dy)))
+        ;;画像範囲に切り取ってから描く(Liang-Barsky)
+        fline(lambda(p q c / x1 y1 x2 y2 ddx ddy t0 t1 bool)
+               (setq x1(fnx(car p))y1(fny(cadr p))
+                     x2(fnx(car q))y2(fny(cadr q))
+                     ddx(- x2 x1)ddy(- y2 y1)
+                     t0 0. t1 1. bool T)
+               (mapcar
+                '(lambda(pv qv / r)
+                   (if bool
+                       (if(<(abs pv)1e-12)
+                           (if(< qv 0.)(setq bool nil))
+                         (progn
+                           (setq r(/ qv pv))
+                           (if(< pv 0.)
+                               (if(> r t1)(setq bool nil)
+                                 (if(> r t0)(setq t0 r)))
+                             (if(< r t0)(setq bool nil)
+                               (if(< r t1)(setq t1 r))))))))
+                (list(- ddx)ddx(- ddy)ddy)
+                (list x1(-(float(1- dx))x1)y1(-(float(1- dy))y1)))
+               (if bool
+                   (vector_image
+                    (fix(+ x1(* t0 ddx)0.5))(fix(+ y1(* t0 ddy)0.5))
+                    (fix(+ x1(* t1 ddx)0.5))(fix(+ y1(* t1 ddy)0.5))c)))
+        )
+
+  (start_image "preview")
+  (fill_image 0 0 dx dy 0)
+
+  ;;固定スケール枠(黄)。中心は断面と同じ
+  ((lambda(p1 p2 p3 p4)
+     (fline p1 p2 2)(fline p2 p3 2)(fline p3 p4 2)(fline p4 p1 2))
+   (list(* -0.5 fw)(- cy(* 0.5 fh)))
+   (list(* 0.5 fw)(- cy(* 0.5 fh)))
+   (list(* 0.5 fw)(+ cy(* 0.5 fh)))
+   (list(* -0.5 fw)(+ cy(* 0.5 fh))))
+
+  (if(or(<= w 1e-9)(<= h 1e-9))
+      T;;内空が決まらないうちは枠だけ
+    (progn
+      ;;外形(躯体)
+      (fline(list(- wo)(- tbot))(list wo(- tbot))7)
+      (fline(list wo(- tbot))(list wo(+ h ttop))7)
+      (fline(list wo(+ h ttop))(list(- wo)(+ h ttop))7)
+      (fline(list(- wo)(+ h ttop))(list(- wo)(- tbot))7)
+      ;;内空 : ハンチで隅を切り取った輪郭を1本の閉じた線で描く。
+      ;;  ハンチは水平と鉛直の両方が正のときだけ有効(td3d_tmp_makeparts と同じ)。
+      ;;  無い隅は切り取り量 0 で直角になる(長さ0の斜辺は描かれないだけ)
+      ((lambda( / hu2 hv2 du2 dv2 ls_p pp )
+         (if(and(> hu 1e-9)(> hv 1e-9))(setq hu2 hu hv2 hv)(setq hu2 0. hv2 0.))
+         (if(and(> du 1e-9)(> dv 1e-9))(setq du2 du dv2 dv)(setq du2 0. dv2 0.))
+         (setq ls_p(list(list(+(* -0.5 w)du2)0.)     ;;下辺 左端
+                        (list(-(* 0.5 w)du2)0.)      ;;下辺 右端
+                        (list(* 0.5 w)dv2)           ;;右下ハンチ上がり
+                        (list(* 0.5 w)(- h hv2))     ;;右辺 上端
+                        (list(-(* 0.5 w)hu2)h)       ;;右上ハンチ
+                        (list(+(* -0.5 w)hu2)h)      ;;上辺 左端
+                        (list(* -0.5 w)(- h hv2))    ;;左上ハンチ
+                        (list(* -0.5 w)dv2))         ;;左辺 下端
+               pp(car(reverse ls_p)))
+         ;;内空はシアン(4)。外形(白)・枠(黄)と見分けるため
+         (mapcar '(lambda(p)
+                    (if(equal pp p 1e-12)T(fline pp p 4))
+                    (setq pp p))
+                 ls_p)
+         ))
+      ))
+  (end_image)
+  (princ))
+
+;;入力欄の現在値でプレビューを描き直す
+(defun td3d_tmp_dlg_preview( / )
+  (td3d_tmp_preview(td3d_tmp_gettiles)))
+
+;;枠サイズ欄の変更を反映する(正の値だけ受け付ける)
+(defun td3d_tmp_dlg_frame( / a b )
+  (setq a(atof(get_tile "prevw"))
+        b(atof(get_tile "prevh")))
+  (if(> a 1e-9)(setq td3d_tmp_prevframe_w a))
+  (if(> b 1e-9)(setq td3d_tmp_prevframe_h b))
+  (set_tile "prevw"(td3d_tmp_numstr td3d_tmp_prevframe_w))
+  (set_tile "prevh"(td3d_tmp_numstr td3d_tmp_prevframe_h))
+  (td3d_tmp_dlg_preview))
+
 ;;一覧で選ばれたテンプレートを入力欄に読み込む
 (defun td3d_tmp_dlg_select( / num str_name ls_val )
   (setq num(atoi(get_tile "tmplist")))
@@ -646,7 +780,8 @@
       (if(setq ls_val(td3d_tmp_read str_name))
           (progn
             (set_tile "name" str_name)
-            (td3d_tmp_settiles ls_val))))
+            (td3d_tmp_settiles ls_val)
+            (td3d_tmp_dlg_preview))))
   (princ))
 
 ;;保存ボタン(実際の保存はダイアログを閉じてから行う)
@@ -703,6 +838,16 @@
           (end_list)
           (set_tile "name" "")
           (td3d_tmp_settiles nil);;既定値を表示
+          (set_tile "prevw"(td3d_tmp_numstr td3d_tmp_prevframe_w))
+          (set_tile "prevh"(td3d_tmp_numstr td3d_tmp_prevframe_h))
+          (td3d_tmp_dlg_preview);;既定値の断面を表示
+
+          ;;寸法欄の値が確定(Enter/フォーカス移動)するたびにプレビューを描き直す
+          (mapcar '(lambda(lst)
+                     (action_tile(car lst)"(td3d_tmp_dlg_preview)"))
+                  (td3d_tmp_paramdef))
+          (action_tile "prevw"    "(td3d_tmp_dlg_frame)")
+          (action_tile "prevh"    "(td3d_tmp_dlg_frame)")
 
           (action_tile "tmplist"  "(td3d_tmp_dlg_select)")
           (action_tile "btnsave"  "(td3d_tmp_dlg_save)")

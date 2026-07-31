@@ -972,6 +972,26 @@
       (vl-catch-all-apply 'vlax-release-object(list blk))
       str_bname)))
 
+;;サンプルブロックが図面に無いときだけ作る(遅延生成)
+;;  標準テンプレートの一括登録では見本を作らないようにしたため、
+;;  実際にそのテンプレートが選ばれたときにここで補う。
+;;  すでに定義があれば何もしないので、2 回目以降は即座に返る。
+;;  戻り値 : ブロック名 / 作らなかった・作れなかったときは nil
+(defun td3d_mh_ensuresampleblock( str_name / blocks str_bname ls_val bool_quiet )
+  (if(or(null str_name)(= str_name ""))nil
+    (progn
+      (setq blocks(vla-get-Blocks(vla-get-ActiveDocument(vlax-get-acad-object)))
+            str_bname(strcat td3d_mh_blockhead str_name))
+      (if(null(vl-catch-all-error-p
+               (vl-catch-all-apply 'vla-Item(list blocks str_bname))))
+          nil ;;すでに定義がある
+        (if(null(setq ls_val(td3d_mh_read str_name)))nil
+          (progn
+            (setq bool_quiet td3d_mh_quiet td3d_mh_quiet T)
+            (setq str_bname(td3d_mh_makesampleblock str_name ls_val))
+            (setq td3d_mh_quiet bool_quiet)
+            str_bname))))))
+
 ;;---------------------------------------------------------------------
 ;; 標準テンプレート
 ;;   下水道用組立マンホール(JIS A 5372 / JSWAS A-11)の内径・壁厚と、
@@ -1013,7 +1033,10 @@
       (if(td3d_mh_validate ls_val)T
         (progn
           (td3d_mh_write str_name ls_val)
-          (td3d_mh_makesampleblock str_name ls_val)
+          ;;※ここでサンプルブロックは作らない。
+          ;;  偏心斜壁は 1 型式あたり td3d_mh_arcdiv 個のロフトを作るため、
+          ;;  一括登録でまとめて作ると初回だけ待たされる。
+          ;;  見本は td3d_mh_ensuresampleblock が必要になった時点で補う。
           (setq num(1+ num))
           (princ (mix_strasc(list "\n  " str_name))))))
    ls_def)
@@ -1145,6 +1168,9 @@
            (T
             (if(vl-position str_templatemanhole td3d_mh_ls_name)T
               (setq str_templatemanhole nil))
+            ;;選ばれたテンプレートの見本だけ、無ければここで作る(遅延生成)
+            ;;  ダイアログを閉じてから作るので、開くまでの時間には影響しない
+            (td3d_mh_ensuresampleblock str_templatemanhole)
             (setq bool_loop nil)
             )
            )

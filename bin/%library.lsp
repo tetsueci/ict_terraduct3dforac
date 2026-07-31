@@ -1556,10 +1556,10 @@
         )
 
   (mapcar 'set
-          '(str_gcol_w str_gcol_r str_gcol_y str_gcol_c str_gcol_g str_gcol_p str_gcol_gy)
+          '(str_gcol_w str_gcol_r str_gcol_y str_gcol_c str_gcol_g str_gcol_p)
           (if bool_backbright
-              (list "255" "10" "42" "140" "55" "220" "8")
-            (list "255" "10" "50" "130" "71" "241" "8"))
+              (list "255" "10" "42" "140" "55" "220")
+            (list "255" "10" "50" "130" "71" "241"))
           )
   
   (setq str_guidebackspace
@@ -2352,24 +2352,12 @@
    )
   )
 
-(defun axd_settile_att(path_addattributedcl elem_grread ls_ssget / p_select0 p_select1)
-
-  (setq p_select0(mapcar '(lambda(a b)(+ a(* -0.5 height_text b)))elem_grread vec_x_onview)
-        p_select1(mapcar '(lambda(a b)(+ a(*  0.5 height_text b)))elem_grread vec_x_onview)
-        )
-
-  (if(setq set_ent(ssget "CP"(mapcar '(lambda(v / vec)
-                                        (setq vec(mapcar
-                                                  '(lambda(x y)(* 0.4 height_text
-                                                                  (+(*(car v)x)(*(cadr v)y))))
-                                                  vec_x_onview vec_y_onview))
-                                        (mapcar '+ elem_grread vec)
-                                        )
-                                     (list(list 1 1)(list 1 -1)(list -1 -1)(list -1 1))
-                                     )
-                         ls_ssget))
+(defun axd_settile_att
+    (path_addattributedcl elem_grread ls_ssget / )
+  (if(setq set_ent(ssget elem_grread ls_ssget))
       (progn
         (setq vnam(vlax-ename->vla-object(ssname set_ent 0)))
+        
         (setq load_dcl (load_dialog path_addattributedcl))
         (new_dialog "Sedit" load_dcl)
         
@@ -2565,10 +2553,16 @@
           (mapcar '(lambda(sym str)(set sym(cdr(assoc str ls_currentgrfunc))))
                   '(func_grinitial func_grdisp func_gr5 func_gr3 func_gr2)
                   (list "INITIAL" "GUIDE" "MOVE" "CLICK" "KEYBOAD"))
-          (setq int_selectmenu nil ls_vnam_select nil initial_selectmenu nil 
+          (setq int_selectmenu nil ls_vnam_select nil initial_selectmenu nil
                 bool_input nil str_input "" ls_vnam_select nil bool_getpoint nil
                 int_exchangeguide_gr5 nil ls_ssgetinsert nil
                 str_addsnap ""
+                ;;モードを変えたら、前のコマンドのガイド選択状態も必ず捨てる。
+                ;;残っているとクリックがガイド項目やスナップ切替に食われて
+                ;;オブジェクトを選べなくなる
+                int_starselectmenu nil bool_selectsnap nil
+                ;;範囲選択の途中でモードを抜けたときの起点も捨てる
+                p_selerac nil bool_select nil
                 )
           (setq str_funcmarker "INITIAL")
           (func_grinitial(list T))
@@ -2971,7 +2965,15 @@
         (redraw)
         
         ((lambda(num_e num_g ls_bool / p1 p2 ny y nx lst)
-           (if(or(= num_g 0)(= int_guideclick 1))T
+           ;;選べるガイド項目が無いとき(num_g=0)やクリック操作無効のときは
+           ;;当たり判定をしないが、**必ず nil に戻すこと**。
+           ;;  以前は何もせずに抜けていたため、前のコマンドで拾った
+           ;;  int_starselectmenu / bool_selectsnap がそのまま残り、
+           ;;  次のクリックが「ガイド項目のクリック」「スナップ切替」として
+           ;;  食われて、オブジェクトを選べなくなっていた
+           ;;  (addattribute はガイド項目が ENTER と BOOL だけで num_g=0)
+           (if(or(= num_g 0)(= int_guideclick 1))
+               (setq int_starselectmenu nil bool_selectsnap nil)
              (if((lambda( / d)
                    (setq p1 point_starbase
                          d(apply '+(mapcar '(lambda(a b c)(*(- b a)c))
@@ -3086,11 +3088,15 @@
 
         (cond
          ((= int_grread 5))
-         (bool_selectsnap (setq bool_snap(null bool_snap)) )
-         (int_starselectmenu
-          (setq int_selectmenu int_starselectmenu
-                lst(nth int_selectmenu ls_guidemenu_page)
-                )
+         ;;スナップ切替は点を指すモードだけ。bool_point でないときに
+         ;;古い bool_selectsnap が残っていてもクリックを食わせない
+         ((and bool_point bool_selectsnap)(setq bool_snap(null bool_snap)) )
+         ;;番号が今のガイド項目の範囲に無いときはガイドのクリックとして扱わない。
+         ;;  (古い番号が残っていると、この分岐で何も起きないまま
+         ;;   クリックだけ食われて、オブジェクトを選べなくなる)
+         ((if(and int_starselectmenu ls_guidemenu_page)
+              (setq lst(nth int_starselectmenu ls_guidemenu_page)))
+          (setq int_selectmenu int_starselectmenu)
           ;; (if(= ny int_selectmenu)
           (if(setq str(cdr(assoc "NEXTMODE" lst)))
               (if(setq func(cdr(assoc "CLICKFUNCTION" lst)))(func)
@@ -3495,13 +3501,9 @@
                        ((setq func_input(cdr(assoc "INPUTCOLOR" a)))
                         (setq sym_input(func_input)
                               func_input(cdr(assoc "LOADFUNCTION" a))
-                              int_selectmenu nil
-                              i(eval sym_input))
-                        (if(or(< i 1)(< i 255))
-                            (progn(setq i 1)(set sym_input i)))
-                        (if(setq i(acad_colordlg i));;(acad_colordlg(eval sym_input)))
+                              int_selectmenu nil)
+                        (if(setq i(acad_colordlg(eval sym_input)))
                             (set sym_input i))
-                        
                         (if func_input(func_input))
                         (setq str_next T)
                         )
