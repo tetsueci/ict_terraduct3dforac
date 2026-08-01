@@ -13129,17 +13129,20 @@
                      ;;地表面データの範囲外だと nil が返る。
                      ;;そのまま (caddr nil) を計算すると型エラーで更新が途中で止まるので、
                      ;;その点は動かさずに数だけ数えて先へ進む
+                     ;;else 側は2つの式があるので progn でまとめる
+                     ;;(if は test then else の3引数まで)
                      (if(null p_new)
                          (setq int_outofground(1+ int_outofground)
                                p14(carxyz p13(+(caddr p13)delta_z)))
-                       (setq p13 p_new
-                             zz(+(caddr p13)delta_z) p14(carxyz p13 zz)
-                             str(depth_level_str p13 p14)
-                             ls_gcode(subst(cons 13 p13)(assoc 13 ls_gcode)ls_gcode)
-                             ls_gcode(subst(cons 14 p14)(assoc 14 ls_gcode)ls_gcode)
-                             ls_gcode(subst(cons 1 str)(assoc 1 ls_gcode)ls_gcode)
-                             )
-                       (entmod ls_gcode))
+                       (progn
+                         (setq p13 p_new
+                               zz(+(caddr p13)delta_z) p14(carxyz p13 zz)
+                               str(depth_level_str p13 p14)
+                               ls_gcode(subst(cons 13 p13)(assoc 13 ls_gcode)ls_gcode)
+                               ls_gcode(subst(cons 14 p14)(assoc 14 ls_gcode)ls_gcode)
+                               ls_gcode(subst(cons 1 str)(assoc 1 ls_gcode)ls_gcode)
+                               )
+                         (entmod ls_gcode)))
                      (setq ii(cdr(assoc "NUM" ls_xdata))jj(cdr(assoc "SIDE" ls_xdata)))
 
 
